@@ -38,6 +38,7 @@ fn generate_types_content() -> String {
         db::models::task::CreateTask::decl(),
         db::models::task::UpdateTask::decl(),
         remote::db::tasks::SharedTask::decl(),
+        remote::db::users::UserName::decl(),
         db::models::image::Image::decl(),
         db::models::image::CreateImage::decl(),
         utils::response::ApiResponse::<()>::decl(),

@@ -60,6 +60,8 @@ export type UpdateTask = { title: string | null, description: string | null, sta
 
 export type SharedTask = { id: string, organization_id: string, project_id: string, creator_user_id: string | null, assignee_user_id: string | null, deleted_by_user_id: string | null, title: string, description: string | null, status: TaskStatus, version: bigint, deleted_at: string | null, shared_at: string | null, created_at: string, updated_at: string, };
 
+export type UserName = { user_id: string, first_name: string | null, last_name: string | null, username: string | null, };
+
 export type Image = { id: string, file_path: string, original_name: string, mime_type: string | null, size_bytes: bigint, hash: string, created_at: string, updated_at: string, };
 
 export type CreateImage = { file_path: string, original_name: string, mime_type: string | null, size_bytes: bigint, hash: string, };
