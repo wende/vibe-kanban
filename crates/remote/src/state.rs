@@ -3,7 +3,7 @@ use std::sync::Arc;
 use sqlx::PgPool;
 
 use crate::{
-    auth::{JwtService, OAuthHandoffService},
+    auth::{JwtService, OAuthHandoffService, OAuthTokenValidator, ProviderRegistry},
     config::RemoteServerConfig,
     mail::Mailer,
 };
@@ -16,15 +16,18 @@ pub struct AppState {
     pub mailer: Arc<dyn Mailer>,
     pub server_public_base_url: String,
     pub http_client: reqwest::Client,
-    handoff: Arc<OAuthHandoffService>,
+    pub handoff: Arc<OAuthHandoffService>,
+    pub oauth_token_validator: Arc<OAuthTokenValidator>,
 }
 
 impl AppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool: PgPool,
         config: RemoteServerConfig,
         jwt: Arc<JwtService>,
         handoff: Arc<OAuthHandoffService>,
+        oauth_token_validator: Arc<OAuthTokenValidator>,
         mailer: Arc<dyn Mailer>,
         server_public_base_url: String,
         http_client: reqwest::Client,
@@ -37,6 +40,7 @@ impl AppState {
             server_public_base_url,
             http_client,
             handoff,
+            oauth_token_validator,
         }
     }
 
@@ -54,5 +58,13 @@ impl AppState {
 
     pub fn handoff(&self) -> Arc<OAuthHandoffService> {
         Arc::clone(&self.handoff)
+    }
+
+    pub fn providers(&self) -> Arc<ProviderRegistry> {
+        self.handoff.providers()
+    }
+
+    pub fn oauth_token_validator(&self) -> Arc<OAuthTokenValidator> {
+        Arc::clone(&self.oauth_token_validator)
     }
 }
