@@ -396,6 +396,7 @@ impl ExecutionProcess {
         process_id: Uuid,
         repo_states: &[CreateExecutionProcessRepoState],
     ) -> Result<Self, sqlx::Error> {
+        let mut tx = pool.begin().await?;
         let now = Utc::now();
         let executor_action_json = sqlx::types::Json(&data.executor_action);
 
@@ -415,10 +416,12 @@ impl ExecutionProcess {
             now,
             now
         )
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
-        ExecutionProcessRepoState::create_many(pool, process_id, repo_states).await?;
+        ExecutionProcessRepoState::create_many(&mut tx, process_id, repo_states).await?;
+
+        tx.commit().await?;
 
         Self::find_by_id(pool, process_id)
             .await?
@@ -530,21 +533,25 @@ impl ExecutionProcess {
     }
 
     /// Find the previous process's after_head_commit before the given boundary process
+    /// for a specific repository
     pub async fn find_prev_after_head_commit(
         pool: &SqlitePool,
         task_attempt_id: Uuid,
         boundary_process_id: Uuid,
+        project_repository_id: Uuid,
     ) -> Result<Option<String>, sqlx::Error> {
         let repo_res = sqlx::query_scalar(
             r#"SELECT eprs.after_head_commit
                FROM execution_process_repo_states eprs
                JOIN execution_processes ep ON ep.id = eprs.execution_process_id
               WHERE ep.task_attempt_id = ?
+                AND eprs.project_repository_id = ?
                 AND ep.created_at < (SELECT created_at FROM execution_processes WHERE id = ?)
               ORDER BY ep.created_at DESC
               LIMIT 1"#,
         )
         .bind(task_attempt_id)
+        .bind(project_repository_id)
         .bind(boundary_process_id)
         .fetch_optional(pool)
         .await?;

@@ -274,6 +274,9 @@ impl LocalContainerService {
         });
     }
 
+    /// Record the current HEAD commit for each repository as the "after" state.
+    /// Errors are silently ignored since this runs after the main execution completes
+    /// and failure should not block process finalization.
     async fn update_after_head_commits(&self, exec_id: Uuid) {
         if let Ok(ctx) = ExecutionProcess::load_context(&self.db.pool, exec_id).await {
             let workspace_root = self.task_attempt_to_current_dir(&ctx.task_attempt);
@@ -966,17 +969,35 @@ impl ContainerService for LocalContainerService {
     }
 
     async fn is_container_clean(&self, task_attempt: &TaskAttempt) -> Result<bool, ContainerError> {
-        if let Some(container_ref) = &task_attempt.container_ref {
-            // If container_ref is set, check if the worktree exists
-            let path = PathBuf::from(container_ref);
-            if path.exists() {
-                self.git().is_worktree_clean(&path).map_err(|e| e.into())
-            } else {
-                return Ok(true); // No worktree means it's clean
-            }
-        } else {
-            return Ok(true); // No container_ref means no worktree, so it's clean
+        let Some(container_ref) = &task_attempt.container_ref else {
+            return Ok(true);
+        };
+
+        let workspace_dir = PathBuf::from(container_ref);
+        if !workspace_dir.exists() {
+            return Ok(true);
         }
+
+        let task = task_attempt
+            .parent_task(&self.db.pool)
+            .await?
+            .ok_or(ContainerError::Other(anyhow!("Task not found")))?;
+
+        let project = task
+            .parent_project(&self.db.pool)
+            .await?
+            .ok_or(ContainerError::Other(anyhow!("Project not found")))?;
+
+        let repositories = project.repositories(&self.db.pool).await?;
+
+        for repo in &repositories {
+            let worktree_path = workspace_dir.join(&repo.name);
+            if worktree_path.exists() && !self.git().is_worktree_clean(&worktree_path)? {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
     }
 
     async fn start_execution_inner(

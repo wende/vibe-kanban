@@ -200,7 +200,7 @@ impl GitService {
     pub fn get_default_branch(&self, repo_path: &Path) -> Result<String, GitServiceError> {
         let repo = self.open_repo(repo_path)?;
         let head = repo.head()?;
-        
+
         // Use shorthand if available (e.g. "main", "master")
         // For unborn branches (empty repo), this also returns the name HEAD points to
         if let Some(name) = head.shorthand() {

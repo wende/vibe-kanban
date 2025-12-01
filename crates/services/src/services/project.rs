@@ -81,7 +81,11 @@ impl ProjectService {
         std::path::absolute(expand_tilde(path))
     }
 
-    pub async fn create_project(&self, pool: &SqlitePool, payload: CreateProject) -> Result<Project> {
+    pub async fn create_project(
+        &self,
+        pool: &SqlitePool,
+        payload: CreateProject,
+    ) -> Result<Project> {
         // Require at least one repository
         if payload.repositories.is_empty() {
             return Err(ProjectServiceError::NoRepositoriesConfigured);

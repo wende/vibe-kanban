@@ -18,7 +18,6 @@ use axum::{
 use db::models::{
     draft::{Draft, DraftType},
     execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus},
-    execution_process_repo_state::ExecutionProcessRepoState,
     merge::{Merge, MergeStatus, PrMerge, PullRequestInfo},
     project::{Project, ProjectError},
     project_repository::ProjectRepository,
@@ -39,7 +38,7 @@ use git2::BranchType;
 use serde::{Deserialize, Serialize};
 use services::services::{
     container::ContainerService,
-    git::{ConflictOp, GitCliError, GitServiceError, WorktreeResetOptions},
+    git::{ConflictOp, GitCliError, GitServiceError},
     github::{CreatePrRequest, GitHubService, GitHubServiceError},
 };
 use sqlx::Error as SqlxError;
@@ -53,7 +52,7 @@ use crate::{
     middleware::load_task_attempt_middleware,
     routes::task_attempts::{
         gh_cli_setup::GhCliSetupError,
-        util::{ensure_worktree_path, handle_images_for_prompt},
+        util::{ensure_worktree_path, handle_images_for_prompt, restore_worktrees_to_process},
     },
 };
 
@@ -286,42 +285,19 @@ pub async fn follow_up(
             )));
         }
 
-        // Determine target reset OID: before the target process
-        let mut target_before_oid =
-            ExecutionProcessRepoState::find_first_by_execution_process_id(pool, proc_id)
-                .await?
-                .and_then(|state| state.before_head_commit);
-
-        if target_before_oid.is_none() {
-            target_before_oid =
-                ExecutionProcess::find_prev_after_head_commit(pool, task_attempt.id, proc_id)
-                    .await?;
-        }
-
-        // Decide if Git reset is needed and apply it (best-effort)
+        // Reset all repository worktrees to the state before the target process
         let force_when_dirty = payload.force_when_dirty.unwrap_or(false);
         let perform_git_reset = payload.perform_git_reset.unwrap_or(true);
-        if let Some(target_oid) = &target_before_oid {
-            let wt_buf = ensure_worktree_path(&deployment, &task_attempt).await?;
-            let wt = wt_buf.as_path();
-            let is_dirty = deployment
-                .container()
-                .is_container_clean(&task_attempt)
-                .await
-                .map(|is_clean| !is_clean)
-                .unwrap_or(false);
-
-            deployment.git().reconcile_worktree_to_commit(
-                wt,
-                target_oid,
-                WorktreeResetOptions::new(
-                    perform_git_reset,
-                    force_when_dirty,
-                    is_dirty,
-                    perform_git_reset,
-                ),
-            );
-        }
+        restore_worktrees_to_process(
+            &deployment,
+            pool,
+            &task_attempt,
+            project.id,
+            proc_id,
+            perform_git_reset,
+            force_when_dirty,
+        )
+        .await?;
 
         // Stop any running processes for this attempt
         deployment.container().try_stop(&task_attempt).await;
@@ -773,9 +749,7 @@ pub async fn create_github_pr(
         base_branch: norm_target_branch_name.clone(),
     };
     // Use GitService to get the remote URL, then create GitHubRepoInfo
-    let repo_info = deployment
-        .git()
-        .get_github_repo_info(&repo_path)?;
+    let repo_info = deployment.git().get_github_repo_info(&repo_path)?;
 
     // Use GitHubService to create the PR
     let github_service = GitHubService::new()?;
@@ -1004,10 +978,11 @@ pub async fn get_task_attempt_branch_status(
         };
 
         let (remote_ahead, remote_behind) = if let Some(Merge::Pr(PrMerge {
-            pr_info: PullRequestInfo {
-                status: MergeStatus::Open,
-                ..
-            },
+            pr_info:
+                PullRequestInfo {
+                    status: MergeStatus::Open,
+                    ..
+                },
             ..
         })) = merges.first()
         {
@@ -1102,9 +1077,10 @@ pub async fn change_target_branch(
             )));
         }
     }
-    let status = deployment
-        .git()
-        .get_branch_status(&repo_path, &task_attempt.branch, &new_target_branch)?;
+    let status =
+        deployment
+            .git()
+            .get_branch_status(&repo_path, &task_attempt.branch, &new_target_branch)?;
 
     deployment
         .track_if_analytics_allowed(

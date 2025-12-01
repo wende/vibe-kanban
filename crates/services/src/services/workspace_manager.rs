@@ -147,8 +147,12 @@ impl WorkspaceManager {
                 worktree_path.display()
             );
 
-            WorktreeManager::ensure_worktree_exists(&repo.git_repo_path, branch_name, &worktree_path)
-                .await?;
+            WorktreeManager::ensure_worktree_exists(
+                &repo.git_repo_path,
+                branch_name,
+                &worktree_path,
+            )
+            .await?;
         }
 
         Ok(())

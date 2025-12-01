@@ -295,7 +295,6 @@ impl Project {
         Ok(result.count > 0)
     }
 
-    /// Get all repositories associated with this project
     pub async fn repositories(
         &self,
         pool: &SqlitePool,

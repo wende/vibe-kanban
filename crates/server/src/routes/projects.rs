@@ -15,9 +15,7 @@ use db::models::{
 use deployment::Deployment;
 use serde::{Deserialize, Serialize};
 use services::services::{
-    file_search_cache::SearchQuery,
-    git::GitBranch,
-    project::ProjectServiceError,
+    file_search_cache::SearchQuery, git::GitBranch, project::ProjectServiceError,
     remote_client::CreateRemoteProjectPayload,
 };
 use ts_rs::TS;
@@ -87,9 +85,11 @@ pub async fn get_project_branches(
         });
     }
 
-    Ok(ResponseJson(ApiResponse::success(ProjectBranchesResponse {
-        repositories: repo_branches,
-    })))
+    Ok(ResponseJson(ApiResponse::success(
+        ProjectBranchesResponse {
+            repositories: repo_branches,
+        },
+    )))
 }
 
 pub async fn link_project_to_existing_remote(
@@ -483,9 +483,9 @@ pub async fn delete_project_repository(
         Err(ProjectServiceError::RepositoryNotFound) => {
             Ok(ResponseJson(ApiResponse::error("Repository not found")))
         }
-        Err(ProjectServiceError::CannotDeleteLastRepository) => Ok(ResponseJson(ApiResponse::error(
-            "Cannot delete the last repository in a project",
-        ))),
+        Err(ProjectServiceError::CannotDeleteLastRepository) => Ok(ResponseJson(
+            ApiResponse::error("Cannot delete the last repository in a project"),
+        )),
         Err(e) => Err(e.into()),
     }
 }

@@ -346,12 +346,12 @@ impl From<ProjectServiceError> for ApiError {
             ProjectServiceError::NotGitRepository(path) => {
                 ApiError::BadRequest(format!("Path is not a git repository: {}", path.display()))
             }
-            ProjectServiceError::DuplicateGitRepoPath => {
-                ApiError::Conflict("A project with this git repository path already exists".to_string())
-            }
-            ProjectServiceError::DuplicateRepositoryName => {
-                ApiError::Conflict("A repository with this name already exists in the project".to_string())
-            }
+            ProjectServiceError::DuplicateGitRepoPath => ApiError::Conflict(
+                "A project with this git repository path already exists".to_string(),
+            ),
+            ProjectServiceError::DuplicateRepositoryName => ApiError::Conflict(
+                "A repository with this name already exists in the project".to_string(),
+            ),
             ProjectServiceError::CannotDeleteLastRepository => {
                 ApiError::Conflict("Cannot delete the last repository in a project".to_string())
             }

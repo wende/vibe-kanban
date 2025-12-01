@@ -13,10 +13,10 @@ use db::{
             CreateExecutionProcess, ExecutionContext, ExecutionProcess, ExecutionProcessRunReason,
             ExecutionProcessStatus,
         },
+        execution_process_logs::ExecutionProcessLogs,
         execution_process_repo_state::{
             CreateExecutionProcessRepoState, ExecutionProcessRepoState,
         },
-        execution_process_logs::ExecutionProcessLogs,
         executor_session::{CreateExecutorSession, ExecutorSession},
         task::{Task, TaskStatus},
         task_attempt::{TaskAttempt, TaskAttemptError},
@@ -216,22 +216,21 @@ pub trait ContainerService {
                 let workspace_root = std::path::PathBuf::from(container_ref);
                 for repo in repos {
                     let repo_path = workspace_root.join(&repo.name);
-                    if let Ok(head) = self.git().get_head_info(&repo_path) {
-                        if let Err(err) = ExecutionProcessRepoState::update_after_head_commit(
+                    if let Ok(head) = self.git().get_head_info(&repo_path)
+                        && let Err(err) = ExecutionProcessRepoState::update_after_head_commit(
                             &self.db().pool,
                             process.id,
                             repo.id,
                             &head.oid,
                         )
                         .await
-                        {
-                            tracing::warn!(
-                                "Failed to update after_head_commit for repo {} on process {}: {}",
-                                repo.id,
-                                process.id,
-                                err
-                            );
-                        }
+                    {
+                        tracing::warn!(
+                            "Failed to update after_head_commit for repo {} on process {}: {}",
+                            repo.id,
+                            process.id,
+                            err
+                        );
                     }
                 }
             }

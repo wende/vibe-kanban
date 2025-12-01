@@ -208,13 +208,7 @@ pub async fn create(
             }
         }
 
-        if !send_initial_diffs(
-            &tx_clone,
-            initial_diffs,
-            path_prefix_clone.as_deref(),
-        )
-        .await
-        {
+        if !send_initial_diffs(&tx_clone, initial_diffs, path_prefix_clone.as_deref()).await {
             return;
         }
 
@@ -287,7 +281,7 @@ pub async fn create(
 
 fn prefix_path(path: String, prefix: Option<&str>) -> String {
     match prefix {
-        Some(p) => format!("{}/{}", p, path),
+        Some(p) => format!("{p}/{path}"),
         None => path,
     }
 }
@@ -393,6 +387,7 @@ fn extract_changed_paths(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_file_changes(
     git_service: &GitService,
     worktree_path: &Path,
@@ -419,7 +414,7 @@ fn process_file_changes(
     for mut diff in current_diffs {
         let raw_file_path = GitService::diff_path(&diff);
         files_with_diffs.insert(raw_file_path.clone());
-        
+
         apply_stream_omit_policy(&mut diff, cumulative_bytes, stats_only);
 
         if diff.content_omitted {
@@ -440,7 +435,8 @@ fn process_file_changes(
             diff.new_path = Some(prefix_path(new, path_prefix));
         }
 
-        let patch = ConversationPatch::add_diff(escape_json_pointer_segment(&prefixed_entry_index), diff);
+        let patch =
+            ConversationPatch::add_diff(escape_json_pointer_segment(&prefixed_entry_index), diff);
         msgs.push(LogMsg::JsonPatch(patch));
     }
 
