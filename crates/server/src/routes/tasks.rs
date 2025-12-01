@@ -14,6 +14,7 @@ use axum::{
 };
 use db::models::{
     image::TaskImage,
+    project_repository::ProjectRepository,
     task::{CreateTask, Task, TaskWithAttemptStatus, UpdateTask},
     task_attempt::{CreateTaskAttempt, TaskAttempt},
 };
@@ -281,10 +282,17 @@ pub async fn delete_task(
         })?;
 
     // Gather cleanup data before deletion
+    let pool = &deployment.db().pool;
     let project = task
-        .parent_project(&deployment.db().pool)
+        .parent_project(pool)
         .await?
         .ok_or_else(|| ApiError::Database(SqlxError::RowNotFound))?;
+
+    // TODO: refactor for proper multi-repo support
+    let repo_path = ProjectRepository::find_by_project_id(pool, project.id)
+        .await?
+        .first()
+        .map(|r| r.git_repo_path.clone());
 
     let cleanup_args: Vec<WorktreeCleanup> = attempts
         .iter()
@@ -294,7 +302,7 @@ pub async fn delete_task(
                 .as_ref()
                 .map(|worktree_path| WorktreeCleanup {
                     worktree_path: PathBuf::from(worktree_path),
-                    git_repo_path: Some(project.git_repo_path.clone()),
+                    git_repo_path: repo_path.clone(),
                 })
         })
         .collect();

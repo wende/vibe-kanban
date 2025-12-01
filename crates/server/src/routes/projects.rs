@@ -217,11 +217,11 @@ pub async fn create_project(
     Json(payload): Json<CreateProject>,
 ) -> Result<ResponseJson<ApiResponse<Project>>, ApiError> {
     tracing::debug!("Creating project '{}'", payload.name);
-    let use_existing_repo = payload.use_existing_repo;
+    let repo_count = payload.repositories.len();
 
     match deployment
         .project()
-        .create_project(&deployment.db().pool, deployment.git(), payload)
+        .create_project(&deployment.db().pool, payload)
         .await
     {
         Ok(project) => {
@@ -231,7 +231,7 @@ pub async fn create_project(
                     "project_created",
                     serde_json::json!({
                         "project_id": project.id.to_string(),
-                        "use_existing_repo": use_existing_repo,
+                        "repository_count": repo_count,
                         "has_setup_script": project.setup_script.is_some(),
                         "has_dev_script": project.dev_script.is_some(),
                         "trigger": "manual",
@@ -241,8 +241,14 @@ pub async fn create_project(
 
             Ok(ResponseJson(ApiResponse::success(project)))
         }
+        Err(ProjectServiceError::NoRepositoriesConfigured) => Ok(ResponseJson(ApiResponse::error(
+            "At least one repository is required",
+        ))),
         Err(ProjectServiceError::DuplicateGitRepoPath) => Ok(ResponseJson(ApiResponse::error(
-            "A project with this git repository path already exists",
+            "Duplicate repository path provided",
+        ))),
+        Err(ProjectServiceError::DuplicateRepositoryName) => Ok(ResponseJson(ApiResponse::error(
+            "Duplicate repository name provided",
         ))),
         Err(ProjectServiceError::PathNotFound(_)) => Ok(ResponseJson(ApiResponse::error(
             "The specified path does not exist",
@@ -253,13 +259,6 @@ pub async fn create_project(
         Err(ProjectServiceError::NotGitRepository(_)) => Ok(ResponseJson(ApiResponse::error(
             "The specified directory is not a git repository",
         ))),
-        Err(ProjectServiceError::GitError(msg)) => {
-            tracing::error!("Git operation failed: {}", msg);
-            Ok(ResponseJson(ApiResponse::error(&format!(
-                "Git operation failed: {}",
-                msg
-            ))))
-        }
         Err(e) => Err(ProjectError::CreateFailed(e.to_string()).into()),
     }
 }
@@ -275,9 +274,6 @@ pub async fn update_project(
         .await
     {
         Ok(project) => Ok(ResponseJson(ApiResponse::success(project))),
-        Err(ProjectServiceError::DuplicateGitRepoPath) => Ok(ResponseJson(ApiResponse::error(
-            "A project with this git repository path already exists",
-        ))),
         Err(e) => {
             tracing::error!("Failed to update project: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -393,11 +389,33 @@ pub async fn search_project_files(
         )));
     }
 
+    // TODO: search all repos
+    let repositories = match deployment
+        .project()
+        .get_repositories(&deployment.db().pool, project.id)
+        .await
+    {
+        Ok(repos) => repos,
+        Err(e) => {
+            tracing::error!("Failed to get repositories: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let repo_path = match repositories.first() {
+        Some(repo) => &repo.git_repo_path,
+        None => {
+            return Ok(ResponseJson(ApiResponse::error(
+                "Project has no repositories configured",
+            )));
+        }
+    };
+
     match deployment
         .project()
         .search_files(
             deployment.file_search_cache().as_ref(),
-            &project.git_repo_path,
+            repo_path,
             &search_query,
         )
         .await
@@ -428,12 +446,7 @@ pub async fn add_project_repository(
 ) -> Result<ResponseJson<ApiResponse<ProjectRepository>>, ApiError> {
     match deployment
         .project()
-        .add_repository(
-            &deployment.db().pool,
-            deployment.git(),
-            project.id,
-            &payload,
-        )
+        .add_repository(&deployment.db().pool, project.id, &payload)
         .await
     {
         Ok(repository) => Ok(ResponseJson(ApiResponse::success(repository))),

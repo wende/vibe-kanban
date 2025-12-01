@@ -14,7 +14,6 @@ use uuid::Uuid;
 use super::{
     file_ranker::FileRanker,
     file_search_cache::{CacheError, FileSearchCache, SearchMode, SearchQuery},
-    git::GitService,
     share::{ShareError, link_shared_tasks_to_project},
 };
 
@@ -82,70 +81,50 @@ impl ProjectService {
         std::path::absolute(expand_tilde(path))
     }
 
-    pub async fn create_project(
-        &self,
-        pool: &SqlitePool,
-        git_service: &GitService,
-        payload: CreateProject,
-    ) -> Result<Project> {
-        let path = self.normalize_path(&payload.git_repo_path)?;
-
-        if Project::find_by_git_repo_path(pool, path.to_string_lossy().as_ref())
-            .await?
-            .is_some()
-        {
-            return Err(ProjectServiceError::DuplicateGitRepoPath);
+    pub async fn create_project(&self, pool: &SqlitePool, payload: CreateProject) -> Result<Project> {
+        // Require at least one repository
+        if payload.repositories.is_empty() {
+            return Err(ProjectServiceError::NoRepositoriesConfigured);
         }
 
-        if payload.use_existing_repo {
+        // Validate all repository paths and check for duplicates within the payload
+        let mut seen_names = std::collections::HashSet::new();
+        let mut seen_paths = std::collections::HashSet::new();
+        let mut normalized_repos = Vec::new();
+
+        for repo in &payload.repositories {
+            let path = self.normalize_path(&repo.git_repo_path)?;
             self.validate_git_repo_path(&path)?;
-            git_service
-                .ensure_main_branch_exists(&path)
-                .map_err(|e| ProjectServiceError::GitError(e.to_string()))?;
-        } else {
-            // For new repos, create directory and initialize git
-            if !path.exists() {
-                std::fs::create_dir_all(&path)?;
+
+            let normalized_path = path.to_string_lossy().to_string();
+
+            if !seen_names.insert(repo.name.clone()) {
+                return Err(ProjectServiceError::DuplicateRepositoryName);
             }
 
-            // Check if it's already a git repo, if not initialize it
-            if !path.join(".git").exists() {
-                git_service
-                    .initialize_repo_with_main_branch(&path)
-                    .map_err(|e| ProjectServiceError::GitError(e.to_string()))?;
+            if !seen_paths.insert(normalized_path.clone()) {
+                return Err(ProjectServiceError::DuplicateGitRepoPath);
             }
+
+            normalized_repos.push(CreateProjectRepository {
+                name: repo.name.clone(),
+                git_repo_path: normalized_path,
+            });
         }
 
         let id = Uuid::new_v4();
-        
+
         // Start transaction
         let mut tx = pool.begin().await?;
-        
-        let project = Project::create(
-            &mut *tx,
-            &CreateProject {
-                name: payload.name.clone(),
-                git_repo_path: path.to_string_lossy().to_string(),
-                use_existing_repo: payload.use_existing_repo,
-                setup_script: payload.setup_script,
-                dev_script: payload.dev_script,
-                cleanup_script: payload.cleanup_script,
-                copy_files: payload.copy_files,
-            },
-            id,
-        )
-        .await
-        .map_err(|e| ProjectServiceError::Project(ProjectError::CreateFailed(e.to_string())))?;
 
-        // Automatically create the default repository for this project
-        ProjectRepository::create(
-            &mut *tx,
-            project.id,
-            &CreateProjectRepository {
-                name: project.name.clone(),
-                git_repo_path: project.git_repo_path.to_string_lossy().to_string(),
-            },
-        ).await?;
+        let project = Project::create(&mut *tx, &payload, id)
+            .await
+            .map_err(|e| ProjectServiceError::Project(ProjectError::CreateFailed(e.to_string())))?;
+
+        // Create all repositories
+        for repo in normalized_repos {
+            ProjectRepository::create(&mut *tx, project.id, &repo).await?;
+        }
 
         tx.commit().await?;
 
@@ -158,33 +137,10 @@ impl ProjectService {
         existing: &Project,
         payload: UpdateProject,
     ) -> Result<Project> {
-        let git_repo_path = if let Some(ref new_path) = payload.git_repo_path {
-            let expanded = expand_tilde(new_path);
-            if expanded != existing.git_repo_path {
-                // Check for duplicates
-                if Project::find_by_git_repo_path_excluding_id(
-                    pool,
-                    expanded.to_string_lossy().as_ref(),
-                    existing.id,
-                )
-                .await?
-                .is_some()
-                {
-                    return Err(ProjectServiceError::DuplicateGitRepoPath);
-                }
-                expanded
-            } else {
-                existing.git_repo_path.clone()
-            }
-        } else {
-            existing.git_repo_path.clone()
-        };
-
         let project = Project::update(
             pool,
             existing.id,
             payload.name.unwrap_or_else(|| existing.name.clone()),
-            git_repo_path.to_string_lossy().to_string(),
             payload.setup_script,
             payload.dev_script,
             payload.cleanup_script,
@@ -238,7 +194,6 @@ impl ProjectService {
     pub async fn add_repository(
         &self,
         pool: &SqlitePool,
-        _git_service: &GitService,
         project_id: Uuid,
         payload: &CreateProjectRepository,
     ) -> Result<ProjectRepository> {

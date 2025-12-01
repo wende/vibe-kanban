@@ -93,3 +93,34 @@ WHERE INSTR(remaining, '/') = 0;
 -- Drop legacy commit columns from execution_processes now that per-repo state exists
 ALTER TABLE execution_processes DROP COLUMN before_head_commit;
 ALTER TABLE execution_processes DROP COLUMN after_head_commit;
+
+-- Drop legacy git_repo_path from projects now that repos are in project_repositories
+-- SQLite cannot drop a UNIQUE column directly, so we need to recreate the table
+PRAGMA foreign_keys = OFF;
+
+CREATE TABLE projects_new (
+    id                BLOB PRIMARY KEY,
+    name              TEXT NOT NULL,
+    setup_script      TEXT DEFAULT '',
+    dev_script        TEXT,
+    cleanup_script    TEXT,
+    copy_files        TEXT,
+    remote_project_id BLOB,
+    created_at        TEXT NOT NULL DEFAULT (datetime('now', 'subsec')),
+    updated_at        TEXT NOT NULL DEFAULT (datetime('now', 'subsec'))
+);
+
+INSERT INTO projects_new (id, name, setup_script, dev_script, cleanup_script, copy_files, remote_project_id, created_at, updated_at)
+SELECT id, name, setup_script, dev_script, cleanup_script, copy_files, remote_project_id, created_at, updated_at
+FROM projects;
+
+DROP TABLE projects;
+
+ALTER TABLE projects_new RENAME TO projects;
+
+-- Recreate the partial unique index on remote_project_id
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_remote_project_id
+    ON projects(remote_project_id)
+    WHERE remote_project_id IS NOT NULL;
+
+PRAGMA foreign_keys = ON;

@@ -20,7 +20,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Folder, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useProjects } from '@/hooks/useProjects';
 import { useProjectMutations } from '@/hooks/useProjectMutations';
 import { useScriptPlaceholders } from '@/hooks/useScriptPlaceholders';
@@ -32,7 +32,6 @@ import type { Project, ProjectRepository, UpdateProject } from 'shared/types';
 
 interface ProjectFormState {
   name: string;
-  git_repo_path: string;
   setup_script: string;
   dev_script: string;
   cleanup_script: string;
@@ -42,7 +41,6 @@ interface ProjectFormState {
 function projectToFormState(project: Project): ProjectFormState {
   return {
     name: project.name,
-    git_repo_path: project.git_repo_path,
     setup_script: project.setup_script ?? '',
     dev_script: project.dev_script ?? '',
     cleanup_script: project.cleanup_script ?? '',
@@ -229,7 +227,6 @@ export function ProjectSettings() {
       const newRepo = await projectsApi.addRepository(selectedProjectId, {
         name,
         git_repo_path: selectedPath,
-        default_target_branch: null,
       });
       setRepositories((prev) => [...prev, newRepo]);
     } catch (err) {
@@ -281,7 +278,6 @@ export function ProjectSettings() {
     try {
       const updateData: UpdateProject = {
         name: draft.name.trim(),
-        git_repo_path: draft.git_repo_path.trim(),
         setup_script: draft.setup_script.trim() || null,
         dev_script: draft.dev_script.trim() || null,
         cleanup_script: draft.cleanup_script.trim() || null,
@@ -418,46 +414,6 @@ export function ProjectSettings() {
                   {t('settings.projects.general.name.helper')}
                 </p>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="git-repo-path">
-                  {t('settings.projects.general.repoPath.label')}
-                </Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="git-repo-path"
-                    type="text"
-                    value={draft.git_repo_path}
-                    onChange={(e) =>
-                      updateDraft({ git_repo_path: e.target.value })
-                    }
-                    placeholder={t(
-                      'settings.projects.general.repoPath.placeholder'
-                    )}
-                    required
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={async () => {
-                      const selectedPath = await FolderPickerDialog.show({
-                        title: 'Select Git Repository',
-                        description: 'Choose an existing git repository',
-                        value: draft.git_repo_path,
-                      });
-                      if (selectedPath) {
-                        updateDraft({ git_repo_path: selectedPath });
-                      }
-                    }}
-                  >
-                    <Folder className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {t('settings.projects.general.repoPath.helper')}
-                </p>
-              </div>
             </CardContent>
           </Card>
 
@@ -491,12 +447,7 @@ export function ProjectSettings() {
                       className="flex items-center justify-between p-3 border rounded-md"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{repo.name}</span>
-                          <span className="text-xs px-2 py-0.5 bg-muted rounded">
-                            {repo.default_target_branch}
-                          </span>
-                        </div>
+                        <div className="font-medium">{repo.name}</div>
                         <div className="text-sm text-muted-foreground truncate">
                           {repo.git_repo_path}
                         </div>

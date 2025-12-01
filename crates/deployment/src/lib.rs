@@ -7,6 +7,7 @@ use db::{
     DBService,
     models::{
         project::{CreateProject, Project},
+        project_repository::CreateProjectRepository,
         task_attempt::TaskAttemptError,
     },
 };
@@ -179,12 +180,15 @@ pub trait Deployment: Clone + Send + Sync + 'static {
                 // Take first 3 repositories and create projects
                 for repo in repos.into_iter().take(3) {
                     // Generate clean project name from path
-                    let project_name = repo.name;
+                    let project_name = repo.name.clone();
+                    let repo_path = repo.path.to_string_lossy().to_string();
 
                     let create_data = CreateProject {
                         name: project_name,
-                        git_repo_path: repo.path.to_string_lossy().to_string(),
-                        use_existing_repo: true,
+                        repositories: vec![CreateProjectRepository {
+                            name: repo.name,
+                            git_repo_path: repo_path.clone(),
+                        }],
                         setup_script: None,
                         dev_script: None,
                         cleanup_script: None,
@@ -193,14 +197,14 @@ pub trait Deployment: Clone + Send + Sync + 'static {
 
                     match self
                         .project()
-                        .create_project(&self.db().pool, self.git(), create_data.clone())
+                        .create_project(&self.db().pool, create_data.clone())
                         .await
                     {
                         Ok(project) => {
                             tracing::info!(
                                 "Auto-created project '{}' from {}",
                                 project.name,
-                                project.git_repo_path.display()
+                                repo_path
                             );
 
                             // Track project creation event
@@ -208,7 +212,7 @@ pub trait Deployment: Clone + Send + Sync + 'static {
                                 "project_created",
                                 serde_json::json!({
                                     "project_id": project.id.to_string(),
-                                    "use_existing_repo": create_data.use_existing_repo,
+                                    "repository_count": 1,
                                     "has_setup_script": create_data.setup_script.is_some(),
                                     "has_dev_script": create_data.dev_script.is_some(),
                                     "trigger": "auto_setup",

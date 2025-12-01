@@ -29,10 +29,7 @@ use executors::{
     actions::{Executable, ExecutorAction},
     approvals::{ExecutorApprovalService, NoopExecutorApprovalService},
     executors::{BaseCodingAgent, ExecutorExitResult, ExecutorExitSignal},
-    logs::{
-        NormalizedEntryType,
-        utils::patch::extract_normalized_entry_from_patch,
-    },
+    logs::{NormalizedEntryType, utils::patch::extract_normalized_entry_from_patch},
 };
 use futures::{FutureExt, TryStreamExt, stream::select};
 use serde_json::json;

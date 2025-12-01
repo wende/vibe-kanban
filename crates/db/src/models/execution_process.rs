@@ -148,12 +148,11 @@ impl ExecutionProcess {
                 eprs.after_head_commit        as after_head_commit,
                 prev.after_head_commit        as prev_after_head_commit,
                 ta.target_branch              as target_branch,
-                p.git_repo_path               as git_repo_path
+                pr.git_repo_path              as git_repo_path
             FROM execution_processes ep
             JOIN execution_process_repo_states eprs ON eprs.execution_process_id = ep.id
+            JOIN project_repositories pr ON pr.id = eprs.project_repository_id
             JOIN task_attempts ta ON ta.id = ep.task_attempt_id
-            JOIN tasks t ON t.id = ta.task_id
-            JOIN projects p ON p.id = t.project_id
             LEFT JOIN execution_process_repo_states prev
               ON prev.execution_process_id = (
                    SELECT id FROM execution_processes

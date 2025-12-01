@@ -57,6 +57,19 @@ use crate::{
     },
 };
 
+// TODO: refactor for proper multi-repo support
+/// Get the first repository path for a project (temporary helper for multi-repo migration)
+async fn get_first_repo_path(
+    pool: &sqlx::SqlitePool,
+    project_id: Uuid,
+) -> Result<std::path::PathBuf, ApiError> {
+    let repos = ProjectRepository::find_by_project_id(pool, project_id).await?;
+    repos
+        .first()
+        .map(|r| r.git_repo_path.clone())
+        .ok_or_else(|| ApiError::BadRequest("Project has no repositories configured".to_string()))
+}
+
 #[derive(Debug, Deserialize, Serialize, TS)]
 pub struct RebaseTaskAttemptRequest {
     pub old_base_branch: Option<String>,
@@ -528,8 +541,9 @@ pub async fn merge_task_attempt(
         commit_message.push_str(description);
     }
 
+    let repo_path = get_first_repo_path(pool, ctx.project.id).await?;
     let merge_commit_id = deployment.git().merge_changes(
-        &ctx.project.git_repo_path,
+        &repo_path,
         worktree_path,
         &ctx.task_attempt.branch,
         &ctx.task_attempt.target_branch,
@@ -682,12 +696,13 @@ pub async fn create_github_pr(
     let project = Project::find_by_id(pool, task.project_id)
         .await?
         .ok_or(ApiError::Project(ProjectError::ProjectNotFound))?;
+    let repo_path = get_first_repo_path(pool, project.id).await?;
 
     let workspace_path = ensure_worktree_path(&deployment, &task_attempt).await?;
 
     match deployment
         .git()
-        .check_remote_branch_exists(&project.git_repo_path, &target_branch)
+        .check_remote_branch_exists(&repo_path, &target_branch)
     {
         Ok(false) => {
             return Ok(ResponseJson(ApiResponse::error_with_data(
@@ -734,7 +749,7 @@ pub async fn create_github_pr(
     let norm_target_branch_name = if matches!(
         deployment
             .git()
-            .find_branch_type(&project.git_repo_path, &target_branch)?,
+            .find_branch_type(&repo_path, &target_branch)?,
         BranchType::Remote
     ) {
         // Remote branches are formatted as {remote}/{branch} locally.
@@ -760,7 +775,7 @@ pub async fn create_github_pr(
     // Use GitService to get the remote URL, then create GitHubRepoInfo
     let repo_info = deployment
         .git()
-        .get_github_repo_info(&project.git_repo_path)?;
+        .get_github_repo_info(&repo_path)?;
 
     // Use GitHubService to create the PR
     let github_service = GitHubService::new()?;
@@ -1065,20 +1080,17 @@ pub async fn change_target_branch(
         .parent_task(&deployment.db().pool)
         .await?
         .ok_or(ApiError::TaskAttempt(TaskAttemptError::TaskNotFound))?;
-    let project = Project::find_by_id(&deployment.db().pool, task.project_id)
+    let pool = &deployment.db().pool;
+    let project = Project::find_by_id(pool, task.project_id)
         .await?
         .ok_or(ApiError::Project(ProjectError::ProjectNotFound))?;
+    let repo_path = get_first_repo_path(pool, project.id).await?;
     match deployment
         .git()
-        .check_branch_exists(&project.git_repo_path, &new_target_branch)?
+        .check_branch_exists(&repo_path, &new_target_branch)?
     {
         true => {
-            TaskAttempt::update_target_branch(
-                &deployment.db().pool,
-                task_attempt.id,
-                &new_target_branch,
-            )
-            .await?;
+            TaskAttempt::update_target_branch(pool, task_attempt.id, &new_target_branch).await?;
         }
         false => {
             return Ok(ResponseJson(ApiResponse::error(
@@ -1090,11 +1102,9 @@ pub async fn change_target_branch(
             )));
         }
     }
-    let status = deployment.git().get_branch_status(
-        &project.git_repo_path,
-        &task_attempt.branch,
-        &new_target_branch,
-    )?;
+    let status = deployment
+        .git()
+        .get_branch_status(&repo_path, &task_attempt.branch, &new_target_branch)?;
 
     deployment
         .track_if_analytics_allowed(
@@ -1148,10 +1158,11 @@ pub async fn rename_branch(
     let project = Project::find_by_id(pool, task.project_id)
         .await?
         .ok_or(ApiError::Project(ProjectError::ProjectNotFound))?;
+    let repo_path = get_first_repo_path(pool, project.id).await?;
 
     if deployment
         .git()
-        .check_branch_exists(&project.git_repo_path, new_branch_name)?
+        .check_branch_exists(&repo_path, new_branch_name)?
     {
         return Ok(ResponseJson(ApiResponse::error(
             "A branch with this name already exists",
@@ -1234,17 +1245,13 @@ pub async fn rebase_task_attempt(
         .await?
         .ok_or(ApiError::TaskAttempt(TaskAttemptError::TaskNotFound))?;
     let ctx = TaskAttempt::load_context(pool, task_attempt.id, task.id, task.project_id).await?;
+    let repo_path = get_first_repo_path(pool, ctx.project.id).await?;
     match deployment
         .git()
-        .check_branch_exists(&ctx.project.git_repo_path, &new_base_branch)?
+        .check_branch_exists(&repo_path, &new_base_branch)?
     {
         true => {
-            TaskAttempt::update_target_branch(
-                &deployment.db().pool,
-                task_attempt.id,
-                &new_base_branch,
-            )
-            .await?;
+            TaskAttempt::update_target_branch(pool, task_attempt.id, &new_base_branch).await?;
         }
         false => {
             return Ok(ResponseJson(ApiResponse::error(
@@ -1261,7 +1268,7 @@ pub async fn rebase_task_attempt(
     let worktree_path = worktree_path_buf.as_path();
 
     let result = deployment.git().rebase_branch(
-        &ctx.project.git_repo_path,
+        &repo_path,
         worktree_path,
         &new_base_branch,
         &old_base_branch,
@@ -1488,11 +1495,10 @@ pub async fn attach_existing_pr(
     let Some(project) = Project::find_by_id(pool, task.project_id).await? else {
         return Err(ApiError::Project(ProjectError::ProjectNotFound));
     };
+    let repo_path = get_first_repo_path(pool, project.id).await?;
 
     let github_service = GitHubService::new()?;
-    let repo_info = deployment
-        .git()
-        .get_github_repo_info(&project.git_repo_path)?;
+    let repo_info = deployment.git().get_github_repo_info(&repo_path)?;
 
     // List all PRs for branch (open, closed, and merged)
     let prs = github_service

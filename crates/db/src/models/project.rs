@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, FromRow, Sqlite, SqlitePool};
@@ -7,7 +5,7 @@ use thiserror::Error;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use super::project_repository::ProjectRepository;
+use super::project_repository::{CreateProjectRepository, ProjectRepository};
 
 #[derive(Debug, Error)]
 pub enum ProjectError {
@@ -15,10 +13,6 @@ pub enum ProjectError {
     Database(#[from] sqlx::Error),
     #[error("Project not found")]
     ProjectNotFound,
-    #[error("Project with git repository path already exists")]
-    GitRepoPathExists,
-    #[error("Failed to check existing git repository path: {0}")]
-    GitRepoCheckFailed(String),
     #[error("Failed to create project: {0}")]
     CreateFailed(String),
 }
@@ -27,7 +21,6 @@ pub enum ProjectError {
 pub struct Project {
     pub id: Uuid,
     pub name: String,
-    pub git_repo_path: PathBuf,
     pub setup_script: Option<String>,
     pub dev_script: Option<String>,
     pub cleanup_script: Option<String>,
@@ -42,8 +35,7 @@ pub struct Project {
 #[derive(Debug, Clone, Deserialize, TS)]
 pub struct CreateProject {
     pub name: String,
-    pub git_repo_path: String,
-    pub use_existing_repo: bool,
+    pub repositories: Vec<CreateProjectRepository>,
     pub setup_script: Option<String>,
     pub dev_script: Option<String>,
     pub cleanup_script: Option<String>,
@@ -53,7 +45,6 @@ pub struct CreateProject {
 #[derive(Debug, Deserialize, TS)]
 pub struct UpdateProject {
     pub name: Option<String>,
-    pub git_repo_path: Option<String>,
     pub setup_script: Option<String>,
     pub dev_script: Option<String>,
     pub cleanup_script: Option<String>,
@@ -86,7 +77,6 @@ impl Project {
             Project,
             r#"SELECT id as "id!: Uuid",
                       name,
-                      git_repo_path,
                       setup_script,
                       dev_script,
                       cleanup_script,
@@ -106,7 +96,7 @@ impl Project {
         sqlx::query_as!(
             Project,
             r#"
-            SELECT p.id as "id!: Uuid", p.name, p.git_repo_path, p.setup_script, p.dev_script, p.cleanup_script, p.copy_files, 
+            SELECT p.id as "id!: Uuid", p.name, p.setup_script, p.dev_script, p.cleanup_script, p.copy_files,
                    p.remote_project_id as "remote_project_id: Uuid",
                    p.created_at as "created_at!: DateTime<Utc>", p.updated_at as "updated_at!: DateTime<Utc>"
             FROM projects p
@@ -129,7 +119,6 @@ impl Project {
             Project,
             r#"SELECT id as "id!: Uuid",
                       name,
-                      git_repo_path,
                       setup_script,
                       dev_script,
                       cleanup_script,
@@ -153,7 +142,6 @@ impl Project {
             Project,
             r#"SELECT id as "id!: Uuid",
                       name,
-                      git_repo_path,
                       setup_script,
                       dev_script,
                       cleanup_script,
@@ -170,56 +158,6 @@ impl Project {
         .await
     }
 
-    pub async fn find_by_git_repo_path(
-        pool: &SqlitePool,
-        git_repo_path: &str,
-    ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as!(
-            Project,
-            r#"SELECT id as "id!: Uuid",
-                      name,
-                      git_repo_path,
-                      setup_script,
-                      dev_script,
-                      cleanup_script,
-                      copy_files,
-                      remote_project_id as "remote_project_id: Uuid",
-                      created_at as "created_at!: DateTime<Utc>",
-                      updated_at as "updated_at!: DateTime<Utc>"
-               FROM projects
-               WHERE git_repo_path = $1"#,
-            git_repo_path
-        )
-        .fetch_optional(pool)
-        .await
-    }
-
-    pub async fn find_by_git_repo_path_excluding_id(
-        pool: &SqlitePool,
-        git_repo_path: &str,
-        exclude_id: Uuid,
-    ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as!(
-            Project,
-            r#"SELECT id as "id!: Uuid",
-                      name,
-                      git_repo_path,
-                      setup_script,
-                      dev_script,
-                      cleanup_script,
-                      copy_files,
-                      remote_project_id as "remote_project_id: Uuid",
-                      created_at as "created_at!: DateTime<Utc>",
-                      updated_at as "updated_at!: DateTime<Utc>"
-               FROM projects
-               WHERE git_repo_path = $1 AND id != $2"#,
-            git_repo_path,
-            exclude_id
-        )
-        .fetch_optional(pool)
-        .await
-    }
-
     pub async fn create(
         executor: impl Executor<'_, Database = Sqlite>,
         data: &CreateProject,
@@ -230,17 +168,15 @@ impl Project {
             r#"INSERT INTO projects (
                     id,
                     name,
-                    git_repo_path,
                     setup_script,
                     dev_script,
                     cleanup_script,
                     copy_files
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7
+                    $1, $2, $3, $4, $5, $6
                 )
                 RETURNING id as "id!: Uuid",
                           name,
-                          git_repo_path,
                           setup_script,
                           dev_script,
                           cleanup_script,
@@ -250,7 +186,6 @@ impl Project {
                           updated_at as "updated_at!: DateTime<Utc>""#,
             project_id,
             data.name,
-            data.git_repo_path,
             data.setup_script,
             data.dev_script,
             data.cleanup_script,
@@ -260,12 +195,10 @@ impl Project {
         .await
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn update(
         pool: &SqlitePool,
         id: Uuid,
         name: String,
-        git_repo_path: String,
         setup_script: Option<String>,
         dev_script: Option<String>,
         cleanup_script: Option<String>,
@@ -275,15 +208,13 @@ impl Project {
             Project,
             r#"UPDATE projects
                SET name = $2,
-                   git_repo_path = $3,
-                   setup_script = $4,
-                   dev_script = $5,
-                   cleanup_script = $6,
-                   copy_files = $7
+                   setup_script = $3,
+                   dev_script = $4,
+                   cleanup_script = $5,
+                   copy_files = $6
                WHERE id = $1
                RETURNING id as "id!: Uuid",
                          name,
-                         git_repo_path,
                          setup_script,
                          dev_script,
                          cleanup_script,
@@ -293,7 +224,6 @@ impl Project {
                          updated_at as "updated_at!: DateTime<Utc>""#,
             id,
             name,
-            git_repo_path,
             setup_script,
             dev_script,
             cleanup_script,

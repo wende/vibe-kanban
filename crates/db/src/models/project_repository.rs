@@ -33,7 +33,7 @@ pub struct ProjectRepository {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Clone, Deserialize, TS)]
 pub struct CreateProjectRepository {
     pub name: String,
     pub git_repo_path: String,
