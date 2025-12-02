@@ -41,8 +41,8 @@ export function TaskCardHeader({
         ) : null}
         <span className="align-middle">{title}</span>
         {subtitle && (
-          <span className="align-middle text-muted-foreground ml-2">
-            {subtitle}
+          <span className="align-middle text-muted-foreground/50 ml-2">
+            [{subtitle}]
           </span>
         )}
       </h4>
