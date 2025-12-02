@@ -236,10 +236,21 @@ pub enum ExecutorExitResult {
 /// and mark it according to the result.
 pub type ExecutorExitSignal = tokio::sync::oneshot::Receiver<ExecutorExitResult>;
 
-#[derive(Debug)]
+/// Trait for sending user input to a running executor process
+#[async_trait]
+pub trait InputSender: Send + Sync {
+    /// Send a user message to the executor
+    async fn send_user_input(&self, content: String) -> Result<(), ExecutorError>;
+}
+
+/// A boxed input sender that can be stored and used later
+pub type BoxedInputSender = Box<dyn InputSender>;
+
 pub struct SpawnedChild {
     pub child: AsyncGroupChild,
     pub exit_signal: Option<ExecutorExitSignal>,
+    /// Optional input sender for processes that support receiving user input
+    pub input_sender: Option<BoxedInputSender>,
 }
 
 impl From<AsyncGroupChild> for SpawnedChild {
@@ -247,7 +258,18 @@ impl From<AsyncGroupChild> for SpawnedChild {
         Self {
             child,
             exit_signal: None,
+            input_sender: None,
         }
+    }
+}
+
+impl std::fmt::Debug for SpawnedChild {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpawnedChild")
+            .field("child", &self.child)
+            .field("exit_signal", &self.exit_signal)
+            .field("input_sender", &self.input_sender.is_some())
+            .finish()
     }
 }
 

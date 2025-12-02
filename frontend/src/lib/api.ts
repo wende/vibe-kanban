@@ -696,6 +696,16 @@ export const executionProcessesApi = {
     );
     return handleApiResponse<void>(response);
   },
+
+  compactExecutionProcess: async (processId: string): Promise<boolean> => {
+    const response = await makeRequest(
+      `/api/execution-processes/${processId}/compact`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<boolean>(response);
+  },
 };
 
 // File System APIs

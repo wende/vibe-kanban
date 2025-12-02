@@ -142,6 +142,7 @@
   },
   "followUp": {
     "stop": "Stop",
+    "compact": "Compact conversation",
     "clearReviewComments": "Clear Review Comments",
     "resolveConflicts": "Resolve conflicts",
     "send": "Send",

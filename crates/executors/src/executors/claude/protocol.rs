@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::{ChildStdin, ChildStdout},
@@ -11,7 +12,7 @@ use super::types::{
     SDKControlRequestMessage,
 };
 use crate::executors::{
-    ExecutorError,
+    ExecutorError, InputSender,
     claude::{
         client::ClaudeAgentClient,
         types::{PermissionMode, SDKControlRequestType},
@@ -197,5 +198,12 @@ impl ProtocolPeer {
             SDKControlRequestType::SetPermissionMode { mode },
         ))
         .await
+    }
+}
+
+#[async_trait]
+impl InputSender for ProtocolPeer {
+    async fn send_user_input(&self, content: String) -> Result<(), ExecutorError> {
+        self.send_user_message(content).await
     }
 }
