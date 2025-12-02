@@ -21,6 +21,18 @@ module.exports = {
     'xl:overflow-y-auto',
     'xl:opacity-100',
     'xl:pointer-events-auto',
+    // Kanban mobile responsive classes
+    'xl:inline-grid',
+    'xl:grid-flow-col',
+    'xl:auto-cols-[minmax(200px,400px)]',
+    'xl:divide-y-0',
+    'xl:divide-x',
+    'xl:border-y-0',
+    'xl:border-x',
+    'xl:items-stretch',
+    'xl:min-h-full',
+    'xl:min-h-40',
+    'xl:py-3',
   ],
   prefix: "",
   theme: {

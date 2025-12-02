@@ -53,7 +53,11 @@ export const KanbanBoard = ({ id, children, className }: KanbanBoardProps) => {
   return (
     <div
       className={cn(
-        'flex min-h-40 flex-col',
+        'flex flex-col',
+        // Mobile: each column section with reasonable height
+        'min-h-0',
+        // Desktop: original min height
+        'xl:min-h-40',
         isOver ? 'outline-primary' : 'outline-black',
         className
       )}
@@ -165,12 +169,14 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
   return (
     <Card
       className={cn(
-        'sticky top-0 z-20 flex shrink-0 items-center gap-2 p-3 border-b border-dashed flex gap-2',
+        'sticky top-0 z-20 flex shrink-0 items-center gap-2 p-3 border-b border-dashed',
         'bg-background',
+        // Mobile: stronger visual distinction between sections
+        'py-4 xl:py-3',
         props.className
       )}
       style={{
-        backgroundImage: `linear-gradient(hsl(var(${props.color}) / 0.03), hsl(var(${props.color}) / 0.03))`,
+        backgroundImage: `linear-gradient(hsl(var(${props.color}) / 0.08), hsl(var(${props.color}) / 0.08))`,
       }}
     >
       <span className="flex-1 flex items-center gap-2">
@@ -179,7 +185,7 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
           style={{ backgroundColor: `hsl(var(${props.color}))` }}
         />
 
-        <p className="m-0 text-sm">{props.name}</p>
+        <p className="m-0 text-sm font-medium">{props.name}</p>
       </span>
       <TooltipProvider>
         <Tooltip>
@@ -285,7 +291,10 @@ export const KanbanProvider = ({
     >
       <div
         className={cn(
-          'inline-grid grid-flow-col auto-cols-[minmax(200px,400px)] divide-x border-x items-stretch min-h-full',
+          // Mobile: vertical scrollable layout
+          'flex flex-col divide-y border-y',
+          // Desktop (xl+): horizontal grid layout
+          'xl:inline-grid xl:grid-flow-col xl:auto-cols-[minmax(200px,400px)] xl:divide-y-0 xl:divide-x xl:border-y-0 xl:border-x xl:items-stretch xl:min-h-full',
           className
         )}
       >
