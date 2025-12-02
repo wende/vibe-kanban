@@ -201,7 +201,9 @@ export function ProjectSettings() {
       .getRepositories(selectedProjectId)
       .then(setRepositories)
       .catch((err) => {
-        setRepoError(err instanceof Error ? err.message : 'Failed to load repositories');
+        setRepoError(
+          err instanceof Error ? err.message : 'Failed to load repositories'
+        );
         setRepositories([]);
       })
       .finally(() => setLoadingRepos(false));
@@ -230,7 +232,9 @@ export function ProjectSettings() {
       });
       setRepositories((prev) => [...prev, newRepo]);
     } catch (err) {
-      setRepoError(err instanceof Error ? err.message : 'Failed to add repository');
+      setRepoError(
+        err instanceof Error ? err.message : 'Failed to add repository'
+      );
     } finally {
       setAddingRepo(false);
     }
@@ -245,7 +249,9 @@ export function ProjectSettings() {
       await projectsApi.deleteRepository(selectedProjectId, repoId);
       setRepositories((prev) => prev.filter((r) => r.id !== repoId));
     } catch (err) {
-      setRepoError(err instanceof Error ? err.message : 'Failed to delete repository');
+      setRepoError(
+        err instanceof Error ? err.message : 'Failed to delete repository'
+      );
     } finally {
       setDeletingRepoId(null);
     }
@@ -456,15 +462,8 @@ export function ProjectSettings() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteRepository(repo.id)}
-                        disabled={
-                          repositories.length <= 1 ||
-                          deletingRepoId === repo.id
-                        }
-                        title={
-                          repositories.length <= 1
-                            ? 'Cannot delete the last repository'
-                            : 'Delete repository'
-                        }
+                        disabled={deletingRepoId === repo.id}
+                        title="Delete repository"
                       >
                         {deletingRepoId === repo.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

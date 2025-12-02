@@ -470,13 +470,12 @@ pub async fn add_project_repository(
 }
 
 pub async fn delete_project_repository(
-    Extension(project): Extension<Project>,
     State(deployment): State<DeploymentImpl>,
-    Path((_project_id, repo_id)): Path<(Uuid, Uuid)>,
+    Path((project_id, repo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
     match deployment
         .project()
-        .delete_repository(&deployment.db().pool, project.id, repo_id)
+        .delete_repository(&deployment.db().pool, project_id, repo_id)
         .await
     {
         Ok(()) => Ok(ResponseJson(ApiResponse::success(()))),
@@ -505,12 +504,10 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
             post(link_project_to_existing_remote).delete(unlink_project),
         )
         .route("/link/create", post(create_and_link_remote_project))
-        // Repository management routes
         .route(
             "/repositories",
             get(get_project_repositories).post(add_project_repository),
         )
-        .route("/repositories/{repo_id}", delete(delete_project_repository))
         .layer(from_fn_with_state(
             deployment.clone(),
             load_project_middleware,
@@ -518,6 +515,10 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
 
     let projects_router = Router::new()
         .route("/", get(get_projects).post(create_project))
+        .route(
+            "/{project_id}/repositories/{repo_id}",
+            delete(delete_project_repository),
+        )
         .nest("/{id}", project_id_router);
 
     Router::new().nest("/projects", projects_router).route(
