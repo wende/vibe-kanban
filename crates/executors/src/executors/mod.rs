@@ -102,6 +102,23 @@ pub enum CodingAgent {
     Droid,
 }
 
+impl BaseCodingAgent {
+    /// Returns the command to send to the executor for context compaction.
+    /// Returns None if the executor doesn't support compaction or has no InputSender.
+    pub fn compact_command(&self) -> Option<&'static str> {
+        match self {
+            Self::ClaudeCode => Some("/compact"),
+            // Gemini uses /compress but currently has no InputSender implementation
+            // TODO: Implement InputSender for ACP harness to support this
+            Self::Gemini => None,
+            // Codex uses compact_prompt parameter at conversation start, not interactive command
+            Self::Codex => None,
+            // Other agents - not yet known if they support compaction
+            Self::Amp | Self::Opencode | Self::CursorAgent | Self::QwenCode | Self::Copilot | Self::Droid => None,
+        }
+    }
+}
+
 impl CodingAgent {
     pub fn get_mcp_config(&self) -> McpConfig {
         match self {
