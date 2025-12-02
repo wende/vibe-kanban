@@ -13,6 +13,7 @@ fn generate_types_content() -> String {
         services::services::filesystem::DirectoryEntry::decl(),
         services::services::filesystem::DirectoryListResponse::decl(),
         db::models::project::Project::decl(),
+        db::models::project::ProjectWithTaskCounts::decl(),
         db::models::project::CreateProject::decl(),
         db::models::project::UpdateProject::decl(),
         db::models::project::SearchResult::decl(),

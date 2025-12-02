@@ -21,9 +21,10 @@ import {
   Trash2,
   Unlink,
 } from 'lucide-react';
-import { Project } from 'shared/types';
+import { ProjectWithTaskCounts } from 'shared/types';
 import { useEffect, useRef } from 'react';
 import { useOpenProjectInEditor } from '@/hooks/useOpenProjectInEditor';
+import { Badge } from '@/components/ui/badge.tsx';
 import { useNavigateWithSearch } from '@/hooks';
 import { projectsApi } from '@/lib/api';
 import { LinkProjectDialog } from '@/components/dialogs/projects/LinkProjectDialog';
@@ -31,11 +32,11 @@ import { useTranslation } from 'react-i18next';
 import { useProjectMutations } from '@/hooks/useProjectMutations';
 
 type Props = {
-  project: Project;
+  project: ProjectWithTaskCounts;
   isFocused: boolean;
   fetchProjects: () => void;
   setError: (error: string) => void;
-  onEdit: (project: Project) => void;
+  onEdit: (project: ProjectWithTaskCounts) => void;
 };
 
 function ProjectCard({
@@ -84,9 +85,12 @@ function ProjectCard({
     }
   };
 
-  const handleEdit = (project: Project) => {
+  const handleEdit = (project: ProjectWithTaskCounts) => {
     onEdit(project);
   };
+
+  const hasInProgress = Number(project.inprogress_count) > 0;
+  const hasInReview = Number(project.inreview_count) > 0;
 
   const handleOpenInIDE = () => {
     handleOpenInEditor();
@@ -198,6 +202,20 @@ function ProjectCard({
             date: new Date(project.created_at).toLocaleDateString(),
           })}
         </CardDescription>
+        {(hasInProgress || hasInReview) && (
+          <div className="flex gap-2 mt-2">
+            {hasInProgress && (
+              <Badge className="bg-info/20 text-info border-info/30">
+                {t('status.inProgress')}
+              </Badge>
+            )}
+            {hasInReview && (
+              <Badge className="bg-warning/20 text-warning border-warning/30">
+                {t('status.pendingReview')}
+              </Badge>
+            )}
+          </div>
+        )}
       </CardHeader>
     </Card>
   );

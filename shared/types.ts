@@ -10,6 +10,8 @@ export type DirectoryListResponse = { entries: Array<DirectoryEntry>, current_pa
 
 export type Project = { id: string, name: string, git_repo_path: string, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, remote_project_id: string | null, created_at: Date, updated_at: Date, };
 
+export type ProjectWithTaskCounts = { inprogress_count: bigint, inreview_count: bigint, id: string, name: string, git_repo_path: string, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, remote_project_id: string | null, created_at: Date, updated_at: Date, };
+
 export type CreateProject = { name: string, git_repo_path: string, use_existing_repo: boolean, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, };
 
 export type UpdateProject = { name: string | null, git_repo_path: string | null, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, };
