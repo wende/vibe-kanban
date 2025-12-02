@@ -38,6 +38,15 @@ pub struct Project {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct ProjectWithTaskCounts {
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub project: Project,
+    pub inprogress_count: i64,
+    pub inreview_count: i64,
+}
+
 #[derive(Debug, Deserialize, TS)]
 pub struct CreateProject {
     pub name: String,
@@ -101,6 +110,52 @@ impl Project {
         )
         .fetch_all(pool)
         .await
+    }
+
+    pub async fn find_all_with_task_counts(
+        pool: &SqlitePool,
+    ) -> Result<Vec<ProjectWithTaskCounts>, sqlx::Error> {
+        let records = sqlx::query!(
+            r#"SELECT
+                p.id as "id!: Uuid",
+                p.name,
+                p.git_repo_path,
+                p.setup_script,
+                p.dev_script,
+                p.cleanup_script,
+                p.copy_files,
+                p.remote_project_id as "remote_project_id: Uuid",
+                p.created_at as "created_at!: DateTime<Utc>",
+                p.updated_at as "updated_at!: DateTime<Utc>",
+                COALESCE(SUM(CASE WHEN t.status = 'inprogress' THEN 1 ELSE 0 END), 0) as "inprogress_count!: i64",
+                COALESCE(SUM(CASE WHEN t.status = 'inreview' THEN 1 ELSE 0 END), 0) as "inreview_count!: i64"
+            FROM projects p
+            LEFT JOIN tasks t ON t.project_id = p.id
+            GROUP BY p.id
+            ORDER BY p.created_at DESC"#
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(records
+            .into_iter()
+            .map(|r| ProjectWithTaskCounts {
+                project: Project {
+                    id: r.id,
+                    name: r.name,
+                    git_repo_path: r.git_repo_path.into(),
+                    setup_script: r.setup_script,
+                    dev_script: r.dev_script,
+                    cleanup_script: r.cleanup_script,
+                    copy_files: r.copy_files,
+                    remote_project_id: r.remote_project_id,
+                    created_at: r.created_at,
+                    updated_at: r.updated_at,
+                },
+                inprogress_count: r.inprogress_count,
+                inreview_count: r.inreview_count,
+            })
+            .collect())
     }
 
     /// Find the most actively used projects based on recent task activity

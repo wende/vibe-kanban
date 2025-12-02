@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Project } from 'shared/types';
+import { ProjectWithTaskCounts } from 'shared/types';
 import { ProjectFormDialog } from '@/components/dialogs/projects/ProjectFormDialog';
 import { projectsApi } from '@/lib/api';
 import { AlertCircle, Loader2, Plus } from 'lucide-react';
@@ -15,7 +15,7 @@ import { useKeyCreate, Scope } from '@/keyboard';
 export function ProjectList() {
   const navigate = useNavigate();
   const { t } = useTranslation('projects');
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectWithTaskCounts[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedProjectId, setFocusedProjectId] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function ProjectList() {
   // Semantic keyboard shortcut for creating new project
   useKeyCreate(handleCreateProject, { scope: Scope.PROJECTS });
 
-  const handleEditProject = (project: Project) => {
+  const handleEditProject = (project: ProjectWithTaskCounts) => {
     navigate(`/settings/projects?projectId=${project.id}`);
   };
 
