@@ -18,6 +18,7 @@ use workspace_utils::{
 };
 
 use self::{client::ClaudeAgentClient, protocol::ProtocolPeer, types::PermissionMode};
+pub use self::protocol::ProtocolPeerSpawnResult;
 use crate::{
     approvals::ExecutorApprovalService,
     command::{CmdOverrides, CommandBuilder, CommandParts, apply_overrides},
@@ -255,7 +256,9 @@ impl ClaudeCode {
         // Create protocol peer and log writer
         let log_writer = LogWriter::new(new_stdout);
         let client = ClaudeAgentClient::new(log_writer.clone(), self.approvals_service.clone());
-        let protocol_peer = ProtocolPeer::spawn(child_stdin, child_stdout, client.clone());
+        let spawn_result = ProtocolPeer::spawn(child_stdin, child_stdout, client.clone());
+        let protocol_peer = spawn_result.peer;
+        let exit_signal = spawn_result.exit_signal;
 
         // Clone for use in the spawned task
         let protocol_peer_clone = protocol_peer.clone();
@@ -290,7 +293,7 @@ impl ClaudeCode {
 
         Ok(SpawnedChild {
             child,
-            exit_signal: None,
+            exit_signal: Some(exit_signal),
             input_sender: Some(Box::new(protocol_peer)),
         })
     }

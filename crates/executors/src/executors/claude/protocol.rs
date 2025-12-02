@@ -12,7 +12,7 @@ use super::types::{
     SDKControlRequestMessage,
 };
 use crate::executors::{
-    ExecutorError, InputSender,
+    ExecutorError, ExecutorExitResult, InputSender,
     claude::{
         client::ClaudeAgentClient,
         types::{PermissionMode, SDKControlRequestType},
@@ -25,20 +25,40 @@ pub struct ProtocolPeer {
     stdin: Arc<Mutex<ChildStdin>>,
 }
 
+/// Result of spawning a protocol peer
+pub struct ProtocolPeerSpawnResult {
+    pub peer: ProtocolPeer,
+    pub exit_signal: tokio::sync::oneshot::Receiver<ExecutorExitResult>,
+}
+
 impl ProtocolPeer {
-    pub fn spawn(stdin: ChildStdin, stdout: ChildStdout, client: Arc<ClaudeAgentClient>) -> Self {
+    pub fn spawn(
+        stdin: ChildStdin,
+        stdout: ChildStdout,
+        client: Arc<ClaudeAgentClient>,
+    ) -> ProtocolPeerSpawnResult {
         let peer = Self {
             stdin: Arc::new(Mutex::new(stdin)),
         };
 
+        let (exit_tx, exit_rx) = tokio::sync::oneshot::channel::<ExecutorExitResult>();
+
         let reader_peer = peer.clone();
         tokio::spawn(async move {
-            if let Err(e) = reader_peer.read_loop(stdout, client).await {
-                tracing::error!("Protocol reader loop error: {}", e);
-            }
+            let result = reader_peer.read_loop(stdout, client).await;
+            // Send exit signal when read loop completes
+            // Success if we got a Result message or clean EOF, failure otherwise
+            let exit_result = match result {
+                Ok(_) => ExecutorExitResult::Success,
+                Err(_) => ExecutorExitResult::Failure,
+            };
+            let _ = exit_tx.send(exit_result);
         });
 
-        peer
+        ProtocolPeerSpawnResult {
+            peer,
+            exit_signal: exit_rx,
+        }
     }
 
     async fn read_loop(
