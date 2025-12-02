@@ -68,6 +68,13 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     }
   }, [attemptId, isAttemptRunning, isStopping, setIsStopping]);
 
+  // Check if there's a running coding agent that can be compacted
+  const canCompact = useMemo(() => {
+    return executionProcesses.some(
+      (p) => p.status === 'running' && p.run_reason === 'codingagent'
+    );
+  }, [executionProcesses]);
+
   // Compact execution function - sends /compact to the running Claude Code process
   const compactExecution = useCallback(async () => {
     if (isCompacting) return;
@@ -114,5 +121,6 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     isStopping,
     compactExecution,
     isCompacting,
+    canCompact,
   };
 }

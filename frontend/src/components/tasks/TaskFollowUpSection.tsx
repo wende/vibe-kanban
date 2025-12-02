@@ -64,6 +64,7 @@ export function TaskFollowUpSection({
     processes,
     compactExecution,
     isCompacting,
+    canCompact,
   } = useAttemptExecution(selectedAttemptId, task.id);
   const { data: branchStatus, refetch: refetchBranchStatus } =
     useBranchStatus(selectedAttemptId);
@@ -550,19 +551,21 @@ export function TaskFollowUpSection({
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                onClick={compactExecution}
-                disabled={isCompacting}
-                size="sm"
-                variant="outline"
-                title={t('followUp.compact')}
-              >
-                {isCompacting ? (
-                  <Loader2 className="animate-spin h-4 w-4" />
-                ) : (
-                  <Minimize2 className="h-4 w-4" />
-                )}
-              </Button>
+              {canCompact && (
+                <Button
+                  onClick={compactExecution}
+                  disabled={isCompacting}
+                  size="sm"
+                  variant="outline"
+                  title={t('followUp.compact')}
+                >
+                  {isCompacting ? (
+                    <Loader2 className="animate-spin h-4 w-4" />
+                  ) : (
+                    <Minimize2 className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
               {isAttemptRunning ? (
                 <Button
                   onClick={stopExecution}
