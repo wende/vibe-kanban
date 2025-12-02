@@ -96,6 +96,7 @@ export function TaskCard({
       <div className="flex flex-col gap-2">
         <TaskCardHeader
           title={task.title}
+          subtitle={task.executor}
           avatar={
             sharedTask
               ? {
