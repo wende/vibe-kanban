@@ -17,6 +17,8 @@
     "editBranchName": "Editar nombre de rama",
     "gitActions": "Acciones de Git",
     "openInIde": "Open attempt in IDE",
+    "copyPath": "Copiar ruta",
+    "pathCopied": "¡Ruta copiada!",
     "task": "Task",
     "viewProcesses": "View processes",
     "viewRelatedTasks": "View related tasks"

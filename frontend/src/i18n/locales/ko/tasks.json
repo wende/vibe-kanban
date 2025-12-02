@@ -17,6 +17,8 @@
     "editBranchName": "브랜치 이름 편집",
     "gitActions": "Git 작업",
     "openInIde": "Open attempt in IDE",
+    "copyPath": "경로 복사",
+    "pathCopied": "경로가 복사되었습니다!",
     "task": "Task",
     "viewProcesses": "View processes",
     "viewRelatedTasks": "View related tasks"
