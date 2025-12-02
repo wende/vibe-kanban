@@ -404,6 +404,7 @@
       "cancelled": "キャンセル"
     },
     "startLabel": "開始",
+    "useExistingBranch": "既存のブランチを使用",
     "attachImage": "画像を添付",
     "dropImagesHere": "画像をここにドロップ",
     "updating": "更新中...",

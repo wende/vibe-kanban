@@ -404,6 +404,7 @@
       "cancelled": "취소됨"
     },
     "startLabel": "시작",
+    "useExistingBranch": "기존 브랜치 사용",
     "attachImage": "이미지 첨부",
     "dropImagesHere": "여기에 이미지를 드롭하세요",
     "updating": "업데이트 중...",
