@@ -68,37 +68,54 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     }
   }, [attemptId, isAttemptRunning, isStopping, setIsStopping]);
 
-  // Check if there's a running coding agent that can be compacted
-  const canCompact = useMemo(() => {
+  // Check if there's a running coding agent that can receive /compact directly
+  const hasRunningCodingAgent = useMemo(() => {
     return executionProcesses.some(
       (p) => p.status === 'running' && p.run_reason === 'codingagent'
     );
   }, [executionProcesses]);
 
-  // Compact execution function - sends /compact to the running Claude Code process
+  // Can compact if:
+  // 1. There's a running coding agent (send /compact to running process), OR
+  // 2. There's an attemptId and no process is running (start follow-up with /compact)
+  const canCompact = useMemo(() => {
+    if (hasRunningCodingAgent) return true;
+    return !!attemptId && !isAttemptRunning;
+  }, [attemptId, isAttemptRunning, hasRunningCodingAgent]);
+
+  // Compact execution function - sends /compact to running process or starts a new follow-up
   const compactExecution = useCallback(async () => {
-    if (isCompacting) return;
+    if (isCompacting || !attemptId) return;
 
     // Find the running coding agent process
     const runningProcess = executionProcesses.find(
       (p) => p.status === 'running' && p.run_reason === 'codingagent'
     );
 
-    if (!runningProcess) {
-      console.warn('No running coding agent process found to compact');
-      return;
-    }
-
     try {
       setIsCompacting(true);
-      await executionProcessesApi.compactExecutionProcess(runningProcess.id);
+
+      if (runningProcess) {
+        // If there's a running process, send /compact directly to it
+        await executionProcessesApi.compactExecutionProcess(runningProcess.id);
+      } else {
+        // If no running process, start a new follow-up with /compact as the prompt
+        await attemptsApi.followUp(attemptId, {
+          prompt: '/compact',
+          variant: null,
+          image_ids: null,
+          retry_process_id: null,
+          force_when_dirty: null,
+          perform_git_reset: null,
+        });
+      }
     } catch (error) {
       console.error('Failed to compact execution:', error);
       throw error;
     } finally {
       setIsCompacting(false);
     }
-  }, [executionProcesses, isCompacting]);
+  }, [attemptId, executionProcesses, isCompacting]);
 
   const isLoading =
     streamLoading || processDetailQueries.some((q) => q.isLoading);
