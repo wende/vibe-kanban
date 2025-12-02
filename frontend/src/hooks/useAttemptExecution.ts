@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { attemptsApi, executionProcessesApi } from '@/lib/api';
 import { useTaskStopping } from '@/stores/useTaskDetailsUiStore';
@@ -8,6 +8,7 @@ import type { ExecutionProcess } from 'shared/types';
 
 export function useAttemptExecution(attemptId?: string, taskId?: string) {
   const { isStopping, setIsStopping } = useTaskStopping(taskId || '');
+  const [isCompacting, setIsCompacting] = useState(false);
 
   const {
     executionProcessesVisible: executionProcesses,
@@ -67,6 +68,28 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     }
   }, [attemptId, isAttemptRunning, isStopping, setIsStopping]);
 
+  // Compact execution function - sends /compact to the running Claude Code process
+  const compactExecution = useCallback(async () => {
+    if (!isAttemptRunning || isCompacting) return;
+
+    // Find the running coding agent process
+    const runningProcess = executionProcesses.find(
+      (p) => p.status === 'running' && p.run_reason === 'codingagent'
+    );
+
+    if (!runningProcess) return;
+
+    try {
+      setIsCompacting(true);
+      await executionProcessesApi.compactExecutionProcess(runningProcess.id);
+    } catch (error) {
+      console.error('Failed to compact execution:', error);
+      throw error;
+    } finally {
+      setIsCompacting(false);
+    }
+  }, [executionProcesses, isAttemptRunning, isCompacting]);
+
   const isLoading =
     streamLoading || processDetailQueries.some((q) => q.isLoading);
   const isFetching =
@@ -86,5 +109,7 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     // Actions
     stopExecution,
     isStopping,
+    compactExecution,
+    isCompacting,
   };
 }

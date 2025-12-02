@@ -177,6 +177,18 @@ pub async fn stop_execution_process(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+pub async fn compact_execution_process(
+    Extension(execution_process): Extension<ExecutionProcess>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<bool>>, ApiError> {
+    let sent = deployment
+        .container()
+        .send_input_to_process(execution_process.id, "/compact".to_string())
+        .await?;
+
+    Ok(ResponseJson(ApiResponse::success(sent)))
+}
+
 pub async fn stream_execution_processes_ws(
     ws: WebSocketUpgrade,
     State(deployment): State<DeploymentImpl>,
@@ -236,6 +248,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let task_attempt_id_router = Router::new()
         .route("/", get(get_execution_process_by_id))
         .route("/stop", post(stop_execution_process))
+        .route("/compact", post(compact_execution_process))
         .route("/raw-logs/ws", get(stream_raw_logs_ws))
         .route("/normalized-logs/ws", get(stream_normalized_logs_ws))
         .layer(from_fn_with_state(
