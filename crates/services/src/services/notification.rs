@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use db::models::execution_process::{ExecutionContext, ExecutionProcessStatus};
-use utils;
+use utils::{self, port_file::read_port_file};
 
 use crate::services::config::SoundFile;
 
@@ -42,17 +42,37 @@ impl NotificationService {
                 return;
             }
         };
-        Self::notify(config, &title, &message).await;
+
+        // Construct URL to open when notification is clicked
+        let url = Self::build_attempt_url(ctx).await;
+
+        Self::notify(config, &title, &message, url.as_deref()).await;
+    }
+
+    /// Build the URL for the task attempt page
+    async fn build_attempt_url(ctx: &ExecutionContext) -> Option<String> {
+        let port = match read_port_file("vibe-kanban").await {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::debug!("Could not read port file for notification URL: {}", e);
+                return None;
+            }
+        };
+
+        Some(format!(
+            "http://127.0.0.1:{}/projects/{}/tasks/{}/attempts/{}",
+            port, ctx.task.project_id, ctx.task.id, ctx.task_attempt.id
+        ))
     }
 
     /// Send both sound and push notifications if enabled
-    pub async fn notify(config: NotificationConfig, title: &str, message: &str) {
+    pub async fn notify(config: NotificationConfig, title: &str, message: &str, url: Option<&str>) {
         if config.sound_enabled {
             Self::play_sound_notification(&config.sound_file).await;
         }
 
         if config.push_enabled {
-            Self::send_push_notification(title, message).await;
+            Self::send_push_notification(title, message, url).await;
         }
     }
 
@@ -115,18 +135,43 @@ impl NotificationService {
     }
 
     /// Send a cross-platform push notification
-    async fn send_push_notification(title: &str, message: &str) {
+    async fn send_push_notification(title: &str, message: &str, url: Option<&str>) {
         if cfg!(target_os = "macos") {
-            Self::send_macos_notification(title, message).await;
+            Self::send_macos_notification(title, message, url).await;
         } else if cfg!(target_os = "linux") && !utils::is_wsl2() {
-            Self::send_linux_notification(title, message).await;
+            Self::send_linux_notification(title, message, url).await;
         } else if cfg!(target_os = "windows") || (cfg!(target_os = "linux") && utils::is_wsl2()) {
-            Self::send_windows_notification(title, message).await;
+            Self::send_windows_notification(title, message, url).await;
         }
     }
 
-    /// Send macOS notification using osascript
-    async fn send_macos_notification(title: &str, message: &str) {
+    /// Send macOS notification using terminal-notifier (with click-to-open support) or osascript fallback
+    async fn send_macos_notification(title: &str, message: &str, url: Option<&str>) {
+        // Try terminal-notifier first (supports -open for click actions)
+        let mut cmd = tokio::process::Command::new("terminal-notifier");
+        cmd.arg("-title")
+            .arg(title)
+            .arg("-message")
+            .arg(message)
+            .arg("-sound")
+            .arg("Glass")
+            .arg("-ignoreDnD"); // Show even in Do Not Disturb mode
+
+        if let Some(open_url) = url {
+            cmd.arg("-open").arg(open_url);
+        }
+
+        match cmd.spawn() {
+            Ok(_) => return, // terminal-notifier succeeded
+            Err(e) => {
+                tracing::debug!(
+                    "terminal-notifier not available ({}), falling back to osascript",
+                    e
+                );
+            }
+        }
+
+        // Fallback to osascript (no click-to-open support)
         let script = format!(
             r#"display notification "{message}" with title "{title}" sound name "Glass""#,
             message = message.replace('"', r#"\""#),
@@ -139,28 +184,62 @@ impl NotificationService {
             .spawn();
     }
 
-    /// Send Linux notification using notify-rust
-    async fn send_linux_notification(title: &str, message: &str) {
-        use notify_rust::Notification;
+    /// Send Linux notification using notify-rust with optional click-to-open URL
+    #[cfg(all(unix, not(target_os = "macos")))]
+    async fn send_linux_notification(title: &str, message: &str, url: Option<&str>) {
+        use notify_rust::{Hint, Notification};
 
         let title = title.to_string();
         let message = message.to_string();
+        let url = url.map(|s| s.to_string());
 
         let _handle = tokio::task::spawn_blocking(move || {
-            if let Err(e) = Notification::new()
-                .summary(&title)
-                .body(&message)
-                .timeout(10000)
-                .show()
-            {
-                tracing::error!("Failed to send Linux notification: {}", e);
+            let mut notification = Notification::new();
+            notification.summary(&title).body(&message).timeout(10000);
+
+            // Add default action for click-to-open (requires notification daemon support)
+            if let Some(ref open_url) = url {
+                // Use the "default" action which is triggered when clicking the notification body
+                notification.action("default", "Open");
+                // Some notification daemons support this hint for URLs
+                notification.hint(Hint::Custom("x-kde-urls".to_string(), open_url.clone()));
+            }
+
+            match notification.show() {
+                Ok(handle) => {
+                    // If we have a URL, wait for action in a separate thread
+                    if let Some(open_url) = url {
+                        // Spawn a thread to handle the action callback
+                        std::thread::spawn(move || {
+                            handle.wait_for_action(|action| {
+                                if action == "default" {
+                                    // Open URL when notification is clicked
+                                    let _ = std::process::Command::new("xdg-open")
+                                        .arg(&open_url)
+                                        .spawn();
+                                }
+                            });
+                        });
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to send Linux notification: {}", e);
+                }
             }
         });
         drop(_handle); // Don't await, fire-and-forget
     }
 
-    /// Send Windows/WSL notification using PowerShell toast script
-    async fn send_windows_notification(title: &str, message: &str) {
+    /// Stub for non-Linux platforms (this function is never called on those platforms)
+    #[cfg(not(all(unix, not(target_os = "macos"))))]
+    #[allow(unused_variables)]
+    async fn send_linux_notification(title: &str, message: &str, url: Option<&str>) {
+        // This function should never be called on non-Linux platforms
+        // as the caller checks cfg!(target_os = "linux")
+    }
+
+    /// Send Windows/WSL notification using PowerShell toast script with optional click-to-open URL
+    async fn send_windows_notification(title: &str, message: &str, url: Option<&str>) {
         let script_path = match utils::get_powershell_script().await {
             Ok(path) => path,
             Err(e) => {
@@ -180,8 +259,8 @@ impl NotificationService {
             script_path.to_string_lossy().to_string()
         };
 
-        let _ = tokio::process::Command::new("powershell.exe")
-            .arg("-NoProfile")
+        let mut cmd = tokio::process::Command::new("powershell.exe");
+        cmd.arg("-NoProfile")
             .arg("-ExecutionPolicy")
             .arg("Bypass")
             .arg("-File")
@@ -189,8 +268,13 @@ impl NotificationService {
             .arg("-Title")
             .arg(title)
             .arg("-Message")
-            .arg(message)
-            .spawn();
+            .arg(message);
+
+        if let Some(open_url) = url {
+            cmd.arg("-Url").arg(open_url);
+        }
+
+        let _ = cmd.spawn();
     }
 
     /// Get WSL root path via PowerShell (cached)
