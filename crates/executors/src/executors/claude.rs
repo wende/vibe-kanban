@@ -1463,8 +1463,14 @@ pub enum ClaudeJson {
     },
     #[serde(rename = "user")]
     User {
-        message: ClaudeMessage,
+        message: ClaudeUserMessage,
         session_id: Option<String>,
+        #[serde(default)]
+        uuid: Option<String>,
+        #[serde(default, rename = "parent_tool_use_id")]
+        parent_tool_use_id: Option<String>,
+        #[serde(default, rename = "isReplay")]
+        is_replay: Option<bool>,
     },
     #[serde(rename = "tool_use")]
     ToolUse {
@@ -1529,6 +1535,50 @@ pub struct ClaudeMessage {
     pub model: Option<String>,
     pub content: Vec<ClaudeContentItem>,
     pub stop_reason: Option<String>,
+}
+
+/// User message with flexible content format (can be string or array)
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct ClaudeUserMessage {
+    pub role: String,
+    #[serde(deserialize_with = "deserialize_user_content")]
+    pub content: Vec<ClaudeContentItem>,
+}
+
+fn deserialize_user_content<'de, D>(deserializer: D) -> Result<Vec<ClaudeContentItem>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+
+    struct ContentVisitor;
+
+    impl<'de> Visitor<'de> for ContentVisitor {
+        type Value = Vec<ClaudeContentItem>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a string or array of content items")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(vec![ClaudeContentItem::Text {
+                text: value.to_string(),
+            }])
+        }
+
+        fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: de::SeqAccess<'de>,
+        {
+            Vec::deserialize(de::value::SeqAccessDeserializer::new(seq))
+        }
+    }
+
+    deserializer.deserialize_any(ContentVisitor)
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
