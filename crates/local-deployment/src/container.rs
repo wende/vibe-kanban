@@ -869,12 +869,15 @@ impl ContainerService for LocalContainerService {
             .await?
             .ok_or(sqlx::Error::RowNotFound)?;
 
+        // When branch == target_branch, we're using an existing branch (no new branch needed)
+        let create_new_branch = task_attempt.branch != task_attempt.target_branch;
+
         WorktreeManager::create_worktree(
             &project.git_repo_path,
             &task_attempt.branch,
             &worktree_path,
             &task_attempt.target_branch,
-            true, // create new branch
+            create_new_branch,
         )
         .await?;
 

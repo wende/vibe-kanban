@@ -404,6 +404,7 @@
       "cancelled": "Cancelled"
     },
     "startLabel": "Start",
+    "useExistingBranch": "Use existing branch",
     "attachImage": "Attach image",
     "dropImagesHere": "Drop images here",
     "updating": "Updating...",

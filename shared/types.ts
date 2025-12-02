@@ -172,7 +172,11 @@ export type AssignSharedTaskResponse = { shared_task: SharedTask, };
 
 export type ShareTaskResponse = { shared_task_id: string, };
 
-export type CreateAndStartTaskRequest = { task: CreateTask, executor_profile_id: ExecutorProfileId, base_branch: string, };
+export type CreateAndStartTaskRequest = { task: CreateTask, executor_profile_id: ExecutorProfileId, base_branch: string, 
+/**
+ * If true, use base_branch as the working branch instead of creating a new one
+ */
+use_existing_branch: boolean, };
 
 export type CreateGitHubPrRequest = { title: string, body: string | null, target_branch: string | null, };
 
@@ -288,7 +292,11 @@ export type CreateTaskAttemptBody = { task_id: string,
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, base_branch: string, };
+executor_profile_id: ExecutorProfileId, base_branch: string, 
+/**
+ * If true, use base_branch as the working branch instead of creating a new one
+ */
+use_existing_branch: boolean, };
 
 export type RunAgentSetupRequest = { executor_profile_id: ExecutorProfileId, };
 
