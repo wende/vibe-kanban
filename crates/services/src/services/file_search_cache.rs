@@ -23,6 +23,23 @@ use super::{
     git::GitService,
 };
 
+/// Resolve the actual git directory, handling both regular repos and worktrees.
+/// In a worktree, `.git` is a file containing `gitdir: <path>` pointing to the real git dir.
+fn resolve_git_dir(repo_path: &Path) -> Option<PathBuf> {
+    let git_path = repo_path.join(".git");
+    if git_path.is_dir() {
+        Some(git_path)
+    } else if git_path.is_file() {
+        // Worktree: .git is a file containing "gitdir: <path>"
+        let content = std::fs::read_to_string(&git_path).ok()?;
+        content
+            .strip_prefix("gitdir: ")
+            .map(|p| PathBuf::from(p.trim()))
+    } else {
+        None
+    }
+}
+
 /// Search mode for different use cases
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -449,10 +466,8 @@ impl FileSearchCache {
             return Ok(()); // Already watching
         }
 
-        let git_dir = repo_path.join(".git");
-        if !git_dir.exists() {
-            return Err("Not a git repository".to_string());
-        }
+        let git_dir = resolve_git_dir(repo_path)
+            .ok_or_else(|| "Not a git repository".to_string())?;
 
         let build_queue = self.build_queue.clone();
         let watched_path = repo_path_buf.clone();
