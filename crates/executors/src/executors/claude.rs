@@ -1464,12 +1464,13 @@ pub enum ClaudeJson {
     #[serde(rename = "user")]
     User {
         message: ClaudeUserMessage,
+        #[serde(default, alias = "sessionid")]
         session_id: Option<String>,
         #[serde(default)]
         uuid: Option<String>,
-        #[serde(default, rename = "parent_tool_use_id")]
+        #[serde(default, alias = "parenttooluseid")]
         parent_tool_use_id: Option<String>,
-        #[serde(default, rename = "isReplay")]
+        #[serde(default, alias = "isReplay")]
         is_replay: Option<bool>,
     },
     #[serde(rename = "tool_use")]
