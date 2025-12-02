@@ -268,6 +268,73 @@ impl ProjectService {
     pub async fn search_files(
         &self,
         cache: &FileSearchCache,
+        repositories: &[ProjectRepository],
+        query: &SearchQuery,
+    ) -> Result<Vec<SearchResult>> {
+        let query_str = query.q.trim();
+        if query_str.is_empty() || repositories.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Simple search in single-repo case
+        if repositories.len() == 1 {
+            let repo = &repositories[0];
+            return self
+                .search_single_repo(cache, Path::new(&repo.git_repo_path), query)
+                .await;
+        }
+
+        // Multi repo: search in parallel and prefix paths
+        let search_futures: Vec<_> = repositories
+            .iter()
+            .map(|repo| {
+                let repo_name = repo.name.clone();
+                let repo_path = repo.git_repo_path.clone();
+                let query = query.clone();
+                async move {
+                    let results = self
+                        .search_single_repo(cache, Path::new(&repo_path), &query)
+                        .await
+                        .unwrap_or_else(|e| {
+                            tracing::warn!("Search failed for repo {}: {}", repo_name, e);
+                            vec![]
+                        });
+                    (repo_name, results)
+                }
+            })
+            .collect();
+
+        let repo_results = futures::future::join_all(search_futures).await;
+
+        let mut all_results: Vec<SearchResult> = repo_results
+            .into_iter()
+            .flat_map(|(repo_name, results)| {
+                results.into_iter().map(move |r| SearchResult {
+                    path: format!("{}/{}", repo_name, r.path),
+                    is_file: r.is_file,
+                    match_type: r.match_type.clone(),
+                })
+            })
+            .collect();
+
+        all_results.sort_by(|a, b| {
+            let priority = |m: &SearchMatchType| match m {
+                SearchMatchType::FileName => 0,
+                SearchMatchType::DirectoryName => 1,
+                SearchMatchType::FullPath => 2,
+            };
+            priority(&a.match_type)
+                .cmp(&priority(&b.match_type))
+                .then_with(|| a.path.cmp(&b.path))
+        });
+
+        all_results.truncate(10);
+        Ok(all_results)
+    }
+
+    async fn search_single_repo(
+        &self,
+        cache: &FileSearchCache,
         repo_path: &Path,
         query: &SearchQuery,
     ) -> Result<Vec<SearchResult>> {

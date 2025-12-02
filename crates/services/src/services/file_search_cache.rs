@@ -34,7 +34,7 @@ pub enum SearchMode {
 }
 
 /// Search query parameters for typed Axum extraction
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct SearchQuery {
     pub q: String,
     #[serde(default)]

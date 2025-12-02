@@ -389,7 +389,6 @@ pub async fn search_project_files(
         )));
     }
 
-    // TODO: search all repos
     let repositories = match deployment
         .project()
         .get_repositories(&deployment.db().pool, project.id)
@@ -402,20 +401,11 @@ pub async fn search_project_files(
         }
     };
 
-    let repo_path = match repositories.first() {
-        Some(repo) => &repo.git_repo_path,
-        None => {
-            return Ok(ResponseJson(ApiResponse::error(
-                "Project has no repositories configured",
-            )));
-        }
-    };
-
     match deployment
         .project()
         .search_files(
             deployment.file_search_cache().as_ref(),
-            repo_path,
+            &repositories,
             &search_query,
         )
         .await
