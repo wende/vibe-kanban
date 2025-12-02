@@ -176,6 +176,7 @@
   },
   "followUp": {
     "clearReviewComments": "Clear Review Comments",
+    "compact": "Compact conversation",
     "edit": "Edit",
     "queueForNextTurn": "Queue for next turn",
     "queuing": "Queuing…",

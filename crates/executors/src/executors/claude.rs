@@ -277,7 +277,6 @@ impl ClaudeCode {
 
         // Spawn task to handle the SDK client with control protocol
         let prompt_clone = combined_prompt.clone();
-        let approvals_clone = self.approvals_service.clone();
         tokio::spawn(async move {
             let log_writer = LogWriter::new(new_stdout);
             let client = ClaudeAgentClient::new(log_writer.clone(), approvals_clone);
@@ -293,7 +292,10 @@ impl ClaudeCode {
                 return;
             }
 
-            if let Err(e) = protocol_peer.set_permission_mode(permission_mode).await {
+            if let Err(e) = protocol_peer
+                .set_permission_mode(permission_mode)
+                .await
+            {
                 tracing::warn!("Failed to set permission mode to {permission_mode}: {e}");
             }
 
