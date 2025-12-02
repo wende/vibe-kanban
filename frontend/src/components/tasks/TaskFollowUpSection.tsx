@@ -549,21 +549,21 @@ export function TaskFollowUpSection({
               />
             </div>
 
-            {isAttemptRunning ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={compactExecution}
-                  disabled={isCompacting || isStopping}
-                  size="sm"
-                  variant="outline"
-                  title={t('followUp.compact')}
-                >
-                  {isCompacting ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
-                  ) : (
-                    <Minimize2 className="h-4 w-4" />
-                  )}
-                </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={compactExecution}
+                disabled={isCompacting}
+                size="sm"
+                variant="outline"
+                title={t('followUp.compact')}
+              >
+                {isCompacting ? (
+                  <Loader2 className="animate-spin h-4 w-4" />
+                ) : (
+                  <Minimize2 className="h-4 w-4" />
+                )}
+              </Button>
+              {isAttemptRunning ? (
                 <Button
                   onClick={stopExecution}
                   disabled={isStopping}
@@ -579,10 +579,9 @@ export function TaskFollowUpSection({
                     </>
                   )}
                 </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                {comments.length > 0 && (
+              ) : (
+                <>
+                  {comments.length > 0 && (
                   <Button
                     onClick={clearComments}
                     size="sm"
@@ -614,34 +613,35 @@ export function TaskFollowUpSection({
                     </>
                   )}
                 </Button>
-                {isQueued && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="min-w-[180px] transition-all"
-                    onClick={async () => {
-                      setIsUnqueuing(true);
-                      try {
-                        const ok = await onUnqueue();
-                        if (ok) setQueuedOptimistic(false);
-                      } finally {
-                        setIsUnqueuing(false);
-                      }
-                    }}
-                    disabled={isUnqueuing}
-                  >
-                    {isUnqueuing ? (
-                      <>
-                        <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                        {t('followUp.unqueuing')}
-                      </>
-                    ) : (
-                      t('followUp.edit')
-                    )}
-                  </Button>
-                )}
-              </div>
-            )}
+                  {isQueued && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="min-w-[180px] transition-all"
+                      onClick={async () => {
+                        setIsUnqueuing(true);
+                        try {
+                          const ok = await onUnqueue();
+                          if (ok) setQueuedOptimistic(false);
+                        } finally {
+                          setIsUnqueuing(false);
+                        }
+                      }}
+                      disabled={isUnqueuing}
+                    >
+                      {isUnqueuing ? (
+                        <>
+                          <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                          {t('followUp.unqueuing')}
+                        </>
+                      ) : (
+                        t('followUp.edit')
+                      )}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
             {isAttemptRunning && (
               <div className="flex items-center gap-2">
                 <Button

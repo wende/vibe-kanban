@@ -420,6 +420,15 @@ impl TaskAttempt {
         Ok(())
     }
 
+    /// Delete a task attempt by ID
+    pub async fn delete(pool: &SqlitePool, id: Uuid) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM task_attempts WHERE id = ?")
+            .bind(id)
+            .execute(pool)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn update_target_branch_for_children_of_attempt(
         pool: &SqlitePool,
         parent_attempt_id: Uuid,

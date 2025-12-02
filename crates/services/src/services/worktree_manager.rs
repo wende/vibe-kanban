@@ -50,6 +50,8 @@ pub enum WorktreeError {
     BranchNotFound(String),
     #[error("Repository error: {0}")]
     Repository(String),
+    #[error("Branch '{0}' is already checked out in another worktree")]
+    BranchAlreadyCheckedOut(String),
 }
 
 pub struct WorktreeManager;
@@ -321,6 +323,16 @@ impl WorktreeManager {
                     Ok(())
                 }
                 Err(e) => {
+                    // Check if this is a "branch already checked out" error
+                    let error_str = e.to_string();
+                    if error_str.contains("is already used by worktree")
+                        || error_str.contains("is already checked out")
+                    {
+                        return Err(WorktreeError::BranchAlreadyCheckedOut(
+                            branch_name.clone(),
+                        ));
+                    }
+
                     tracing::info!(
                         "git worktree add failed; attempting metadata cleanup and retry: {}",
                         e
@@ -339,6 +351,15 @@ impl WorktreeManager {
                         &branch_name,
                         false,
                     ) {
+                        // Check again after retry
+                        let error_str = e2.to_string();
+                        if error_str.contains("is already used by worktree")
+                            || error_str.contains("is already checked out")
+                        {
+                            return Err(WorktreeError::BranchAlreadyCheckedOut(
+                                branch_name.clone(),
+                            ));
+                        }
                         return Err(WorktreeError::GitService(e2));
                     }
                     if !worktree_path.exists() {

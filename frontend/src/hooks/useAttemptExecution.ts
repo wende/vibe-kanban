@@ -70,14 +70,17 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
 
   // Compact execution function - sends /compact to the running Claude Code process
   const compactExecution = useCallback(async () => {
-    if (!isAttemptRunning || isCompacting) return;
+    if (isCompacting) return;
 
     // Find the running coding agent process
     const runningProcess = executionProcesses.find(
       (p) => p.status === 'running' && p.run_reason === 'codingagent'
     );
 
-    if (!runningProcess) return;
+    if (!runningProcess) {
+      console.warn('No running coding agent process found to compact');
+      return;
+    }
 
     try {
       setIsCompacting(true);
@@ -88,7 +91,7 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     } finally {
       setIsCompacting(false);
     }
-  }, [executionProcesses, isAttemptRunning, isCompacting]);
+  }, [executionProcesses, isCompacting]);
 
   const isLoading =
     streamLoading || processDetailQueries.some((q) => q.isLoading);
