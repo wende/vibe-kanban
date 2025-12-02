@@ -28,7 +28,7 @@ import { CopyFilesField } from '@/components/projects/CopyFilesField';
 import { AutoExpandingTextarea } from '@/components/ui/auto-expanding-textarea';
 import { FolderPickerDialog } from '@/components/dialogs/shared/FolderPickerDialog';
 import { projectsApi } from '@/lib/api';
-import type { Project, ProjectRepository, UpdateProject } from 'shared/types';
+import type { Project, ProjectRepoWithDetails, UpdateProject } from 'shared/types';
 
 interface ProjectFormState {
   name: string;
@@ -73,7 +73,7 @@ export function ProjectSettings() {
   const [success, setSuccess] = useState(false);
 
   // Repositories state
-  const [repositories, setRepositories] = useState<ProjectRepository[]>([]);
+  const [repositories, setRepositories] = useState<ProjectRepoWithDetails[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
   const [addingRepo, setAddingRepo] = useState(false);
@@ -247,7 +247,7 @@ export function ProjectSettings() {
     setRepoError(null);
     try {
       await projectsApi.deleteRepository(selectedProjectId, repoId);
-      setRepositories((prev) => prev.filter((r) => r.id !== repoId));
+      setRepositories((prev) => prev.filter((r) => r.repo_id !== repoId));
     } catch (err) {
       setRepoError(
         err instanceof Error ? err.message : 'Failed to delete repository'
@@ -455,17 +455,17 @@ export function ProjectSettings() {
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">{repo.name}</div>
                         <div className="text-sm text-muted-foreground truncate">
-                          {repo.git_repo_path}
+                          {repo.path}
                         </div>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteRepository(repo.id)}
-                        disabled={deletingRepoId === repo.id}
+                        onClick={() => handleDeleteRepository(repo.repo_id)}
+                        disabled={deletingRepoId === repo.repo_id}
                         title="Delete repository"
                       >
-                        {deletingRepoId === repo.id ? (
+                        {deletingRepoId === repo.repo_id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Trash2 className="h-4 w-4" />

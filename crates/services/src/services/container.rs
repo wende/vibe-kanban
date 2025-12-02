@@ -285,8 +285,7 @@ pub trait ContainerService {
 
             // Fallback to base branch commit OID
             if before.is_none() {
-                let repo_path =
-                    std::path::Path::new(row.git_repo_path.as_deref().unwrap_or_default());
+                let repo_path = std::path::Path::new(row.repo_path.as_deref().unwrap_or_default());
                 match self
                     .git()
                     .get_branch_oid(repo_path, row.target_branch.as_str())
@@ -307,7 +306,7 @@ pub trait ContainerService {
                 && let Err(e) = ExecutionProcessRepoState::update_before_head_commit(
                     pool,
                     row.id,
-                    row.project_repository_id,
+                    row.repo_id,
                     &before_oid,
                 )
                 .await
@@ -799,7 +798,7 @@ pub trait ContainerService {
             let repo_path = workspace_root.join(&repo.name);
             let before_head_commit = self.git().get_head_info(&repo_path).ok().map(|h| h.oid);
             repo_states.push(CreateExecutionProcessRepoState {
-                project_repository_id: repo.id,
+                repo_id: repo.repo_id,
                 before_head_commit,
                 after_head_commit: None,
                 merge_commit: None,

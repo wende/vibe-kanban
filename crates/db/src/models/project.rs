@@ -5,7 +5,7 @@ use thiserror::Error;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use super::project_repository::{CreateProjectRepository, ProjectRepository};
+use super::project_repo::{CreateProjectRepo, ProjectRepo, ProjectRepoWithDetails};
 
 #[derive(Debug, Error)]
 pub enum ProjectError {
@@ -35,7 +35,7 @@ pub struct Project {
 #[derive(Debug, Clone, Deserialize, TS)]
 pub struct CreateProject {
     pub name: String,
-    pub repositories: Vec<CreateProjectRepository>,
+    pub repositories: Vec<CreateProjectRepo>,
     pub setup_script: Option<String>,
     pub dev_script: Option<String>,
     pub cleanup_script: Option<String>,
@@ -298,7 +298,7 @@ impl Project {
     pub async fn repositories(
         &self,
         pool: &SqlitePool,
-    ) -> Result<Vec<ProjectRepository>, sqlx::Error> {
-        ProjectRepository::find_by_project_id(pool, self.id).await
+    ) -> Result<Vec<ProjectRepoWithDetails>, sqlx::Error> {
+        ProjectRepo::find_repos_for_project(pool, self.id).await
     }
 }

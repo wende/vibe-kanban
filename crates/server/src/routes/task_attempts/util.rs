@@ -1,6 +1,6 @@
 use db::models::{
     execution_process::ExecutionProcess, execution_process_repo_state::ExecutionProcessRepoState,
-    image::TaskImage, project_repository::ProjectRepository, task_attempt::TaskAttempt,
+    image::TaskImage, project_repo::ProjectRepo, task_attempt::TaskAttempt,
 };
 use deployment::Deployment;
 use services::services::{
@@ -36,7 +36,7 @@ pub async fn restore_worktrees_to_process(
     force_when_dirty: bool,
 ) -> Result<(), ApiError> {
     // Get all repositories for this project
-    let repos = ProjectRepository::find_by_project_id(pool, project_id).await?;
+    let repos = ProjectRepo::find_repos_for_project(pool, project_id).await?;
 
     // Get all repo states for the target process
     let repo_states =
@@ -56,9 +56,7 @@ pub async fn restore_worktrees_to_process(
     // For each repository, reset to its respective commit
     for repo in &repos {
         // Find this repo's state from the target process
-        let repo_state = repo_states
-            .iter()
-            .find(|s| s.project_repository_id == repo.id);
+        let repo_state = repo_states.iter().find(|s| s.repo_id == repo.repo_id);
 
         // Get before_head_commit for THIS repo, or fall back to prev process's after_head_commit
         let target_oid = match repo_state.and_then(|s| s.before_head_commit.clone()) {
@@ -68,7 +66,7 @@ pub async fn restore_worktrees_to_process(
                     pool,
                     task_attempt.id,
                     target_process_id,
-                    repo.id,
+                    repo.repo_id,
                 )
                 .await?
             }
