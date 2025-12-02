@@ -17,6 +17,8 @@
     "editBranchName": "ブランチ名を編集",
     "gitActions": "Gitアクション",
     "openInIde": "Open attempt in IDE",
+    "copyPath": "パスをコピー",
+    "pathCopied": "パスをコピーしました！",
     "task": "Task",
     "viewProcesses": "View processes",
     "viewRelatedTasks": "View related tasks"
@@ -174,6 +176,7 @@
   },
   "followUp": {
     "clearReviewComments": "Clear Review Comments",
+    "compact": "Compact conversation",
     "edit": "Edit",
     "queueForNextTurn": "Queue for next turn",
     "queuing": "Queuing…",

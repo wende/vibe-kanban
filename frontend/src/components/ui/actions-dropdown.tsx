@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +48,7 @@ export function ActionsDropdown({
   const hasAttemptActions = Boolean(attempt);
   const hasTaskActions = Boolean(task);
   const isShared = Boolean(sharedTask);
+  const [copied, setCopied] = useState(false);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -78,6 +80,22 @@ export function ActionsDropdown({
     if (!attempt?.id) return;
     openInEditor();
   };
+
+  const handleCopyPath = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!attempt?.container_ref) return;
+
+      try {
+        await navigator.clipboard.writeText(attempt.container_ref);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.warn('Copy to clipboard failed:', err);
+      }
+    },
+    [attempt?.container_ref]
+  );
 
   const handleViewProcesses = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -187,6 +205,14 @@ export function ActionsDropdown({
                 onClick={handleOpenInEditor}
               >
                 {t('actionsMenu.openInIde')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!attempt?.container_ref}
+                onClick={handleCopyPath}
+              >
+                {copied
+                  ? t('actionsMenu.pathCopied')
+                  : t('actionsMenu.copyPath')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={!attempt?.id}

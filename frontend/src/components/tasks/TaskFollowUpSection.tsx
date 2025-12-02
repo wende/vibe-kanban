@@ -4,6 +4,7 @@ import {
   Send,
   StopCircle,
   AlertCircle,
+  Minimize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -56,8 +57,14 @@ export function TaskFollowUpSection({
 }: TaskFollowUpSectionProps) {
   const { t } = useTranslation('tasks');
 
-  const { isAttemptRunning, stopExecution, isStopping, processes } =
-    useAttemptExecution(selectedAttemptId, task.id);
+  const {
+    isAttemptRunning,
+    stopExecution,
+    isStopping,
+    processes,
+    compactExecution,
+    isCompacting,
+  } = useAttemptExecution(selectedAttemptId, task.id);
   const { data: branchStatus, refetch: refetchBranchStatus } =
     useBranchStatus(selectedAttemptId);
   const { branch: attemptBranch, refetch: refetchAttemptBranch } =
@@ -542,25 +549,39 @@ export function TaskFollowUpSection({
               />
             </div>
 
-            {isAttemptRunning ? (
+            <div className="flex items-center gap-2">
               <Button
-                onClick={stopExecution}
-                disabled={isStopping}
+                onClick={compactExecution}
+                disabled={isCompacting}
                 size="sm"
-                variant="destructive"
+                variant="outline"
+                title={t('followUp.compact')}
               >
-                {isStopping ? (
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                {isCompacting ? (
+                  <Loader2 className="animate-spin h-4 w-4" />
                 ) : (
-                  <>
-                    <StopCircle className="h-4 w-4 mr-2" />
-                    {t('followUp.stop')}
-                  </>
+                  <Minimize2 className="h-4 w-4" />
                 )}
               </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                {comments.length > 0 && (
+              {isAttemptRunning ? (
+                <Button
+                  onClick={stopExecution}
+                  disabled={isStopping}
+                  size="sm"
+                  variant="destructive"
+                >
+                  {isStopping ? (
+                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  ) : (
+                    <>
+                      <StopCircle className="h-4 w-4 mr-2" />
+                      {t('followUp.stop')}
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <>
+                  {comments.length > 0 && (
                   <Button
                     onClick={clearComments}
                     size="sm"
@@ -592,34 +613,35 @@ export function TaskFollowUpSection({
                     </>
                   )}
                 </Button>
-                {isQueued && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="min-w-[180px] transition-all"
-                    onClick={async () => {
-                      setIsUnqueuing(true);
-                      try {
-                        const ok = await onUnqueue();
-                        if (ok) setQueuedOptimistic(false);
-                      } finally {
-                        setIsUnqueuing(false);
-                      }
-                    }}
-                    disabled={isUnqueuing}
-                  >
-                    {isUnqueuing ? (
-                      <>
-                        <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                        {t('followUp.unqueuing')}
-                      </>
-                    ) : (
-                      t('followUp.edit')
-                    )}
-                  </Button>
-                )}
-              </div>
-            )}
+                  {isQueued && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="min-w-[180px] transition-all"
+                      onClick={async () => {
+                        setIsUnqueuing(true);
+                        try {
+                          const ok = await onUnqueue();
+                          if (ok) setQueuedOptimistic(false);
+                        } finally {
+                          setIsUnqueuing(false);
+                        }
+                      }}
+                      disabled={isUnqueuing}
+                    >
+                      {isUnqueuing ? (
+                        <>
+                          <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                          {t('followUp.unqueuing')}
+                        </>
+                      ) : (
+                        t('followUp.edit')
+                      )}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
             {isAttemptRunning && (
               <div className="flex items-center gap-2">
                 <Button

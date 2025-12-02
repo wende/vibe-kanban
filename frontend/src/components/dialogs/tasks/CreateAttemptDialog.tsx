@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import BranchSelector from '@/components/tasks/BranchSelector';
 import { ExecutorProfileSelector } from '@/components/settings';
 import { useAttemptCreation } from '@/hooks/useAttemptCreation';
@@ -53,6 +54,7 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
     const [userSelectedBranch, setUserSelectedBranch] = useState<string | null>(
       null
     );
+    const [customBranch, setCustomBranch] = useState<string>('');
 
     const { data: branches = [], isLoading: isLoadingBranches } = useBranches(
       projectId,
@@ -88,6 +90,7 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
       if (!modal.visible) {
         setUserSelectedProfile(null);
         setUserSelectedBranch(null);
+        setCustomBranch('');
       }
     }, [modal.visible]);
 
@@ -146,6 +149,7 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
         await createAttempt({
           profile: effectiveProfile,
           baseBranch: effectiveBranch,
+          customBranch: customBranch,
         });
 
         modal.hide();
@@ -200,6 +204,19 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
                     ? t('createAttemptDialog.loadingBranches')
                     : t('createAttemptDialog.selectBranch')
                 }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="custom-branch" className="text-sm font-medium text-muted-foreground">
+                Custom branch name (optional)
+              </Label>
+              <Input
+                id="custom-branch"
+                value={customBranch}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBranch(e.target.value)}
+                placeholder="feature/my-custom-branch"
+                disabled={isCreating}
               />
             </div>
 

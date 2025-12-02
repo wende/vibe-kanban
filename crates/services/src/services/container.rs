@@ -916,4 +916,15 @@ pub trait ContainerService {
         tracing::debug!("Started next action: {:?}", next_action);
         Ok(())
     }
+
+    /// Send user input to a running execution process.
+    /// Returns Ok(true) if input was sent successfully, Ok(false) if no input sender is available.
+    async fn send_input_to_process(
+        &self,
+        _execution_process_id: Uuid,
+        _input: String,
+    ) -> Result<bool, ContainerError> {
+        // Default implementation returns false (not supported)
+        Ok(false)
+    }
 }

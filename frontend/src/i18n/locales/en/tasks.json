@@ -142,6 +142,7 @@
   },
   "followUp": {
     "stop": "Stop",
+    "compact": "Compact conversation",
     "clearReviewComments": "Clear Review Comments",
     "resolveConflicts": "Resolve conflicts",
     "send": "Send",
@@ -278,6 +279,8 @@
   "actionsMenu": {
     "attempt": "Attempt",
     "openInIde": "Open attempt in IDE",
+    "copyPath": "Copy path",
+    "pathCopied": "Path copied!",
     "viewProcesses": "View processes",
     "viewRelatedTasks": "View related tasks",
     "createNewAttempt": "Create new attempt",

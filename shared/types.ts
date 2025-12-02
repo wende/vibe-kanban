@@ -176,7 +176,12 @@ export type CreateAndStartTaskRequest = { task: CreateTask, executor_profile_id:
 /**
  * If true, use base_branch as the working branch instead of creating a new one
  */
-use_existing_branch: boolean, };
+use_existing_branch: boolean, 
+/**
+ * Custom branch name to use instead of auto-generating one.
+ * Takes precedence over use_existing_branch when set.
+ */
+custom_branch: string | null, };
 
 export type CreateGitHubPrRequest = { title: string, body: string | null, target_branch: string | null, };
 
@@ -296,7 +301,12 @@ executor_profile_id: ExecutorProfileId, base_branch: string,
 /**
  * If true, use base_branch as the working branch instead of creating a new one
  */
-use_existing_branch: boolean, };
+use_existing_branch: boolean, 
+/**
+ * Custom branch name to use instead of auto-generating one.
+ * Takes precedence over use_existing_branch when set.
+ */
+custom_branch: string | null, };
 
 export type RunAgentSetupRequest = { executor_profile_id: ExecutorProfileId, };
 

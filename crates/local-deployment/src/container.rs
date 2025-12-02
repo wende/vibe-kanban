@@ -28,7 +28,7 @@ use deployment::{DeploymentError, RemoteClientNotConfigured};
 use executors::{
     actions::{Executable, ExecutorAction},
     approvals::{ExecutorApprovalService, NoopExecutorApprovalService},
-    executors::{BaseCodingAgent, ExecutorExitResult, ExecutorExitSignal},
+    executors::{BaseCodingAgent, BoxedInputSender, ExecutorExitResult, ExecutorExitSignal},
     logs::{
         NormalizedEntryType,
         utils::{
@@ -65,6 +65,7 @@ use crate::command;
 pub struct LocalContainerService {
     db: DBService,
     child_store: Arc<RwLock<HashMap<Uuid, Arc<RwLock<AsyncGroupChild>>>>>,
+    input_senders: Arc<RwLock<HashMap<Uuid, Arc<BoxedInputSender>>>>,
     msg_stores: Arc<RwLock<HashMap<Uuid, Arc<MsgStore>>>>,
     config: Arc<RwLock<Config>>,
     git: GitService,
@@ -87,10 +88,12 @@ impl LocalContainerService {
         publisher: Result<SharePublisher, RemoteClientNotConfigured>,
     ) -> Self {
         let child_store = Arc::new(RwLock::new(HashMap::new()));
+        let input_senders = Arc::new(RwLock::new(HashMap::new()));
 
         let container = LocalContainerService {
             db,
             child_store,
+            input_senders,
             msg_stores,
             config,
             git,
@@ -117,6 +120,21 @@ impl LocalContainerService {
 
     pub async fn remove_child_from_store(&self, id: &Uuid) {
         let mut map = self.child_store.write().await;
+        map.remove(id);
+    }
+
+    pub async fn add_input_sender(&self, id: Uuid, sender: BoxedInputSender) {
+        let mut map = self.input_senders.write().await;
+        map.insert(id, Arc::new(sender));
+    }
+
+    pub async fn get_input_sender(&self, id: &Uuid) -> Option<Arc<BoxedInputSender>> {
+        let map = self.input_senders.read().await;
+        map.get(id).cloned()
+    }
+
+    pub async fn remove_input_sender(&self, id: &Uuid) {
+        let mut map = self.input_senders.write().await;
         map.remove(id);
     }
 
@@ -288,6 +306,7 @@ impl LocalContainerService {
     ) -> JoinHandle<()> {
         let exec_id = *exec_id;
         let child_store = self.child_store.clone();
+        let input_senders = self.input_senders.clone();
         let msg_stores = self.msg_stores.clone();
         let db = self.db.clone();
         let config = self.config.clone();
@@ -467,8 +486,9 @@ impl LocalContainerService {
                 }
             }
 
-            // Cleanup child handle
+            // Cleanup child handle and input sender
             child_store.write().await.remove(&exec_id);
+            input_senders.write().await.remove(&exec_id);
         })
     }
 
@@ -1030,6 +1050,12 @@ impl ContainerService for LocalContainerService {
         self.add_child_to_store(execution_process.id, spawned.child)
             .await;
 
+        // Store input sender if available (for sending commands to the process)
+        if let Some(input_sender) = spawned.input_sender {
+            self.add_input_sender(execution_process.id, input_sender)
+                .await;
+        }
+
         // Spawn unified exit monitor: watches OS exit and optional executor signal
         let _hn = self.spawn_exit_monitor(&execution_process.id, spawned.exit_signal);
 
@@ -1069,6 +1095,7 @@ impl ContainerService for LocalContainerService {
             }
         }
         self.remove_child_from_store(&execution_process.id).await;
+        self.remove_input_sender(&execution_process.id).await;
 
         // Mark the process finished in the MsgStore
         if let Some(msg) = self.msg_stores.write().await.remove(&execution_process.id) {
@@ -1294,6 +1321,22 @@ impl ContainerService for LocalContainerService {
         }
 
         Ok(())
+    }
+
+    async fn send_input_to_process(
+        &self,
+        execution_process_id: Uuid,
+        input: String,
+    ) -> Result<bool, ContainerError> {
+        if let Some(sender) = self.get_input_sender(&execution_process_id).await {
+            sender
+                .send_user_input(input)
+                .await
+                .map_err(ContainerError::ExecutorError)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 

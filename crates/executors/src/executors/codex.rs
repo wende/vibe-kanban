@@ -376,6 +376,7 @@ impl Codex {
         Ok(SpawnedChild {
             child,
             exit_signal: Some(exit_signal_rx),
+            input_sender: None,
         })
     }
 
