@@ -77,6 +77,7 @@ type TaskFormValues = {
   executorProfileId: ExecutorProfileId | null;
   branch: string;
   autoStart: boolean;
+  useExistingBranch: boolean;
 };
 
 const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
@@ -130,6 +131,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           executorProfileId: baseProfile,
           branch: defaultBranch || '',
           autoStart: false,
+          useExistingBranch: false,
         };
 
       case 'duplicate':
@@ -140,6 +142,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           executorProfileId: baseProfile,
           branch: defaultBranch || '',
           autoStart: true,
+          useExistingBranch: false,
         };
 
       case 'subtask':
@@ -152,6 +155,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           executorProfileId: baseProfile,
           branch: defaultBranch || '',
           autoStart: true,
+          useExistingBranch: false,
         };
     }
   }, [mode, props, system.config?.executor_profile, branches]);
@@ -192,6 +196,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
             task,
             executor_profile_id: value.executorProfileId!,
             base_branch: value.branch,
+            use_existing_branch: value.useExistingBranch,
           },
           { onSuccess: () => modal.remove() }
         );
@@ -500,39 +505,63 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
               {(autoStartField) => (
                 <div
                   className={cn(
-                    'flex items-center gap-2 h-9 py-2 my-2 transition-opacity duration-200',
+                    'flex flex-col gap-2 py-2 my-2 transition-opacity duration-200',
                     autoStartField.state.value
                       ? 'opacity-100'
                       : 'opacity-0 pointer-events-none'
                   )}
                 >
-                  <form.Field name="executorProfileId">
+                  <div className="flex items-center gap-2 h-9">
+                    <form.Field name="executorProfileId">
+                      {(field) => (
+                        <ExecutorProfileSelector
+                          profiles={profiles}
+                          selectedProfile={field.state.value}
+                          onProfileSelect={(profile) =>
+                            field.handleChange(profile)
+                          }
+                          disabled={isSubmitting || !autoStartField.state.value}
+                          showLabel={false}
+                          className="flex items-center gap-2 flex-row flex-[2] min-w-0"
+                          itemClassName="flex-1 min-w-0"
+                        />
+                      )}
+                    </form.Field>
+                    <form.Field name="branch">
+                      {(field) => (
+                        <BranchSelector
+                          branches={branches ?? []}
+                          selectedBranch={field.state.value}
+                          onBranchSelect={(branch) => field.handleChange(branch)}
+                          placeholder="Branch"
+                          className={cn(
+                            'h-9 flex-1 min-w-0 text-xs',
+                            isSubmitting && 'opacity-50 cursor-not-allowed'
+                          )}
+                        />
+                      )}
+                    </form.Field>
+                  </div>
+                  <form.Field name="useExistingBranch">
                     {(field) => (
-                      <ExecutorProfileSelector
-                        profiles={profiles}
-                        selectedProfile={field.state.value}
-                        onProfileSelect={(profile) =>
-                          field.handleChange(profile)
-                        }
-                        disabled={isSubmitting || !autoStartField.state.value}
-                        showLabel={false}
-                        className="flex items-center gap-2 flex-row flex-[2] min-w-0"
-                        itemClassName="flex-1 min-w-0"
-                      />
-                    )}
-                  </form.Field>
-                  <form.Field name="branch">
-                    {(field) => (
-                      <BranchSelector
-                        branches={branches ?? []}
-                        selectedBranch={field.state.value}
-                        onBranchSelect={(branch) => field.handleChange(branch)}
-                        placeholder="Branch"
-                        className={cn(
-                          'h-9 flex-1 min-w-0 text-xs',
-                          isSubmitting && 'opacity-50 cursor-not-allowed'
-                        )}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="use-existing-branch-switch"
+                          checked={field.state.value}
+                          onCheckedChange={(checked) =>
+                            field.handleChange(checked)
+                          }
+                          disabled={isSubmitting || !autoStartField.state.value}
+                          className="data-[state=checked]:bg-gray-900 dark:data-[state=checked]:bg-gray-100"
+                          aria-label={t('taskFormDialog.useExistingBranch')}
+                        />
+                        <Label
+                          htmlFor="use-existing-branch-switch"
+                          className="text-sm cursor-pointer text-muted-foreground"
+                        >
+                          {t('taskFormDialog.useExistingBranch')}
+                        </Label>
+                      </div>
                     )}
                   </form.Field>
                 </div>

@@ -428,6 +428,7 @@
       "cancelled": "Cancelado"
     },
     "startLabel": "Iniciar",
+    "useExistingBranch": "Usar rama existente",
     "attachImage": "Adjuntar imagen",
     "dropImagesHere": "Suelta las imágenes aquí",
     "updating": "Actualizando...",

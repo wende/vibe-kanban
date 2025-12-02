@@ -107,6 +107,9 @@ pub struct CreateTaskAttemptBody {
     /// Executor profile specification
     pub executor_profile_id: ExecutorProfileId,
     pub base_branch: String,
+    /// If true, use base_branch as the working branch instead of creating a new one
+    #[serde(default)]
+    pub use_existing_branch: bool,
 }
 
 impl CreateTaskAttemptBody {
@@ -135,17 +138,22 @@ pub async fn create_task_attempt(
         .ok_or(SqlxError::RowNotFound)?;
 
     let attempt_id = Uuid::new_v4();
-    let git_branch_name = deployment
-        .container()
-        .git_branch_from_task_attempt(&attempt_id, &task.title)
-        .await;
+    let git_branch_name = if payload.use_existing_branch {
+        // Use the existing branch directly instead of creating a new one
+        payload.base_branch.clone()
+    } else {
+        deployment
+            .container()
+            .git_branch_from_task_attempt(&attempt_id, &task.title)
+            .await
+    };
 
     let task_attempt = TaskAttempt::create(
         &deployment.db().pool,
         &CreateTaskAttempt {
             executor: executor_profile_id.executor,
             base_branch: payload.base_branch.clone(),
-            branch: git_branch_name.clone(),
+            branch: git_branch_name,
         },
         attempt_id,
         payload.task_id,
