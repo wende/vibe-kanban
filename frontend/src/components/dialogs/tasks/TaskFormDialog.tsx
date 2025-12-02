@@ -78,6 +78,7 @@ type TaskFormValues = {
   branch: string;
   autoStart: boolean;
   useExistingBranch: boolean;
+  customBranch: string;
 };
 
 const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
@@ -132,6 +133,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           branch: defaultBranch || '',
           autoStart: false,
           useExistingBranch: false,
+          customBranch: '',
         };
 
       case 'duplicate':
@@ -143,6 +145,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           branch: defaultBranch || '',
           autoStart: true,
           useExistingBranch: false,
+          customBranch: '',
         };
 
       case 'subtask':
@@ -156,6 +159,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           branch: defaultBranch || '',
           autoStart: true,
           useExistingBranch: false,
+          customBranch: '',
         };
     }
   }, [mode, props, system.config?.executor_profile, branches]);
@@ -197,6 +201,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
             executor_profile_id: value.executorProfileId!,
             base_branch: value.branch,
             use_existing_branch: value.useExistingBranch,
+            custom_branch: value.customBranch.trim() || null,
           },
           { onSuccess: () => modal.remove() }
         );
@@ -561,6 +566,26 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                         >
                           {t('taskFormDialog.useExistingBranch')}
                         </Label>
+                      </div>
+                    )}
+                  </form.Field>
+                  <form.Field name="customBranch">
+                    {(field) => (
+                      <div className="flex flex-col gap-1.5">
+                        <Label
+                          htmlFor="custom-branch-input"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Custom branch name (optional)
+                        </Label>
+                        <Input
+                          id="custom-branch-input"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="feature/my-custom-branch"
+                          className="h-9 text-xs"
+                          disabled={isSubmitting || !autoStartField.state.value}
+                        />
                       </div>
                     )}
                   </form.Field>

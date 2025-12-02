@@ -182,9 +182,28 @@ impl ProtocolPeer {
     async fn send_json<T: serde::Serialize>(&self, message: &T) -> Result<(), ExecutorError> {
         let json = serde_json::to_string(message)?;
         let mut stdin = self.stdin.lock().await;
-        stdin.write_all(json.as_bytes()).await?;
-        stdin.write_all(b"\n").await?;
-        stdin.flush().await?;
+        // Handle broken pipe gracefully - the process may have exited
+        if let Err(e) = stdin.write_all(json.as_bytes()).await {
+            if e.kind() == std::io::ErrorKind::BrokenPipe {
+                tracing::warn!("Cannot send to Claude Code: process stdin closed (broken pipe)");
+                return Err(ExecutorError::Io(e));
+            }
+            return Err(ExecutorError::Io(e));
+        }
+        if let Err(e) = stdin.write_all(b"\n").await {
+            if e.kind() == std::io::ErrorKind::BrokenPipe {
+                tracing::warn!("Cannot send to Claude Code: process stdin closed (broken pipe)");
+                return Err(ExecutorError::Io(e));
+            }
+            return Err(ExecutorError::Io(e));
+        }
+        if let Err(e) = stdin.flush().await {
+            if e.kind() == std::io::ErrorKind::BrokenPipe {
+                tracing::warn!("Cannot send to Claude Code: process stdin closed (broken pipe)");
+                return Err(ExecutorError::Io(e));
+            }
+            return Err(ExecutorError::Io(e));
+        }
         Ok(())
     }
 

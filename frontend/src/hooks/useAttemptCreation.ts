@@ -5,6 +5,7 @@ import type { TaskAttempt, ExecutorProfileId } from 'shared/types';
 type CreateAttemptArgs = {
   profile: ExecutorProfileId;
   baseBranch: string;
+  customBranch?: string;
 };
 
 type UseAttemptCreationArgs = {
@@ -19,12 +20,13 @@ export function useAttemptCreation({
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: ({ profile, baseBranch }: CreateAttemptArgs) =>
+    mutationFn: ({ profile, baseBranch, customBranch }: CreateAttemptArgs) =>
       attemptsApi.create({
         task_id: taskId,
         executor_profile_id: profile,
         base_branch: baseBranch,
         use_existing_branch: false,
+        custom_branch: customBranch?.trim() || null,
       }),
     onSuccess: (newAttempt: TaskAttempt) => {
       queryClient.setQueryData(
