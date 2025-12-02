@@ -10,6 +10,7 @@ interface HeaderAvatar {
 
 interface TaskCardHeaderProps {
   title: ReactNode;
+  subtitle?: string;
   avatar?: HeaderAvatar;
   right?: ReactNode;
   className?: string;
@@ -18,6 +19,7 @@ interface TaskCardHeaderProps {
 
 export function TaskCardHeader({
   title,
+  subtitle,
   avatar,
   right,
   className,
@@ -38,6 +40,11 @@ export function TaskCardHeader({
           />
         ) : null}
         <span className="align-middle">{title}</span>
+        {subtitle && (
+          <span className="align-middle text-muted-foreground ml-2">
+            {subtitle}
+          </span>
+        )}
       </h4>
       {right ? (
         <div className="flex items-center gap-1 shrink-0">{right}</div>
