@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import WYSIWYGEditor from '@/components/ui/wysiwyg';
 import type { LocalImageMetadata } from '@/components/ui/wysiwyg/context/task-attempt-context';
 import BranchSelector from '@/components/tasks/BranchSelector';
@@ -590,67 +589,94 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                   </div>
                   <form.Field name="createNewBranch">
                     {(field) => {
-                      const toggleDisabled =
+                      const disabled =
                         isSubmitting ||
                         !autoStartField.state.value ||
                         checkingWorktree;
+
+                      const handleModeChange = (shouldCreate: boolean) => {
+                        if (field.state.value === shouldCreate) return;
+
+                        field.handleChange(shouldCreate);
+                        if (!shouldCreate) {
+                          form.setFieldValue('customBranch', () => '');
+                          const currentBranch = form.getFieldValue('branch');
+                          if (currentBranch) {
+                            checkBranchInWorktree(currentBranch);
+                          }
+                        } else {
+                          setBranchWorktreeWarning(null);
+                        }
+                      };
+
+                      const modeOptions: Array<{
+                        id: 'create' | 'existing';
+                        label: string;
+                        description: string;
+                        value: boolean;
+                      }> = [
+                        {
+                          id: 'create',
+                          label: t(
+                            'taskFormDialog.createNewBranchOptions.create.title'
+                          ),
+                          description: t(
+                            'taskFormDialog.createNewBranchOptions.create.description'
+                          ),
+                          value: true,
+                        },
+                        {
+                          id: 'existing',
+                          label: t(
+                            'taskFormDialog.createNewBranchOptions.existing.title'
+                          ),
+                          description: t(
+                            'taskFormDialog.createNewBranchOptions.existing.description'
+                          ),
+                          value: false,
+                        },
+                      ];
+
                       return (
                         <div className="flex flex-col gap-1.5">
                           <Label className="text-xs text-muted-foreground">
                             {t('taskFormDialog.createNewBranchLabel')}
                           </Label>
-                          <ToggleGroup
-                            type="single"
-                            value={field.state.value ? 'create' : 'existing'}
-                            onValueChange={(value) => {
-                              if (value !== 'create' && value !== 'existing') {
-                                return;
-                              }
-                              const shouldCreate = value === 'create';
-                              field.handleChange(shouldCreate);
-                              if (!shouldCreate) {
-                                form.setFieldValue('customBranch', () => '');
-                                const currentBranch =
-                                  form.getFieldValue('branch');
-                                if (currentBranch) {
-                                  checkBranchInWorktree(currentBranch);
-                                }
-                              } else {
-                                setBranchWorktreeWarning(null);
-                              }
-                            }}
-                            className="grid grid-cols-2 gap-2"
+                          <div
+                            className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+                            role="radiogroup"
                             aria-label={t(
                               'taskFormDialog.createNewBranchLabel'
                             )}
                           >
-                            <ToggleGroupItem
-                              value="create"
-                              active={field.state.value}
-                              disabled={toggleDisabled}
-                              className={cn(
-                                'h-9 rounded-md border border-input px-3 text-xs font-medium transition',
-                                'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground'
-                              )}
-                            >
-                              {t(
-                                'taskFormDialog.createNewBranchOptions.create'
-                              )}
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="existing"
-                              active={!field.state.value}
-                              disabled={toggleDisabled}
-                              className={cn(
-                                'h-9 rounded-md border border-input px-3 text-xs font-medium transition',
-                                'data-[state=on]:bg-muted data-[state=on]:text-foreground'
-                              )}
-                            >
-                              {t(
-                                'taskFormDialog.createNewBranchOptions.existing'
-                              )}
-                            </ToggleGroupItem>
-                          </ToggleGroup>
+                            {modeOptions.map((option) => {
+                              const isActive =
+                                field.state.value === option.value;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={isActive}
+                                  disabled={disabled}
+                                  onClick={() => handleModeChange(option.value)}
+                                  className={cn(
+                                    'w-full rounded-md border px-3 py-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                                    isActive
+                                      ? 'border-primary bg-primary/5 text-foreground shadow-sm'
+                                      : 'border-input bg-muted/30 text-muted-foreground hover:text-foreground'
+                                  )}
+                                >
+                                  <span className="block text-sm font-medium text-foreground">
+                                    {option.label}
+                                  </span>
+                                  <span className="mt-1 block text-xs text-muted-foreground">
+                                    {option.description}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
                           {!field.state.value && checkingWorktree && (
                             <span className="text-xs text-muted-foreground">
                               {t('common:checking', {

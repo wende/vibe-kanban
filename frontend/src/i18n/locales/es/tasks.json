@@ -434,8 +434,14 @@
     "createNewBranchLabel": "Crear nueva rama",
     "createNewBranchPlaceholder": "Selecciona el comportamiento de la rama",
     "createNewBranchOptions": {
-      "create": "Sí, crear una nueva rama",
-      "existing": "No, usar la rama seleccionada"
+      "create": {
+        "title": "Crear una nueva rama",
+        "description": "Crearemos y nombraremos una rama dedicada para esta tarea."
+      },
+      "existing": {
+        "title": "Usar la rama seleccionada",
+        "description": "Ejecuta directamente en la rama que elegiste arriba."
+      }
     },
     "branchInWorktreeWarning": "La rama \"{{branch}}\" ya está en uso. La tarea se ejecutará en el directorio worktree existente.",
     "attachImage": "Adjuntar imagen",

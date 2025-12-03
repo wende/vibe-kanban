@@ -434,8 +434,14 @@
     "createNewBranchLabel": "새 브랜치 만들기",
     "createNewBranchPlaceholder": "브랜치 동작을 선택하세요",
     "createNewBranchOptions": {
-      "create": "예, 새 브랜치를 만듭니다",
-      "existing": "아니요, 선택한 브랜치를 사용합니다"
+      "create": {
+        "title": "새 브랜치 만들기",
+        "description": "이 작업을 위해 새 브랜치를 자동으로 생성합니다."
+      },
+      "existing": {
+        "title": "선택한 브랜치 사용",
+        "description": "위에서 선택한 브랜치에서 그대로 실행합니다."
+      }
     },
     "branchInWorktreeWarning": "\"{{branch}}\" 브랜치는 이미 사용 중입니다. 작업은 기존 워크트리 디렉터리에서 실행됩니다.",
     "attachImage": "이미지 첨부",
