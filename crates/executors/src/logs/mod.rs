@@ -54,6 +54,58 @@ pub struct CommandRunResult {
     pub output: Option<String>,
 }
 
+/// Warning level for context usage
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, PartialEq, Default)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextWarningLevel {
+    #[default]
+    None,
+    /// Approaching limit (70-84%)
+    Approaching,
+    /// Critical usage (85%+)
+    Critical,
+}
+
+/// Context/token usage information from AI agents
+///
+/// IMPORTANT: Context window usage is calculated as:
+///   context_used = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+///
+/// Output tokens do NOT count toward context window usage.
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export)]
+pub struct ContextUsage {
+    /// Input tokens used (fresh, non-cached)
+    pub input_tokens: u64,
+    /// Output tokens generated (does NOT count toward context window)
+    pub output_tokens: u64,
+    /// Total tokens for display (context_used + output)
+    pub total_tokens: u64,
+    /// Maximum context window size for this model
+    pub context_window_size: u64,
+    /// Percentage of context used (0-100)
+    pub context_used_percent: f64,
+    /// Tokens remaining in context window
+    pub context_remaining: u64,
+    /// Cached input tokens - tokens used to create cache (counts toward context)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_input_tokens: Option<u64>,
+    /// Cache read tokens - tokens read from cache (counts toward context)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_tokens: Option<u64>,
+    /// Cache write/creation tokens (agent-specific, optional)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write_tokens: Option<u64>,
+    /// Model name
+    pub model: String,
+    /// Warning level based on usage percentage
+    pub warning_level: ContextWarningLevel,
+    /// Whether this is an estimated value (vs exact from API)
+    #[serde(default)]
+    pub is_estimated: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct NormalizedConversation {
     pub entries: Vec<NormalizedEntry>,
@@ -95,6 +147,8 @@ pub enum NormalizedEntryType {
         execution_processes: usize,
         needs_setup: bool,
     },
+    /// Context/token usage update from AI agent
+    ContextUsage { usage: ContextUsage },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

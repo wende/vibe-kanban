@@ -400,9 +400,61 @@ export type CommandExitStatus = { "type": "exit_code", code: number, } | { "type
 
 export type CommandRunResult = { exit_status: CommandExitStatus | null, output: string | null, };
 
+export type ContextWarningLevel = "none" | "approaching" | "critical";
+
+export type ContextUsage = { 
+/**
+ * Input tokens used (fresh, non-cached)
+ */
+input_tokens: bigint, 
+/**
+ * Output tokens generated (does NOT count toward context window)
+ */
+output_tokens: bigint, 
+/**
+ * Total tokens for display (context_used + output)
+ */
+total_tokens: bigint, 
+/**
+ * Maximum context window size for this model
+ */
+context_window_size: bigint, 
+/**
+ * Percentage of context used (0-100)
+ */
+context_used_percent: number, 
+/**
+ * Tokens remaining in context window
+ */
+context_remaining: bigint, 
+/**
+ * Cached input tokens - tokens used to create cache (counts toward context)
+ */
+cached_input_tokens?: bigint | null, 
+/**
+ * Cache read tokens - tokens read from cache (counts toward context)
+ */
+cache_read_tokens?: bigint | null, 
+/**
+ * Cache write/creation tokens (agent-specific, optional)
+ */
+cache_write_tokens?: bigint | null, 
+/**
+ * Model name
+ */
+model: string, 
+/**
+ * Warning level based on usage percentage
+ */
+warning_level: ContextWarningLevel, 
+/**
+ * Whether this is an estimated value (vs exact from API)
+ */
+is_estimated: boolean, };
+
 export type NormalizedEntry = { timestamp: string | null, entry_type: NormalizedEntryType, content: string, };
 
-export type NormalizedEntryType = { "type": "user_message" } | { "type": "user_feedback", denied_tool: string, } | { "type": "assistant_message" } | { "type": "tool_use", tool_name: string, action_type: ActionType, status: ToolStatus, } | { "type": "system_message" } | { "type": "error_message", error_type: NormalizedEntryError, } | { "type": "thinking" } | { "type": "loading" } | { "type": "next_action", failed: boolean, execution_processes: number, needs_setup: boolean, };
+export type NormalizedEntryType = { "type": "user_message" } | { "type": "user_feedback", denied_tool: string, } | { "type": "assistant_message" } | { "type": "tool_use", tool_name: string, action_type: ActionType, status: ToolStatus, } | { "type": "system_message" } | { "type": "error_message", error_type: NormalizedEntryError, } | { "type": "thinking" } | { "type": "loading" } | { "type": "next_action", failed: boolean, execution_processes: number, needs_setup: boolean, } | { "type": "context_usage", usage: ContextUsage, };
 
 export type FileChange = { "action": "write", content: string, } | { "action": "delete" } | { "action": "rename", new_path: string, } | { "action": "edit", 
 /**
