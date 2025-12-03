@@ -10,10 +10,10 @@ use db::models::{
     task::Task,
     task_attempt::{CreateTaskAttempt, TaskAttempt},
 };
+use deployment::Deployment;
 use executors::{
     actions::{
-        ExecutorAction, ExecutorActionType,
-        coding_agent_follow_up::CodingAgentFollowUpRequest,
+        ExecutorAction, ExecutorActionType, coding_agent_follow_up::CodingAgentFollowUpRequest,
         coding_agent_initial::CodingAgentInitialRequest,
     },
     executors::BaseCodingAgent,
@@ -27,7 +27,6 @@ use utils::response::ApiResponse;
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
-use deployment::Deployment;
 
 /// Response type for orchestrator endpoints
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -106,8 +105,7 @@ pub async fn get_orchestrator(
     };
 
     // Get latest process for this attempt
-    let latest_process =
-        ExecutionProcess::find_latest_by_task_attempt(pool, attempt.id).await?;
+    let latest_process = ExecutionProcess::find_latest_by_task_attempt(pool, attempt.id).await?;
 
     Ok(ResponseJson(ApiResponse::success(OrchestratorResponse {
         task,
@@ -195,9 +193,12 @@ pub async fn orchestrator_send(
                         - Coordinating work across multiple files\n\
                         - Maintaining code consistency and quality\n\
                         - Providing guidance on best practices\n\n\
-                        You can start by reviewing the recent commits or ask me what you'd like to work on.",
-                        project.name,
-                        port
+                        REST helper: query http://127.0.0.1:{port}/api/tools/vibe-cli/help to see \
+                        how to perform common actions (listing projects, creating tasks, running the orchestrator, etc.) \
+                        through HTTP endpoints.\n\
+                        Use those endpoints with curl or similar tools whenever you would have executed vibe-cli.py.\n\n\
+                        You can start by reviewing recent commits or asking what to tackle next.",
+                        project.name, port
                     )
                 }
             }
@@ -272,10 +273,7 @@ pub async fn orchestrator_stop(
 
 pub fn router(_deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     Router::new()
-        .route(
-            "/projects/{project_id}/orchestrator",
-            get(get_orchestrator),
-        )
+        .route("/projects/{project_id}/orchestrator", get(get_orchestrator))
         .route(
             "/projects/{project_id}/orchestrator/send",
             post(orchestrator_send),
