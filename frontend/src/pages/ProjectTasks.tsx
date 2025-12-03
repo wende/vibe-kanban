@@ -231,11 +231,18 @@ export function ProjectTasks() {
   useEffect(() => {
     if (isOrchestratorOpen && (taskId || selectedSharedTaskId)) {
       if (taskId && projectId) {
-        navigateWithSearch(paths.projectTasks(projectId), { replace: true });
+        const search = searchParams.toString();
+        navigate(
+          {
+            pathname: paths.projectTasks(projectId),
+            search: search ? `?${search}` : '',
+          },
+          { replace: true }
+        );
       }
       setSelectedSharedTaskId(null);
     }
-  }, [isOrchestratorOpen, taskId, selectedSharedTaskId, projectId, navigateWithSearch]);
+  }, [isOrchestratorOpen, taskId, selectedSharedTaskId, projectId, navigate, searchParams]);
 
   const isTaskPanelOpen = Boolean(taskId && selectedTask);
   const isSharedPanelOpen = Boolean(selectedSharedTask);
