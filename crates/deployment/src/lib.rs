@@ -6,7 +6,6 @@ use axum::response::sse::Event;
 use db::{
     DBService,
     models::{
-        project::{CreateProject, Project},
         task_attempt::TaskAttemptError,
     },
 };
@@ -31,7 +30,7 @@ use services::services::{
     share::{RemoteSync, RemoteSyncHandle, ShareConfig, SharePublisher},
     worktree_manager::WorktreeError,
 };
-use sqlx::{Error as SqlxError, types::Uuid};
+use sqlx::{Error as SqlxError};
 use thiserror::Error;
 use tokio::sync::{Mutex, RwLock};
 use utils::sentry as sentry_utils;
@@ -154,79 +153,6 @@ pub trait Deployment: Clone + Send + Sync + 'static {
         // Track events unless user has explicitly opted out
         if analytics_enabled && let Some(analytics) = self.analytics() {
             analytics.track_event(self.user_id(), event_name, Some(properties.clone()));
-        }
-    }
-
-    /// Trigger background auto-setup of default projects for new users
-    async fn trigger_auto_project_setup(&self) {
-        // soft timeout to give the filesystem search a chance to complete
-        let soft_timeout_ms = 2_000;
-        // hard timeout to ensure the background task doesn't run indefinitely
-        let hard_timeout_ms = 2_300;
-        let project_count = Project::count(&self.db().pool).await.unwrap_or(0);
-
-        // Only proceed if no projects exist
-        if project_count == 0 {
-            // Discover local git repositories
-            if let Ok(repos) = self
-                .filesystem()
-                .list_common_git_repos(soft_timeout_ms, hard_timeout_ms, Some(4))
-                .await
-            {
-                // Take first 3 repositories and create projects
-                for repo in repos.into_iter().take(3) {
-                    // Generate clean project name from path
-                    let project_name = repo.name;
-
-                    let create_data = CreateProject {
-                        name: project_name,
-                        git_repo_path: repo.path.to_string_lossy().to_string(),
-                        use_existing_repo: true,
-                        setup_script: None,
-                        dev_script: None,
-                        cleanup_script: None,
-                        copy_files: None,
-                    };
-                    // Ensure existing repo has a main branch if it's empty
-                    if let Err(e) = self.git().ensure_main_branch_exists(&repo.path) {
-                        tracing::error!("Failed to ensure main branch exists: {}", e);
-                        continue;
-                    }
-
-                    // Create project (ignore individual failures)
-                    let project_id = Uuid::new_v4();
-
-                    match Project::create(&self.db().pool, &create_data, project_id).await {
-                        Ok(project) => {
-                            tracing::info!(
-                                "Auto-created project '{}' from {}",
-                                create_data.name,
-                                create_data.git_repo_path
-                            );
-
-                            // Track project creation event
-                            self.track_if_analytics_allowed(
-                                "project_created",
-                                serde_json::json!({
-                                    "project_id": project.id.to_string(),
-                                    "use_existing_repo": create_data.use_existing_repo,
-                                    "has_setup_script": create_data.setup_script.is_some(),
-                                    "has_dev_script": create_data.dev_script.is_some(),
-                                    "trigger": "auto_setup",
-                                }),
-                            )
-                            .await;
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                "Failed to auto-create project '{}': {}",
-                                create_data.name,
-                                e
-                            );
-                        }
-                    }
-                }
-            }
         }
     }
 

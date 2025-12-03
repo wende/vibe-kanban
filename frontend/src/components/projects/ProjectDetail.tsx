@@ -54,7 +54,7 @@ export function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
     if (!project) return;
     if (
       !confirm(
-        `Are you sure you want to delete "${project.name}"? This action cannot be undone.`
+        `Are you sure you want to delete "${project.name}"? This action cannot be undone.\n\n(It will not delete the directory)`
       )
     )
       return;

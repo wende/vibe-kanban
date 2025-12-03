@@ -428,6 +428,18 @@ impl WorktreeManager {
     pub async fn cleanup_worktree(worktree: &WorktreeCleanup) -> Result<(), WorktreeError> {
         let path_str = worktree.worktree_path.to_string_lossy().to_string();
 
+        // CRITICAL SAFETY CHECK: Only allow cleanup of paths within the managed worktree directory
+        // This prevents accidental deletion of user directories (e.g., main project repos)
+        let worktree_base = Self::get_worktree_base_dir();
+        if !worktree.worktree_path.starts_with(&worktree_base) {
+            tracing::warn!(
+                "Refusing to cleanup worktree at '{}' - path is outside managed worktree directory {}",
+                path_str,
+                worktree_base.display()
+            );
+            return Ok(()); // Return Ok to avoid breaking callers, but don't delete
+        }
+
         // Get the same lock to ensure we don't interfere with creation
         let lock = {
             let mut locks = WORKTREE_CREATION_LOCKS.lock().unwrap();
