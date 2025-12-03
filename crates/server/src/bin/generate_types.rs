@@ -20,6 +20,7 @@ fn generate_types_content() -> String {
         db::models::project::UpdateProject::decl(),
         db::models::project::SearchResult::decl(),
         db::models::project::SearchMatchType::decl(),
+        server::routes::projects::BranchWorktreeStatus::decl(),
         db::models::tag::Tag::decl(),
         db::models::tag::CreateTag::decl(),
         db::models::tag::UpdateTag::decl(),

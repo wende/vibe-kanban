@@ -43,6 +43,7 @@ import {
 } from '@/keyboard';
 import { useHotkeysContext } from 'react-hotkeys-hook';
 import { cn } from '@/lib/utils';
+import { projectsApi } from '@/lib/api';
 import type {
   TaskStatus,
   ExecutorProfileId,
@@ -98,6 +99,10 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
     []
   );
   const [showDiscardWarning, setShowDiscardWarning] = useState(false);
+  const [branchWorktreeWarning, setBranchWorktreeWarning] = useState<
+    string | null
+  >(null);
+  const [checkingWorktree, setCheckingWorktree] = useState(false);
   const forceCreateOnlyRef = useRef(false);
 
   const { data: branches, isLoading: branchesLoading } =
@@ -293,6 +298,35 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
         format: img.mime_type?.split('/')[1] ?? 'png',
       })),
     [images]
+  );
+
+  // Check if branch is used in a worktree
+  const checkBranchInWorktree = useCallback(
+    async (branch: string) => {
+      if (!branch || !projectId) return;
+
+      setCheckingWorktree(true);
+      setBranchWorktreeWarning(null);
+      try {
+        const status = await projectsApi.checkBranchInWorktree(
+          projectId,
+          branch
+        );
+        if (status.in_worktree) {
+          setBranchWorktreeWarning(
+            t('taskFormDialog.branchInWorktreeWarning', {
+              branch,
+              defaultValue: `Branch "${branch}" is already in use. The task will run in the existing worktree directory.`,
+            })
+          );
+        }
+      } catch (error) {
+        console.error('Failed to check branch worktree status:', error);
+      } finally {
+        setCheckingWorktree(false);
+      }
+    },
+    [projectId, t]
   );
 
   // Unsaved changes detection
@@ -549,23 +583,53 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                   </div>
                   <form.Field name="useExistingBranch">
                     {(field) => (
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="use-existing-branch-switch"
-                          checked={field.state.value}
-                          onCheckedChange={(checked) =>
-                            field.handleChange(checked)
-                          }
-                          disabled={isSubmitting || !autoStartField.state.value}
-                          className="data-[state=checked]:bg-gray-900 dark:data-[state=checked]:bg-gray-100"
-                          aria-label={t('taskFormDialog.useExistingBranch')}
-                        />
-                        <Label
-                          htmlFor="use-existing-branch-switch"
-                          className="text-sm cursor-pointer text-muted-foreground"
-                        >
-                          {t('taskFormDialog.useExistingBranch')}
-                        </Label>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id="use-existing-branch-switch"
+                            checked={field.state.value}
+                            onCheckedChange={(checked) => {
+                              field.handleChange(checked);
+                              if (checked) {
+                                // Check if the selected branch is in a worktree
+                                const currentBranch = form.getFieldValue(
+                                  'branch'
+                                );
+                                if (currentBranch) {
+                                  checkBranchInWorktree(currentBranch);
+                                }
+                              } else {
+                                // Clear warning when turning off the toggle
+                                setBranchWorktreeWarning(null);
+                              }
+                            }}
+                            disabled={
+                              isSubmitting ||
+                              !autoStartField.state.value ||
+                              checkingWorktree
+                            }
+                            className="data-[state=checked]:bg-gray-900 dark:data-[state=checked]:bg-gray-100"
+                            aria-label={t('taskFormDialog.useExistingBranch')}
+                          />
+                          <Label
+                            htmlFor="use-existing-branch-switch"
+                            className="text-sm cursor-pointer text-muted-foreground"
+                          >
+                            {t('taskFormDialog.useExistingBranch')}
+                            {checkingWorktree && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                {t('common:checking', {
+                                  defaultValue: 'Checking...',
+                                })}
+                              </span>
+                            )}
+                          </Label>
+                        </div>
+                        {branchWorktreeWarning && field.state.value && (
+                          <p className="text-xs text-amber-600 dark:text-amber-500">
+                            {branchWorktreeWarning}
+                          </p>
+                        )}
                       </div>
                     )}
                   </form.Field>

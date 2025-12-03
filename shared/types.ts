@@ -22,6 +22,16 @@ export type SearchResult = { path: string, is_file: boolean, match_type: SearchM
 
 export type SearchMatchType = "FileName" | "DirectoryName" | "FullPath";
 
+export type BranchWorktreeStatus = {
+/**
+ * Whether the branch is currently checked out in a worktree
+ */
+in_worktree: boolean,
+/**
+ * Path to the worktree if the branch is checked out
+ */
+worktree_path: string | null, };
+
 export type Tag = { id: string, tag_name: string, content: string, created_at: string, updated_at: string, };
 
 export type CreateTag = { tag_name: string, content: string, };
