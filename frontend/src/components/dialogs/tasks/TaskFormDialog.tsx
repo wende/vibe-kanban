@@ -661,19 +661,16 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                                   disabled={disabled}
                                   onClick={() => handleModeChange(option.value)}
                                   className={cn(
-                                    'w-full rounded-md border px-3 py-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                                    'relative w-full rounded-md border px-3 py-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
                                     isActive
                                       ? 'border-primary bg-primary/10 text-foreground shadow-md ring-1 ring-primary/30'
                                       : 'border-input bg-muted/30 text-muted-foreground hover:text-foreground'
                                   )}
                                 >
-                                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                    <CheckCircle2
-                                      className={cn(
-                                        'h-4 w-4 transition-opacity text-primary',
-                                        isActive ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
+                                  {isActive && (
+                                    <CheckCircle2 className="absolute right-3 top-3 h-4 w-4 text-primary" />
+                                  )}
+                                  <span className="block text-sm font-medium text-foreground pr-6">
                                     {option.label}
                                   </span>
                                   <span className="mt-1 block text-xs text-muted-foreground">
