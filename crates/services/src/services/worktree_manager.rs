@@ -130,6 +130,18 @@ impl WorktreeManager {
         let branch_name_owned = branch_name.to_string();
         let worktree_path_owned = worktree_path.to_path_buf();
 
+        // CRITICAL SAFETY CHECK: Never recreate worktrees outside the managed directory
+        // This prevents accidental deletion of user directories (e.g., main project repos)
+        let worktree_base = Self::get_worktree_base_dir();
+        if !worktree_path.starts_with(&worktree_base) {
+            return Err(WorktreeError::InvalidPath(format!(
+                "Cannot create worktree at '{}' - path is outside managed worktree directory {}. \
+                 This is likely a bug - orchestrator tasks should not call ensure_worktree_exists.",
+                path_str,
+                worktree_base.display()
+            )));
+        }
+
         // Use the provided repo path
         let git_repo_path = repo_path;
 
