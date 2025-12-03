@@ -351,6 +351,25 @@ impl ExecutionProcess {
         .await
     }
 
+    /// Find the latest execution process for a task attempt (any run reason)
+    pub async fn find_latest_by_task_attempt(
+        pool: &SqlitePool,
+        task_attempt_id: Uuid,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as!(
+            ExecutionProcess,
+            r#"SELECT id as "id!: Uuid", task_attempt_id as "task_attempt_id!: Uuid", run_reason as "run_reason!: ExecutionProcessRunReason", executor_action as "executor_action!: sqlx::types::Json<ExecutorActionField>", before_head_commit,
+                      after_head_commit, status as "status!: ExecutionProcessStatus", exit_code, dropped, started_at as "started_at!: DateTime<Utc>", completed_at as "completed_at?: DateTime<Utc>",
+                      created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>"
+               FROM execution_processes
+               WHERE task_attempt_id = ? AND dropped = FALSE
+               ORDER BY created_at DESC LIMIT 1"#,
+            task_attempt_id
+        )
+        .fetch_optional(pool)
+        .await
+    }
+
     /// Create a new execution process
     pub async fn create(
         pool: &SqlitePool,

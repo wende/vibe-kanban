@@ -45,6 +45,7 @@ pub struct TaskAttempt {
     // "GEMINI", etc.)
     pub worktree_deleted: bool, // Flag indicating if worktree has been cleaned up
     pub setup_completed_at: Option<DateTime<Utc>>, // When setup script was last completed
+    pub is_orchestrator: bool, // Flag indicating this is a global orchestrator session
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -84,6 +85,8 @@ pub struct CreateTaskAttempt {
     pub executor: BaseCodingAgent,
     pub base_branch: String,
     pub branch: String,
+    #[serde(default)]
+    pub is_orchestrator: bool,
 }
 
 impl TaskAttempt {
@@ -107,6 +110,7 @@ impl TaskAttempt {
                               executor AS "executor!",
                               worktree_deleted AS "worktree_deleted!: bool",
                               setup_completed_at AS "setup_completed_at: DateTime<Utc>",
+                              is_orchestrator AS "is_orchestrator!: bool",
                               created_at AS "created_at!: DateTime<Utc>",
                               updated_at AS "updated_at!: DateTime<Utc>"
                        FROM task_attempts
@@ -127,6 +131,7 @@ impl TaskAttempt {
                               executor AS "executor!",
                               worktree_deleted AS "worktree_deleted!: bool",
                               setup_completed_at AS "setup_completed_at: DateTime<Utc>",
+                              is_orchestrator AS "is_orchestrator!: bool",
                               created_at AS "created_at!: DateTime<Utc>",
                               updated_at AS "updated_at!: DateTime<Utc>"
                        FROM task_attempts
@@ -158,6 +163,7 @@ impl TaskAttempt {
                        ta.executor AS "executor!",
                        ta.worktree_deleted  AS "worktree_deleted!: bool",
                        ta.setup_completed_at AS "setup_completed_at: DateTime<Utc>",
+                       ta.is_orchestrator   AS "is_orchestrator!: bool",
                        ta.created_at        AS "created_at!: DateTime<Utc>",
                        ta.updated_at        AS "updated_at!: DateTime<Utc>"
                FROM    task_attempts ta
@@ -231,6 +237,7 @@ impl TaskAttempt {
                        executor AS "executor!",
                        worktree_deleted  AS "worktree_deleted!: bool",
                        setup_completed_at AS "setup_completed_at: DateTime<Utc>",
+                       is_orchestrator   AS "is_orchestrator!: bool",
                        created_at        AS "created_at!: DateTime<Utc>",
                        updated_at        AS "updated_at!: DateTime<Utc>"
                FROM    task_attempts
@@ -252,6 +259,7 @@ impl TaskAttempt {
                        executor AS "executor!",
                        worktree_deleted  AS "worktree_deleted!: bool",
                        setup_completed_at AS "setup_completed_at: DateTime<Utc>",
+                       is_orchestrator   AS "is_orchestrator!: bool",
                        created_at        AS "created_at!: DateTime<Utc>",
                        updated_at        AS "updated_at!: DateTime<Utc>"
                FROM    task_attempts
@@ -372,9 +380,9 @@ impl TaskAttempt {
         // Insert the record into the database
         Ok(sqlx::query_as!(
             TaskAttempt,
-            r#"INSERT INTO task_attempts (id, task_id, container_ref, branch, target_branch, executor, worktree_deleted, setup_completed_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-               RETURNING id as "id!: Uuid", task_id as "task_id!: Uuid", container_ref, branch, target_branch, executor as "executor!",  worktree_deleted as "worktree_deleted!: bool", setup_completed_at as "setup_completed_at: DateTime<Utc>", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>""#,
+            r#"INSERT INTO task_attempts (id, task_id, container_ref, branch, target_branch, executor, worktree_deleted, setup_completed_at, is_orchestrator)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               RETURNING id as "id!: Uuid", task_id as "task_id!: Uuid", container_ref, branch, target_branch, executor as "executor!",  worktree_deleted as "worktree_deleted!: bool", setup_completed_at as "setup_completed_at: DateTime<Utc>", is_orchestrator as "is_orchestrator!: bool", created_at as "created_at!: DateTime<Utc>", updated_at as "updated_at!: DateTime<Utc>""#,
             id,
             task_id,
             Option::<String>::None, // Container isn't known yet
@@ -382,7 +390,8 @@ impl TaskAttempt {
             data.base_branch, // Target branch is same as base branch during creation
             data.executor,
             false, // worktree_deleted is false during creation
-            Option::<DateTime<Utc>>::None // setup_completed_at is None during creation
+            Option::<DateTime<Utc>>::None, // setup_completed_at is None during creation
+            data.is_orchestrator
         )
         .fetch_one(pool)
         .await?)
@@ -471,5 +480,34 @@ impl TaskAttempt {
         .ok_or(sqlx::Error::RowNotFound)?;
 
         Ok((result.attempt_id, result.task_id, result.project_id))
+    }
+
+    /// Find the orchestrator attempt for a project (there should only be one per project)
+    pub async fn find_orchestrator_by_project_id(
+        pool: &SqlitePool,
+        project_id: Uuid,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as!(
+            TaskAttempt,
+            r#"SELECT  ta.id                AS "id!: Uuid",
+                       ta.task_id           AS "task_id!: Uuid",
+                       ta.container_ref,
+                       ta.branch,
+                       ta.target_branch,
+                       ta.executor AS "executor!",
+                       ta.worktree_deleted  AS "worktree_deleted!: bool",
+                       ta.setup_completed_at AS "setup_completed_at: DateTime<Utc>",
+                       ta.is_orchestrator   AS "is_orchestrator!: bool",
+                       ta.created_at        AS "created_at!: DateTime<Utc>",
+                       ta.updated_at        AS "updated_at!: DateTime<Utc>"
+               FROM    task_attempts ta
+               JOIN    tasks t ON ta.task_id = t.id
+               WHERE   t.project_id = $1 AND ta.is_orchestrator = TRUE
+               ORDER BY ta.created_at DESC
+               LIMIT 1"#,
+            project_id
+        )
+        .fetch_optional(pool)
+        .await
     }
 }

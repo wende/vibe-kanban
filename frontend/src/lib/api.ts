@@ -1119,3 +1119,53 @@ export const queueApi = {
     return handleApiResponse<QueueStatus>(response);
   },
 };
+
+// Orchestrator response type - matches OrchestratorResponse from Rust
+// TODO: Import from shared/types after running `npm run generate-types`
+export interface OrchestratorResponse {
+  task: Task;
+  attempt: TaskAttempt;
+  latest_process: ExecutionProcess | null;
+}
+
+// Orchestrator API for global project-level Claude Code sessions
+export const orchestratorApi = {
+  /**
+   * Get the orchestrator for a project (creates if none exists)
+   */
+  get: async (projectId: string): Promise<OrchestratorResponse> => {
+    const response = await makeRequest(`/api/projects/${projectId}/orchestrator`);
+    return handleApiResponse<OrchestratorResponse>(response);
+  },
+
+  /**
+   * Send a message to the orchestrator (starts or resumes a session)
+   */
+  send: async (
+    projectId: string,
+    prompt: string,
+    variant?: string
+  ): Promise<ExecutionProcess> => {
+    const response = await makeRequest(
+      `/api/projects/${projectId}/orchestrator/send`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ prompt, variant }),
+      }
+    );
+    return handleApiResponse<ExecutionProcess>(response);
+  },
+
+  /**
+   * Stop the orchestrator's running process
+   */
+  stop: async (projectId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/projects/${projectId}/orchestrator/stop`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<void>(response);
+  },
+};
