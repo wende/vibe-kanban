@@ -227,6 +227,16 @@ export function ProjectTasks() {
     }
   }, [taskId, isOrchestratorOpen, searchParams, setSearchParams]);
 
+  // Close task/shared task when orchestrator is opened
+  useEffect(() => {
+    if (isOrchestratorOpen && (taskId || selectedSharedTaskId)) {
+      if (taskId && projectId) {
+        navigateWithSearch(paths.projectTasks(projectId), { replace: true });
+      }
+      setSelectedSharedTaskId(null);
+    }
+  }, [isOrchestratorOpen, taskId, selectedSharedTaskId, projectId, navigateWithSearch]);
+
   const isTaskPanelOpen = Boolean(taskId && selectedTask);
   const isSharedPanelOpen = Boolean(selectedSharedTask);
   const isPanelOpen = isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
@@ -913,7 +923,66 @@ export function ProjectTasks() {
       </div>
     );
 
-  const rightHeader = selectedTask ? (
+  const rightHeader = isOrchestratorOpen ? (
+    <NewCardHeader
+      className="shrink-0"
+      actions={
+        <div className="flex items-center gap-2">
+          {isOrchestratorRunning && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => orchestratorStopMutation.mutate()}
+              disabled={orchestratorStopMutation.isPending}
+            >
+              {orchestratorStopMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Stop'
+              )}
+            </Button>
+          )}
+          <Button
+            variant="icon"
+            aria-label={t('common:buttons.close', { defaultValue: 'Close' })}
+            onClick={handleClosePanel}
+          >
+            <X size={16} />
+          </Button>
+        </div>
+      }
+    >
+      <div className="mx-auto w-full">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage className="flex items-center gap-2">
+                <span
+                  style={{
+                    fontWeight: 'bold',
+                    background:
+                      'linear-gradient(to right, #ef4444, #eab308, #22c55e, #3b82f6, #a855f7)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  VIBE
+                </span>
+                Orchestrator
+                {isOrchestratorRunning && (
+                  <span className="flex items-center gap-1 text-sm text-green-600">
+                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                    Running
+                  </span>
+                )}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+    </NewCardHeader>
+  ) : selectedTask ? (
     <NewCardHeader
       className="shrink-0"
       actions={
@@ -998,65 +1067,6 @@ export function ProjectTasks() {
             <BreadcrumbItem>
               <BreadcrumbPage>
                 {truncateTitle(selectedSharedTask?.title)}
-              </BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </div>
-    </NewCardHeader>
-  ) : isOrchestratorOpen ? (
-    <NewCardHeader
-      className="shrink-0"
-      actions={
-        <div className="flex items-center gap-2">
-          {isOrchestratorRunning && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => orchestratorStopMutation.mutate()}
-              disabled={orchestratorStopMutation.isPending}
-            >
-              {orchestratorStopMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Stop'
-              )}
-            </Button>
-          )}
-          <Button
-            variant="icon"
-            aria-label={t('common:buttons.close', { defaultValue: 'Close' })}
-            onClick={handleClosePanel}
-          >
-            <X size={16} />
-          </Button>
-        </div>
-      }
-    >
-      <div className="mx-auto w-full">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage className="flex items-center gap-2">
-                <span
-                  style={{
-                    fontWeight: 'bold',
-                    background:
-                      'linear-gradient(to right, #ef4444, #eab308, #22c55e, #3b82f6, #a855f7)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  VIBE
-                </span>
-                Orchestrator
-                {isOrchestratorRunning && (
-                  <span className="flex items-center gap-1 text-sm text-green-600">
-                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                    Running
-                  </span>
-                )}
               </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
