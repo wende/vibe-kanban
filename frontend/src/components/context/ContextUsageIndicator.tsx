@@ -10,6 +10,7 @@ import type { ContextUsage, ContextWarningLevel } from 'shared/types';
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
@@ -177,39 +178,41 @@ export function ContextUsageIndicator({
 
   if (compact && !expanded) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => setExpanded(true)}
-            className={cn(
-              'flex items-center gap-2 px-2 py-1 rounded-md text-xs transition-colors',
-              'hover:bg-accent',
-              styles.textColor,
-              className
-            )}
-          >
-            <Activity className="h-3 w-3" />
-            <div className="flex items-center gap-1.5">
-              <div className="w-16">
-                <ContextUsageBar
-                  percent={usage.context_used_percent}
-                  warningLevel={usage.warning_level}
-                />
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setExpanded(true)}
+              className={cn(
+                'flex items-center gap-2 px-2 py-1 rounded-md text-xs transition-colors',
+                'hover:bg-accent',
+                styles.textColor,
+                className
+              )}
+            >
+              <Activity className="h-3 w-3" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-16">
+                  <ContextUsageBar
+                    percent={usage.context_used_percent}
+                    warningLevel={usage.warning_level}
+                  />
+                </div>
+                <span className="font-mono">
+                  {formatPercent(usage.context_used_percent)}
+                </span>
               </div>
-              <span className="font-mono">
-                {formatPercent(usage.context_used_percent)}
-              </span>
-            </div>
-            <ChevronDown className="h-3 w-3" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
-          <p>
-            Context: {formatTokens(totalTokens)} / {formatTokens(contextWindowSize)} tokens
-          </p>
-          <p className="text-muted-foreground">Click to expand</p>
-        </TooltipContent>
-      </Tooltip>
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            <p>
+              Context: {formatTokens(totalTokens)} / {formatTokens(contextWindowSize)} tokens
+            </p>
+            <p className="text-muted-foreground">Click to expand</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
