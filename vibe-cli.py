@@ -46,6 +46,15 @@ DEFAULT_BASE_URL = "http://localhost:3000/api"
 REQUEST_TIMEOUT = 30  # seconds
 
 
+def get_version():
+    """Get version string based on file modification time."""
+    from datetime import datetime
+    script_path = Path(__file__).resolve()
+    mtime = script_path.stat().st_mtime
+    dt = datetime.fromtimestamp(mtime)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def get_port_file_path():
     """Get the path to the vibe-kanban port file."""
     import tempfile
@@ -55,6 +64,7 @@ def get_port_file_path():
 def count_running_servers():
     """Count running vibe-kanban server processes using ps."""
     import subprocess
+    import re
     try:
         result = subprocess.run(
             ["ps", "aux"],
@@ -62,15 +72,23 @@ def count_running_servers():
             text=True,
             timeout=5
         )
-        # Look for vibe-kanban processes (both dev and production)
-        # Production: macos-arm64/vibe-kanban or dist/vibe-kanban
-        # Development: target/debug/server or cargo run --bin server
+        # Look for vibe-kanban server processes (both dev and production)
+        # Production: dist/vibe-kanban binary or platform-specific binaries
+        # Development: target/debug/server or target/release/server binary
+        #
+        # We need to be specific to avoid matching node processes that happen
+        # to have vibe-kanban in their path (like esbuild in node_modules)
+        server_pattern = re.compile(
+            r'(?:'
+            r'target/(?:debug|release)/server\b'  # Dev server binary
+            r'|dist/vibe-kanban\b'                 # Production binary in dist
+            r'|(?:macos|linux|windows)-[^/]+/vibe-kanban\b'  # Platform-specific binary
+            r')'
+        )
         lines = [
             line for line in result.stdout.splitlines()
-            if ("vibe-kanban" in line and ("dist/" in line or "macos-" in line or "linux-" in line or "windows-" in line))
-            or "target/debug/server" in line
-            or "target/release/server" in line
-            if "grep" not in line and "vibe-cli" not in line and "npm exec" not in line
+            if server_pattern.search(line)
+            and "grep" not in line
         ]
         return len(lines)
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
@@ -599,6 +617,9 @@ TIPS:
 For more information, visit: https://github.com/vibe-teams/vibe-kanban
         """
     )
+
+    parser.add_argument("-v", "--version", action="version",
+                        version=f"vibe-cli (modified: {get_version()})")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 

@@ -57,8 +57,15 @@ export function TaskFollowUpSection({
   const { t } = useTranslation('tasks');
   const { projectId } = useProject();
 
-  const { isAttemptRunning, stopExecution, isStopping, processes } =
-    useAttemptExecution(selectedAttemptId, task.id);
+  const {
+    isAttemptRunning,
+    stopExecution,
+    isStopping,
+    processes,
+    canCompact,
+    compactExecution,
+    isCompacting,
+  } = useAttemptExecution(selectedAttemptId, task.id);
   const { data: branchStatus, refetch: refetchBranchStatus } =
     useBranchStatus(selectedAttemptId);
   const { branch: attemptBranch, refetch: refetchAttemptBranch } =
