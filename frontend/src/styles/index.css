@@ -9,7 +9,7 @@
   /* Light defaults */
   :root {
     color-scheme: light;
-    --_background: 48 33% 97%;
+    --_background: 240 6% 98%;
     --_foreground: 222.2 84% 4.9%;
     --_primary: var(--_muted);
     --_primary-foreground: var(--_muted-foreground);
