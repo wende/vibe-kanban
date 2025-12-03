@@ -25,11 +25,31 @@ All notable changes to Vibe Kanban.
 
 ### Added
 
-#### CLI Tool
-- **Python CLI (`vibe-cli.py`)** - New command-line interface for interacting with Vibe Kanban
-  - Full project and task management commands
-  - `tasks wait` command to poll until a task completes with configurable `--interval` and `--timeout`
-  - Automatic hyphen-to-underscore normalization for command routing (e.g., `tasks create-and-start`)
+#### Global Orchestrator
+- **Project-wide AI orchestrator** - Coordinate development tasks across your entire codebase
+  - Rainbow "VIBE" button in navbar launches orchestrator for any project
+  - Full-page orchestrator view with SSE log streaming
+  - Start/stop orchestrator with automatic `ORCHESTRATOR.md` loading on first run
+  - Send custom prompts to guide orchestrator focus
+  - Green pulse indicator shows when orchestrator is running
+  - Orchestrator tasks get special handling - skip worktree path creation for project-level work
+
+#### Context Usage Tracking
+- **Real-time token usage monitoring** - Track AI agent context window utilization
+  - Progress bar shows current context usage with color-coded warning states (70%+, 85%+)
+  - Expandable details panel showing input/output/cached token breakdown
+  - Support for cache creation and read tokens in calculations
+  - Model-specific context window sizes (Claude 3.5 Sonnet: 200k, etc.)
+
+#### CLI & HTTP API
+- **Python CLI (`vibe-cli.py`)** - Full command-line interface for Vibe Kanban
+  - Project and task management commands
+  - `tasks wait` command to poll until task completes with `--interval` and `--timeout`
+  - Automatic hyphen-to-underscore normalization for command routing
+- **HTTP API help endpoint** - `/api/tools/vibe-cli/help` documents all REST operations
+  - Self-documenting API with method, endpoint, payload examples
+  - Equivalent CLI commands listed for each operation
+  - Orchestrator endpoints: send prompts, stop execution
 
 #### Compact Feature
 - **Compact button for Claude Code** - Minimize conversation context during coding sessions
@@ -40,9 +60,10 @@ All notable changes to Vibe Kanban.
 
 #### Task Management
 - **"Use existing branch" option** - Work on an existing branch instead of creating a new task-specific branch
-  - Toggle in task creation dialog
+  - Toggle in task creation dialog with branch status indicator
   - Worktree checks out the existing branch instead of creating new one
   - Changes commit directly to the selected branch
+  - Branch worktree status check before selection
 
 #### UI Improvements
 - **Mobile-responsive Kanban board** - Columns stack vertically on screens < 1280px
@@ -67,11 +88,17 @@ All notable changes to Vibe Kanban.
 
 - **Settings for git status visibility** - Configure showing git status on task cards
 
+- **Hot code reloading** - Frontend development with instant updates
+
 ### Fixed
 
 - **Task completion not moving to In Review status** - Claude Code executor using bidirectional SDK protocol now properly sends exit signal when task completes
   - Added exit signal to `ProtocolPeer::spawn()` that fires when read_loop completes
   - Fixes exit monitor waiting indefinitely for OS process exit
+
+- **Orchestrator worktree deletion bug** - Critical safety checks prevent orchestrator from deleting main project directory
+  - Skip `ensure_worktree_path` for orchestrator tasks in branch status
+  - Validate worktree paths before any deletion operations
 
 - **File search cache improvements** - Better caching for file search operations
 
@@ -79,3 +106,4 @@ All notable changes to Vibe Kanban.
 
 - Executor-aware compact logic - `COMPACT_SUPPORTED_EXECUTORS` set determines button visibility
 - Config versioning updated to v9 with new task card display options
+- Reduced debug logging noise for orchestrator tasks
