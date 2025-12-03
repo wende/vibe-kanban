@@ -24,6 +24,16 @@ export type CreateRemoteProjectRequest = { organization_id: string, name: string
 
 export type LinkToExistingRequest = { remote_project_id: string, };
 
+export type BranchWorktreeStatus = { 
+/**
+ * Whether the branch is currently checked out in a worktree
+ */
+in_worktree: boolean, 
+/**
+ * Path to the worktree if the branch is checked out
+ */
+worktree_path: string | null, };
+
 export type ExecutorAction = { typ: ExecutorActionType, next_action: ExecutorAction | null, };
 
 export type McpConfig = { servers: { [key in string]?: JsonValue }, servers_path: Array<string>, template: JsonValue, preconfigured: JsonValue, is_toml_config: boolean, };
