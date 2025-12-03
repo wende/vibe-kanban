@@ -850,37 +850,62 @@ impl ContainerService for LocalContainerService {
             .await?
             .ok_or(sqlx::Error::RowNotFound)?;
 
-        let worktree_dir_name =
-            LocalContainerService::dir_name_from_task_attempt(&task_attempt.id, &task.title);
-        let worktree_path = WorktreeManager::get_worktree_base_dir().join(&worktree_dir_name);
-
         let project = task
             .parent_project(&self.db.pool)
             .await?
             .ok_or(sqlx::Error::RowNotFound)?;
 
         // When branch == target_branch, we're using an existing branch (no new branch needed)
-        let create_new_branch = task_attempt.branch != task_attempt.target_branch;
+        let using_existing_branch = task_attempt.branch == task_attempt.target_branch;
 
-        WorktreeManager::create_worktree(
-            &project.git_repo_path,
-            &task_attempt.branch,
-            &worktree_path,
-            &task_attempt.target_branch,
-            create_new_branch,
-        )
-        .await?;
+        // Check if the branch is already checked out in a worktree
+        let git_service = GitService::new();
+        let existing_worktree_path = if using_existing_branch {
+            git_service
+                .check_branch_in_worktree(&project.git_repo_path, &task_attempt.branch)
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
 
-        // Copy files specified in the project's copy_files field
-        if let Some(copy_files) = &project.copy_files
-            && !copy_files.trim().is_empty()
-        {
-            self.copy_project_files(&project.git_repo_path, &worktree_path, copy_files)
-                .await
-                .unwrap_or_else(|e| {
-                    tracing::warn!("Failed to copy project files: {}", e);
-                });
-        }
+        let worktree_path = if let Some(existing_path) = existing_worktree_path {
+            // Use the existing worktree directory - no need to create a new one
+            tracing::info!(
+                "Branch '{}' is already checked out at '{}', using existing worktree",
+                task_attempt.branch,
+                existing_path
+            );
+            PathBuf::from(existing_path)
+        } else {
+            // Create a new worktree as before
+            let worktree_dir_name =
+                LocalContainerService::dir_name_from_task_attempt(&task_attempt.id, &task.title);
+            let new_worktree_path =
+                WorktreeManager::get_worktree_base_dir().join(&worktree_dir_name);
+
+            WorktreeManager::create_worktree(
+                &project.git_repo_path,
+                &task_attempt.branch,
+                &new_worktree_path,
+                &task_attempt.target_branch,
+                !using_existing_branch, // create_new_branch
+            )
+            .await?;
+
+            // Copy files specified in the project's copy_files field
+            if let Some(copy_files) = &project.copy_files
+                && !copy_files.trim().is_empty()
+            {
+                self.copy_project_files(&project.git_repo_path, &new_worktree_path, copy_files)
+                    .await
+                    .unwrap_or_else(|e| {
+                        tracing::warn!("Failed to copy project files: {}", e);
+                    });
+            }
+
+            new_worktree_path
+        };
 
         // Copy task images from cache to worktree
         if let Err(e) = self
@@ -904,6 +929,21 @@ impl ContainerService for LocalContainerService {
 
     async fn delete_inner(&self, task_attempt: &TaskAttempt) -> Result<(), ContainerError> {
         // cleanup the container, here that means deleting the worktree
+        let container_ref = task_attempt.container_ref.clone().unwrap_or_default();
+        let worktree_path = PathBuf::from(&container_ref);
+
+        // Only clean up worktrees that are in our managed worktrees directory
+        // Don't delete existing worktrees (like the main repo) that we're just using
+        let worktree_base = WorktreeManager::get_worktree_base_dir();
+        if !worktree_path.starts_with(&worktree_base) {
+            tracing::info!(
+                "Skipping cleanup for task attempt {} - container_ref '{}' is not in managed worktrees directory",
+                task_attempt.id,
+                container_ref
+            );
+            return Ok(());
+        }
+
         let task = task_attempt
             .parent_task(&self.db.pool)
             .await?
@@ -916,18 +956,15 @@ impl ContainerService for LocalContainerService {
                 None
             }
         };
-        WorktreeManager::cleanup_worktree(&WorktreeCleanup::new(
-            PathBuf::from(task_attempt.container_ref.clone().unwrap_or_default()),
-            git_repo_path,
-        ))
-        .await
-        .unwrap_or_else(|e| {
-            tracing::warn!(
-                "Failed to clean up worktree for task attempt {}: {}",
-                task_attempt.id,
-                e
-            );
-        });
+        WorktreeManager::cleanup_worktree(&WorktreeCleanup::new(worktree_path, git_repo_path))
+            .await
+            .unwrap_or_else(|e| {
+                tracing::warn!(
+                    "Failed to clean up worktree for task attempt {}: {}",
+                    task_attempt.id,
+                    e
+                );
+            });
         Ok(())
     }
 
