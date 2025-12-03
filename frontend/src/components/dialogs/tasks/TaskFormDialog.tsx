@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import WYSIWYGEditor from '@/components/ui/wysiwyg';
 import type { LocalImageMetadata } from '@/components/ui/wysiwyg/context/task-attempt-context';
 import BranchSelector from '@/components/tasks/BranchSelector';
@@ -588,76 +589,83 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                     </form.Field>
                   </div>
                   <form.Field name="createNewBranch">
-                    {(field) => (
-                      <div className="flex flex-col gap-1.5">
-                        <Label
-                          htmlFor="create-new-branch-select"
-                          className="text-xs text-muted-foreground"
-                        >
-                          {t('taskFormDialog.createNewBranchLabel')}
-                        </Label>
-                        <Select
-                          value={field.state.value ? 'create' : 'existing'}
-                          onValueChange={(value) => {
-                            const shouldCreate = value === 'create';
-                            field.handleChange(shouldCreate);
-                            if (!shouldCreate) {
-                              form.setFieldValue('customBranch', () => '');
-                              const currentBranch =
-                                form.getFieldValue('branch');
-                              if (currentBranch) {
-                                checkBranchInWorktree(currentBranch);
+                    {(field) => {
+                      const toggleDisabled =
+                        isSubmitting ||
+                        !autoStartField.state.value ||
+                        checkingWorktree;
+                      return (
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs text-muted-foreground">
+                            {t('taskFormDialog.createNewBranchLabel')}
+                          </Label>
+                          <ToggleGroup
+                            type="single"
+                            value={field.state.value ? 'create' : 'existing'}
+                            onValueChange={(value) => {
+                              if (value !== 'create' && value !== 'existing') {
+                                return;
                               }
-                            } else {
-                              setBranchWorktreeWarning(null);
-                            }
-                          }}
-                          disabled={
-                            isSubmitting ||
-                            !autoStartField.state.value ||
-                            checkingWorktree
-                          }
-                          aria-label={t(
-                            'taskFormDialog.createNewBranchLabel'
-                          )}
-                        >
-                          <SelectTrigger
-                            id="create-new-branch-select"
-                            className="h-9 text-xs"
+                              const shouldCreate = value === 'create';
+                              field.handleChange(shouldCreate);
+                              if (!shouldCreate) {
+                                form.setFieldValue('customBranch', () => '');
+                                const currentBranch =
+                                  form.getFieldValue('branch');
+                                if (currentBranch) {
+                                  checkBranchInWorktree(currentBranch);
+                                }
+                              } else {
+                                setBranchWorktreeWarning(null);
+                              }
+                            }}
+                            className="grid grid-cols-2 gap-2"
+                            aria-label={t(
+                              'taskFormDialog.createNewBranchLabel'
+                            )}
                           >
-                            <SelectValue
-                              placeholder={t(
-                                'taskFormDialog.createNewBranchPlaceholder'
+                            <ToggleGroupItem
+                              value="create"
+                              active={field.state.value}
+                              disabled={toggleDisabled}
+                              className={cn(
+                                'h-9 rounded-md border border-input px-3 text-xs font-medium transition',
+                                'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground'
                               )}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="create">
+                            >
                               {t(
                                 'taskFormDialog.createNewBranchOptions.create'
                               )}
-                            </SelectItem>
-                            <SelectItem value="existing">
+                            </ToggleGroupItem>
+                            <ToggleGroupItem
+                              value="existing"
+                              active={!field.state.value}
+                              disabled={toggleDisabled}
+                              className={cn(
+                                'h-9 rounded-md border border-input px-3 text-xs font-medium transition',
+                                'data-[state=on]:bg-muted data-[state=on]:text-foreground'
+                              )}
+                            >
                               {t(
                                 'taskFormDialog.createNewBranchOptions.existing'
                               )}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {!field.state.value && checkingWorktree && (
-                          <span className="text-xs text-muted-foreground">
-                            {t('common:checking', {
-                              defaultValue: 'Checking...',
-                            })}
-                          </span>
-                        )}
-                        {!field.state.value && branchWorktreeWarning && (
-                          <p className="text-xs text-amber-600 dark:text-amber-500">
-                            {branchWorktreeWarning}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                            </ToggleGroupItem>
+                          </ToggleGroup>
+                          {!field.state.value && checkingWorktree && (
+                            <span className="text-xs text-muted-foreground">
+                              {t('common:checking', {
+                                defaultValue: 'Checking...',
+                              })}
+                            </span>
+                          )}
+                          {!field.state.value && branchWorktreeWarning && (
+                            <p className="text-xs text-amber-600 dark:text-amber-500">
+                              {branchWorktreeWarning}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }}
                   </form.Field>
                   {createNewBranchEnabled && (
                     <form.Field name="customBranch">
