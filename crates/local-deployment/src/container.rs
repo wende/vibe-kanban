@@ -1037,10 +1037,6 @@ impl ContainerService for LocalContainerService {
 
         // For orchestrator tasks, container_ref IS the main repo - don't try to create a worktree
         if task_attempt.is_orchestrator {
-            tracing::debug!(
-                "Orchestrator task - using main repo directly: {}",
-                container_ref
-            );
             return Ok(container_ref.to_string());
         }
 
