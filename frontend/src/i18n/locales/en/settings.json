@@ -48,7 +48,11 @@
           "helper": "Choose the default agent configuration to use when creating a task attempt."
         },
         "variant": "DEFAULT",
-        "defaultLabel": "Default"
+        "defaultLabel": "Default",
+        "autoCommit": {
+          "label": "Enable auto commits",
+          "helper": "Automatically commit changes after the coding agent completes. When disabled, changes remain uncommitted in the worktree."
+        }
       },
       "editor": {
         "title": "Editor",

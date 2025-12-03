@@ -145,7 +145,6 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
         await attemptsApi.followUp(attemptId, {
           prompt: '/compact',
           variant: null,
-          image_ids: null,
           retry_process_id: null,
           force_when_dirty: null,
           perform_git_reset: null,
