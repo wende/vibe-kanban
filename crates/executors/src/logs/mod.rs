@@ -68,14 +68,19 @@ pub enum ContextWarningLevel {
 }
 
 /// Context/token usage information from AI agents
+///
+/// IMPORTANT: Context window usage is calculated as:
+///   context_used = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+///
+/// Output tokens do NOT count toward context window usage.
 #[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
 #[ts(export)]
 pub struct ContextUsage {
-    /// Input tokens used
+    /// Input tokens used (fresh, non-cached)
     pub input_tokens: u64,
-    /// Output tokens generated
+    /// Output tokens generated (does NOT count toward context window)
     pub output_tokens: u64,
-    /// Total tokens (input + output)
+    /// Total tokens for display (context_used + output)
     pub total_tokens: u64,
     /// Maximum context window size for this model
     pub context_window_size: u64,
@@ -83,10 +88,10 @@ pub struct ContextUsage {
     pub context_used_percent: f64,
     /// Tokens remaining in context window
     pub context_remaining: u64,
-    /// Cached input tokens (agent-specific, optional)
+    /// Cached input tokens - tokens used to create cache (counts toward context)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cached_input_tokens: Option<u64>,
-    /// Cache read tokens (agent-specific, optional)
+    /// Cache read tokens - tokens read from cache (counts toward context)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_read_tokens: Option<u64>,
     /// Cache write/creation tokens (agent-specific, optional)
@@ -143,9 +148,7 @@ pub enum NormalizedEntryType {
         needs_setup: bool,
     },
     /// Context/token usage update from AI agent
-    ContextUsage {
-        usage: ContextUsage,
-    },
+    ContextUsage { usage: ContextUsage },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

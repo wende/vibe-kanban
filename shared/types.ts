@@ -427,17 +427,17 @@ export type CommandRunResult = { exit_status: CommandExitStatus | null, output: 
 
 export type ContextWarningLevel = "none" | "approaching" | "critical";
 
-export type ContextUsage = { 
+export type ContextUsage = {
 /**
- * Input tokens used
+ * Input tokens used (fresh, non-cached)
  */
-input_tokens: bigint, 
+input_tokens: bigint,
 /**
- * Output tokens generated
+ * Output tokens generated (does NOT count toward context window)
  */
-output_tokens: bigint, 
+output_tokens: bigint,
 /**
- * Total tokens (input + output)
+ * Total tokens for display (context_used + output)
  */
 total_tokens: bigint, 
 /**
@@ -453,11 +453,11 @@ context_used_percent: number,
  */
 context_remaining: bigint, 
 /**
- * Cached input tokens (agent-specific, optional)
+ * Cached input tokens - tokens used to create cache (counts toward context)
  */
-cached_input_tokens?: bigint | null, 
+cached_input_tokens?: bigint | null,
 /**
- * Cache read tokens (agent-specific, optional)
+ * Cache read tokens - tokens read from cache (counts toward context)
  */
 cache_read_tokens?: bigint | null, 
 /**
