@@ -749,7 +749,9 @@ For more information, visit: https://github.com/vibe-teams/vibe-kanban
 
     # Build command handler name
     if hasattr(args, "subcommand") and args.subcommand:
-        handler_name = f"cmd_{args.command}_{args.subcommand}"
+        # Normalize hyphens to underscores for handler lookup
+        subcommand = args.subcommand.replace("-", "_")
+        handler_name = f"cmd_{args.command}_{subcommand}"
     else:
         # Show subcommand help if no subcommand given
         subparser = subparsers.choices.get(args.command)
