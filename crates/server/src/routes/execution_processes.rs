@@ -181,9 +181,21 @@ pub async fn compact_execution_process(
     Extension(execution_process): Extension<ExecutionProcess>,
     State(deployment): State<DeploymentImpl>,
 ) -> Result<ResponseJson<ApiResponse<bool>>, ApiError> {
+    // Determine the compact command based on the executor type
+    let compact_command = execution_process
+        .executor_action()
+        .ok()
+        .and_then(|action| action.base_executor())
+        .and_then(|base_executor| base_executor.compact_command());
+
+    let Some(command) = compact_command else {
+        // Executor doesn't support compaction
+        return Ok(ResponseJson(ApiResponse::success(false)));
+    };
+
     let sent = deployment
         .container()
-        .send_input_to_process(execution_process.id, "/compact".to_string())
+        .send_input_to_process(execution_process.id, command.to_string())
         .await?;
 
     Ok(ResponseJson(ApiResponse::success(sent)))

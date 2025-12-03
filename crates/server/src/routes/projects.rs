@@ -9,7 +9,10 @@ use axum::{
     routing::{get, post},
 };
 use db::models::{
-    project::{CreateProject, Project, ProjectError, SearchMatchType, SearchResult, UpdateProject},
+    project::{
+        CreateProject, Project, ProjectError, ProjectWithTaskCounts, SearchMatchType, SearchResult,
+        UpdateProject,
+    },
     task::Task,
 };
 use deployment::Deployment;
@@ -45,8 +48,8 @@ pub struct CreateRemoteProjectRequest {
 
 pub async fn get_projects(
     State(deployment): State<DeploymentImpl>,
-) -> Result<ResponseJson<ApiResponse<Vec<Project>>>, ApiError> {
-    let projects = Project::find_all(&deployment.db().pool).await?;
+) -> Result<ResponseJson<ApiResponse<Vec<ProjectWithTaskCounts>>>, ApiError> {
+    let projects = Project::find_all_with_task_counts(&deployment.db().pool).await?;
     Ok(ResponseJson(ApiResponse::success(projects)))
 }
 

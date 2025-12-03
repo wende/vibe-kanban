@@ -17,6 +17,7 @@ import {
   ExecutionProcess,
   GitBranch,
   Project,
+  ProjectWithTaskCounts,
   CreateProject,
   SearchResult,
   ShareTaskResponse,
@@ -218,9 +219,9 @@ const handleApiResponse = async <T, E = T>(response: Response): Promise<T> => {
 
 // Project Management APIs
 export const projectsApi = {
-  getAll: async (): Promise<Project[]> => {
+  getAll: async (): Promise<ProjectWithTaskCounts[]> => {
     const response = await makeRequest('/api/projects');
-    return handleApiResponse<Project[]>(response);
+    return handleApiResponse<ProjectWithTaskCounts[]>(response);
   },
 
   getById: async (id: string): Promise<Project> => {
