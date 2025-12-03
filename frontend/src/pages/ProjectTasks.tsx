@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { AlertTriangle, Plus, X } from 'lucide-react';
+import { AlertTriangle, Plus, X, Loader2 } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { tasksApi } from '@/lib/api';
 import type { GitBranch, TaskAttempt, BranchStatus } from 'shared/types';
@@ -58,6 +59,11 @@ import { DiffsPanel } from '@/components/panels/DiffsPanel';
 import TaskAttemptPanel from '@/components/panels/TaskAttemptPanel';
 import TaskPanel from '@/components/panels/TaskPanel';
 import SharedTaskPanel from '@/components/panels/SharedTaskPanel';
+import {
+  OrchestratorPanel,
+  useOrchestratorStop,
+} from '@/components/panels/OrchestratorPanel';
+import { orchestratorApi } from '@/lib/api';
 import TodoPanel from '@/components/tasks/TodoPanel';
 import { useAuth } from '@/hooks';
 import { NewCard, NewCardHeader } from '@/components/ui/new-card';
@@ -197,9 +203,33 @@ export function ProjectTasks() {
     }
   }, [taskId]);
 
+  // Check for orchestrator panel via URL param
+  const isOrchestratorOpen = searchParams.get('orchestrator') === 'open';
+
+  // Query orchestrator status when panel is open
+  const { data: orchestrator } = useQuery({
+    queryKey: ['orchestrator', projectId],
+    queryFn: () => orchestratorApi.get(projectId!),
+    enabled: !!projectId && isOrchestratorOpen,
+    refetchInterval: isOrchestratorOpen ? 3000 : false,
+  });
+
+  const orchestratorStopMutation = useOrchestratorStop(projectId || '');
+  const isOrchestratorRunning =
+    orchestrator?.latest_process?.status === 'running';
+
+  // Close orchestrator when a task is selected
+  useEffect(() => {
+    if (taskId && isOrchestratorOpen) {
+      const params = new URLSearchParams(searchParams);
+      params.delete('orchestrator');
+      setSearchParams(params, { replace: true });
+    }
+  }, [taskId, isOrchestratorOpen, searchParams, setSearchParams]);
+
   const isTaskPanelOpen = Boolean(taskId && selectedTask);
   const isSharedPanelOpen = Boolean(selectedSharedTask);
-  const isPanelOpen = isTaskPanelOpen || isSharedPanelOpen;
+  const isPanelOpen = isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
 
   const { config, updateAndSaveConfig, loading } = useUserSystem();
 
@@ -642,9 +672,14 @@ export function ProjectTasks() {
 
   const handleClosePanel = useCallback(() => {
     if (projectId) {
-      navigate(`/projects/${projectId}/tasks`, { replace: true });
+      // Clear orchestrator param if set
+      const params = new URLSearchParams(searchParams);
+      params.delete('orchestrator');
+      navigate(`/projects/${projectId}/tasks?${params.toString()}`, {
+        replace: true,
+      });
     }
-  }, [projectId, navigate]);
+  }, [projectId, navigate, searchParams]);
 
   const handleViewTaskDetails = useCallback(
     (task: Task, attemptIdToShow?: string) => {
@@ -969,9 +1004,72 @@ export function ProjectTasks() {
         </Breadcrumb>
       </div>
     </NewCardHeader>
+  ) : isOrchestratorOpen ? (
+    <NewCardHeader
+      className="shrink-0"
+      actions={
+        <div className="flex items-center gap-2">
+          {isOrchestratorRunning && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => orchestratorStopMutation.mutate()}
+              disabled={orchestratorStopMutation.isPending}
+            >
+              {orchestratorStopMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Stop'
+              )}
+            </Button>
+          )}
+          <Button
+            variant="icon"
+            aria-label={t('common:buttons.close', { defaultValue: 'Close' })}
+            onClick={handleClosePanel}
+          >
+            <X size={16} />
+          </Button>
+        </div>
+      }
+    >
+      <div className="mx-auto w-full">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage className="flex items-center gap-2">
+                <span
+                  style={{
+                    fontWeight: 'bold',
+                    background:
+                      'linear-gradient(to right, #ef4444, #eab308, #22c55e, #3b82f6, #a855f7)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  VIBE
+                </span>
+                Orchestrator
+                {isOrchestratorRunning && (
+                  <span className="flex items-center gap-1 text-sm text-green-600">
+                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                    Running
+                  </span>
+                )}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+    </NewCardHeader>
   ) : null;
 
-  const attemptContent = selectedTask ? (
+  const attemptContent = isOrchestratorOpen ? (
+    <NewCard className="h-full min-h-0 flex flex-col bg-diagonal-lines bg-muted border-0">
+      <OrchestratorPanel projectId={projectId!} />
+    </NewCard>
+  ) : selectedTask ? (
     <NewCard className="h-full min-h-0 flex flex-col bg-diagonal-lines bg-muted border-0">
       {isTaskView ? (
         <TaskPanel task={selectedTask} />
@@ -1024,7 +1122,8 @@ export function ProjectTasks() {
       <div className="relative h-full w-full" />
     );
 
-  const effectiveMode: LayoutMode = selectedSharedTask ? null : mode;
+  const effectiveMode: LayoutMode =
+    selectedSharedTask || isOrchestratorOpen ? null : mode;
 
   const attemptArea = (
     <GitOperationsProvider attemptId={attempt?.id}>
