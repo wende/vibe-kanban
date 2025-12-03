@@ -413,8 +413,14 @@
     "createNewBranchLabel": "Create new branch",
     "createNewBranchPlaceholder": "Select branch behavior",
     "createNewBranchOptions": {
-      "create": "Yes, create a new branch",
-      "existing": "No, use selected branch"
+      "create": {
+        "title": "Create a new branch",
+        "description": "We’ll create and name a dedicated branch for this task."
+      },
+      "existing": {
+        "title": "Use selected branch",
+        "description": "Run directly on the branch you selected above."
+      }
     },
     "branchInWorktreeWarning": "Branch \"{{branch}}\" is already in use. The task will run in the existing worktree directory.",
     "attachImage": "Attach image",

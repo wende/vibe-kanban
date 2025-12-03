@@ -413,8 +413,14 @@
     "createNewBranchLabel": "新しいブランチを作成",
     "createNewBranchPlaceholder": "ブランチの動作を選択",
     "createNewBranchOptions": {
-      "create": "はい、新しいブランチを作成",
-      "existing": "いいえ、選択したブランチを使用"
+      "create": {
+        "title": "新しいブランチを作成",
+        "description": "このタスク専用のブランチを自動的に作成します。"
+      },
+      "existing": {
+        "title": "選択したブランチを使用",
+        "description": "上で選択したブランチ上でそのまま実行します。"
+      }
     },
     "branchInWorktreeWarning": "ブランチ「{{branch}}」は既に使用中です。タスクは既存のワークツリーディレクトリで実行されます。",
     "attachImage": "画像を添付",
