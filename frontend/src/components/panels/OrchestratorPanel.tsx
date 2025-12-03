@@ -109,15 +109,12 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
                 <p className="text-destructive text-sm">
                   {String(startMutation.error)}
                 </p>
-                <p className="text-muted-foreground text-sm">
-                  Make sure ORCHESTRATOR.md exists in your repository root.
-                </p>
               </div>
             ) : (
               <>
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
                 <p className="text-muted-foreground">
-                  Reading instructions from ORCHESTRATOR.md...
+                  Initializing orchestrator...
                 </p>
               </>
             )}
