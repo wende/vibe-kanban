@@ -195,6 +195,8 @@ impl TaskAttempt {
     }
 
     /// Update container reference
+    /// Update container reference and reset worktree_deleted flag
+    /// When updating container_ref, we assume the worktree has been (re)created
     pub async fn update_container_ref(
         pool: &SqlitePool,
         attempt_id: Uuid,
@@ -202,7 +204,7 @@ impl TaskAttempt {
     ) -> Result<(), sqlx::Error> {
         let now = Utc::now();
         sqlx::query!(
-            "UPDATE task_attempts SET container_ref = $1, updated_at = $2 WHERE id = $3",
+            "UPDATE task_attempts SET container_ref = $1, worktree_deleted = FALSE, updated_at = $2 WHERE id = $3",
             container_ref,
             now,
             attempt_id

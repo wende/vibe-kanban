@@ -6,7 +6,6 @@ use axum::response::sse::Event;
 use db::{
     DBService,
     models::{
-        project::{CreateProject, Project},
         task_attempt::TaskAttemptError,
     },
 };
@@ -31,7 +30,7 @@ use services::services::{
     share::SharePublisher,
     worktree_manager::WorktreeError,
 };
-use sqlx::{Error as SqlxError, types::Uuid};
+use sqlx::{Error as SqlxError};
 use thiserror::Error;
 use tokio::sync::RwLock;
 use utils::sentry as sentry_utils;

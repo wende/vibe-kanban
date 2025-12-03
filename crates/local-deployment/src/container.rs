@@ -213,6 +213,17 @@ impl LocalContainerService {
                 continue;
             }
 
+            // CRITICAL SAFETY CHECK: Only delete directories within the managed worktree directory
+            // This prevents accidental deletion of user directories (e.g., orchestrator main repos)
+            if !path.starts_with(&worktree_base_dir) {
+                tracing::warn!(
+                    "Skipping orphan cleanup for path '{}' - not in managed worktree directory {}",
+                    path.display(),
+                    worktree_base_dir.display()
+                );
+                continue;
+            }
+
             let worktree_path_str = path.to_string_lossy().to_string();
             if let Ok(false) =
                 TaskAttempt::container_ref_exists(&self.db().pool, &worktree_path_str).await
