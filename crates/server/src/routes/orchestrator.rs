@@ -43,7 +43,8 @@ pub struct OrchestratorResponse {
 #[derive(Debug, Deserialize, TS)]
 #[ts(export)]
 pub struct OrchestratorSendRequest {
-    pub prompt: String,
+    /// Optional prompt - if not provided on initial start, will read from ORCHESTRATOR.md
+    pub prompt: Option<String>,
     /// Optional variant override (e.g., "opus", "sonnet")
     pub variant: Option<String>,
 }
@@ -122,7 +123,7 @@ pub async fn orchestrator_send(
     let pool = &deployment.db().pool;
 
     // Verify project exists
-    let _project = Project::find_by_id(pool, project_id)
+    let project = Project::find_by_id(pool, project_id)
         .await?
         .ok_or(SqlxError::RowNotFound)?;
 
@@ -158,17 +159,39 @@ pub async fn orchestrator_send(
         ExecutionProcess::find_latest_session_id_by_task_attempt(pool, attempt.id).await?;
     let is_resume = latest_session_id.is_some();
 
+    // Determine the prompt to use
+    let prompt = if let Some(_session_id) = &latest_session_id {
+        // For resume, prompt is required
+        payload.prompt.ok_or_else(|| {
+            ApiError::BadRequest("prompt is required for follow-up messages".to_string())
+        })?
+    } else {
+        // For new session, try to read ORCHESTRATOR.md if no prompt provided
+        if let Some(p) = payload.prompt {
+            p
+        } else {
+            let orchestrator_file = project.git_repo_path.join("ORCHESTRATOR.md");
+            std::fs::read_to_string(&orchestrator_file).map_err(|e| {
+                ApiError::BadRequest(format!(
+                    "Failed to read ORCHESTRATOR.md from {}: {}",
+                    orchestrator_file.display(),
+                    e
+                ))
+            })?
+        }
+    };
+
     let action_type = if let Some(session_id) = latest_session_id {
         // Resume existing session
         ExecutorActionType::CodingAgentFollowUpRequest(CodingAgentFollowUpRequest {
-            prompt: payload.prompt,
+            prompt,
             session_id,
             executor_profile_id: executor_profile_id.clone(),
         })
     } else {
         // Start new session
         ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
-            prompt: payload.prompt,
+            prompt,
             executor_profile_id: executor_profile_id.clone(),
         })
     };

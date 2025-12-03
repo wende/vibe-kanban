@@ -4,10 +4,8 @@ import TaskAttemptPanel from '@/components/panels/TaskAttemptPanel';
 import { ExecutionProcessesProvider } from '@/contexts/ExecutionProcessesContext';
 import { ReviewProvider } from '@/contexts/ReviewProvider';
 import { ClickedElementsProvider } from '@/contexts/ClickedElementsProvider';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Send, Loader2 } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useEffect } from 'react';
 import type { TaskWithAttemptStatus } from 'shared/types';
 
 // Rainbow gradient text component for VIBE
@@ -35,7 +33,6 @@ interface OrchestratorPanelProps {
 
 export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
   const queryClient = useQueryClient();
-  const [prompt, setPrompt] = useState('');
 
   // Query orchestrator state
   const {
@@ -49,38 +46,20 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
     refetchInterval: 3000, // Poll for updates
   });
 
-  // Mutation to send message
-  const sendMutation = useMutation({
-    mutationFn: (message: string) => orchestratorApi.send(projectId, message),
-    onSuccess: () => {
-      setPrompt('');
-      queryClient.invalidateQueries({ queryKey: ['orchestrator', projectId] });
-    },
-  });
-
-  // Mutation to stop orchestrator
-  const stopMutation = useMutation({
-    mutationFn: () => orchestratorApi.stop(projectId),
+  // Mutation to start orchestrator automatically
+  const startMutation = useMutation({
+    mutationFn: () => orchestratorApi.send(projectId), // No prompt - will read ORCHESTRATOR.md
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orchestrator', projectId] });
     },
   });
 
-  const handleSend = useCallback(() => {
-    if (prompt.trim()) {
-      sendMutation.mutate(prompt.trim());
+  // Auto-start orchestrator when panel opens with no existing session
+  useEffect(() => {
+    if (orchestrator?.attempt && !orchestrator?.latest_process && !startMutation.isPending) {
+      startMutation.mutate();
     }
-  }, [prompt, sendMutation]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        handleSend();
-      }
-    },
-    [handleSend]
-  );
+  }, [orchestrator, startMutation]);
 
   const isRunning = orchestrator?.latest_process?.status === 'running';
 
@@ -113,53 +92,35 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
     );
   }
 
-  // If no orchestrator attempt yet, show start panel
-  if (!orchestrator?.attempt || !orchestrator?.latest_process) {
+  // If no orchestrator process yet, show starting state
+  if (!orchestrator?.latest_process) {
+    const hasError = startMutation.isError;
+
     return (
       <div className="h-full flex flex-col">
-        {/* Start Panel */}
         <div className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="max-w-lg w-full space-y-6">
-            <div className="text-center space-y-2">
-              <RainbowVibe className="text-4xl" />
-              <h2 className="text-xl font-semibold">Start Orchestrator</h2>
-              <p className="text-muted-foreground">
-                The global orchestrator runs Claude Code directly on your main
-                branch. Use it to coordinate tasks, manage your codebase, or get
-                help with complex operations.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <Textarea
-                placeholder="What would you like Claude to help with?"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={4}
-                className="resize-none"
-              />
-              <Button
-                className="w-full"
-                onClick={handleSend}
-                disabled={!prompt.trim() || sendMutation.isPending}
-              >
-                {sendMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Start Orchestrator
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                Press ⌘+Enter to send
-              </p>
-            </div>
+          <div className="max-w-lg w-full space-y-6 text-center">
+            <RainbowVibe className="text-4xl" />
+            <h2 className="text-xl font-semibold">
+              {hasError ? 'Failed to Start' : 'Starting Orchestrator'}
+            </h2>
+            {hasError ? (
+              <div className="space-y-4">
+                <p className="text-destructive text-sm">
+                  {String(startMutation.error)}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Make sure ORCHESTRATOR.md exists in your repository root.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground">
+                  Reading instructions from ORCHESTRATOR.md...
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

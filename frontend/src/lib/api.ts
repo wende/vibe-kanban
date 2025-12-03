@@ -1140,10 +1140,11 @@ export const orchestratorApi = {
 
   /**
    * Send a message to the orchestrator (starts or resumes a session)
+   * If prompt is not provided on initial start, will read from ORCHESTRATOR.md
    */
   send: async (
     projectId: string,
-    prompt: string,
+    prompt?: string,
     variant?: string
   ): Promise<ExecutionProcess> => {
     const response = await makeRequest(

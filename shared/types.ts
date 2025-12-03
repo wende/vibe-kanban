@@ -374,7 +374,7 @@ conflicted_files: Array<string>, };
 
 export type ConflictOp = "rebase" | "merge" | "cherry_pick" | "revert";
 
-export type TaskAttempt = { id: string, task_id: string, container_ref: string | null, branch: string, target_branch: string, executor: string, worktree_deleted: boolean, setup_completed_at: string | null, created_at: string, updated_at: string, };
+export type TaskAttempt = { id: string, task_id: string, container_ref: string | null, branch: string, target_branch: string, executor: string, worktree_deleted: boolean, setup_completed_at: string | null, is_orchestrator: boolean, created_at: string, updated_at: string, };
 
 export type ExecutionProcess = { id: string, task_attempt_id: string, run_reason: ExecutionProcessRunReason, executor_action: ExecutorAction, 
 /**
@@ -412,15 +412,15 @@ export type CommandRunResult = { exit_status: CommandExitStatus | null, output: 
 
 export type ContextWarningLevel = "none" | "approaching" | "critical";
 
-export type ContextUsage = {
+export type ContextUsage = { 
 /**
  * Input tokens used (fresh, non-cached)
  */
-input_tokens: bigint,
+input_tokens: bigint, 
 /**
  * Output tokens generated (does NOT count toward context window)
  */
-output_tokens: bigint,
+output_tokens: bigint, 
 /**
  * Total tokens for display (context_used + output)
  */
@@ -440,7 +440,7 @@ context_remaining: bigint,
 /**
  * Cached input tokens - tokens used to create cache (counts toward context)
  */
-cached_input_tokens?: bigint | null,
+cached_input_tokens?: bigint | null, 
 /**
  * Cache read tokens - tokens read from cache (counts toward context)
  */
