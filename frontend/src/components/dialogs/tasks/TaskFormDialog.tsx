@@ -4,7 +4,7 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/lib/modals';
 import { useDropzone } from 'react-dropzone';
 import { useForm, useStore } from '@tanstack/react-form';
-import { Image as ImageIcon } from 'lucide-react';
+import { CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -661,13 +661,21 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                                   disabled={disabled}
                                   onClick={() => handleModeChange(option.value)}
                                   className={cn(
-                                    'w-full rounded-md border px-3 py-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                                    'group w-full rounded-md border px-3 py-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
                                     isActive
-                                      ? 'border-primary bg-primary/5 text-foreground shadow-sm'
+                                      ? 'border-primary bg-primary/10 text-foreground shadow-md ring-1 ring-primary/30'
                                       : 'border-input bg-muted/30 text-muted-foreground hover:text-foreground'
                                   )}
                                 >
-                                  <span className="block text-sm font-medium text-foreground">
+                                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                    <CheckCircle2
+                                      className={cn(
+                                        'h-4 w-4 transition-opacity',
+                                        isActive
+                                          ? 'opacity-100 text-primary'
+                                          : 'opacity-0 text-muted-foreground group-hover:opacity-40'
+                                      )}
+                                    />
                                     {option.label}
                                   </span>
                                   <span className="mt-1 block text-xs text-muted-foreground">
