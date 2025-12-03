@@ -33,6 +33,7 @@ use crate::{
         utils::{EntryIndexProvider, patch::ConversationPatch},
     },
     stdout_dup::create_stdout_pipe_writer,
+    token_tracker,
 };
 
 fn base_command(claude_code_router: bool) -> &'static str {
@@ -316,6 +317,11 @@ pub struct ClaudeLogProcessor {
     strategy: HistoryStrategy,
     streaming_messages: HashMap<String, StreamingMessageState>,
     streaming_message_id: Option<String>,
+    // Cumulative token usage tracking
+    cumulative_input_tokens: u64,
+    cumulative_output_tokens: u64,
+    // Entry index for the context usage entry (so we can update it in place)
+    context_usage_entry_index: Option<usize>,
 }
 
 impl ClaudeLogProcessor {
@@ -331,6 +337,9 @@ impl ClaudeLogProcessor {
             strategy,
             streaming_messages: HashMap::new(),
             streaming_message_id: None,
+            cumulative_input_tokens: 0,
+            cumulative_output_tokens: 0,
+            context_usage_entry_index: None,
         }
     }
 
@@ -1096,7 +1105,47 @@ impl ClaudeLogProcessor {
                     }
                 }
                 ClaudeStreamEvent::ContentBlockStop { .. } => {}
-                ClaudeStreamEvent::MessageDelta { .. } => {}
+                ClaudeStreamEvent::MessageDelta { usage, .. } => {
+                    // Handle token usage updates
+                    if let Some(usage_data) = usage {
+                        // Update cumulative totals
+                        if let Some(input) = usage_data.input_tokens {
+                            self.cumulative_input_tokens += input;
+                        }
+                        if let Some(output) = usage_data.output_tokens {
+                            self.cumulative_output_tokens += output;
+                        }
+
+                        // Build context usage entry
+                        let model = self.model_name.as_deref().unwrap_or("claude");
+                        let context_usage = token_tracker::build_context_usage(
+                            self.cumulative_input_tokens,
+                            self.cumulative_output_tokens,
+                            model,
+                            usage_data.cache_creation_input_tokens,
+                            usage_data.cache_read_input_tokens,
+                            None, // No separate cache write field in Claude API
+                        );
+
+                        let entry = NormalizedEntry {
+                            timestamp: None,
+                            entry_type: NormalizedEntryType::ContextUsage {
+                                usage: context_usage,
+                            },
+                            content: String::new(),
+                            metadata: None,
+                        };
+
+                        // Either update existing entry or create new one
+                        if let Some(existing_idx) = self.context_usage_entry_index {
+                            patches.push(ConversationPatch::replace(existing_idx, entry));
+                        } else {
+                            let idx = entry_index_provider.next();
+                            self.context_usage_entry_index = Some(idx);
+                            patches.push(ConversationPatch::add_normalized_entry(idx, entry));
+                        }
+                    }
+                }
                 ClaudeStreamEvent::MessageStop => {
                     if let Some(message_id) = self.streaming_message_id.take() {
                         let _ = self.streaming_messages.remove(&message_id);

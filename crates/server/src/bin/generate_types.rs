@@ -160,6 +160,8 @@ fn generate_types_content() -> String {
         db::models::merge::PullRequestInfo::decl(),
         executors::logs::CommandExitStatus::decl(),
         executors::logs::CommandRunResult::decl(),
+        executors::logs::ContextWarningLevel::decl(),
+        executors::logs::ContextUsage::decl(),
         executors::logs::NormalizedEntry::decl(),
         executors::logs::NormalizedEntryType::decl(),
         executors::logs::FileChange::decl(),
