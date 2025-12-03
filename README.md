@@ -15,116 +15,70 @@
   <a href="https://deepwiki.com/BloopAI/vibe-kanban"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
-<h1 align="center">
-  <a href="https://jobs.polymer.co/vibe-kanban?source=github"><strong>We're hiring!</strong></a>
-</h1>
+## Heavily opinionated fork of [BloopAI/vibe-kanban](https://github.com/BloopAI/vibe-kanban)
 
-![](frontend/public/vibe-kanban-screenshot-overview.png)
+# Changelog
 
-## Overview
+All notable changes to Vibe Kanban.
 
-AI coding agents are increasingly writing the world's code and human engineers now spend the majority of their time planning, reviewing, and orchestrating tasks. Vibe Kanban streamlines this process, enabling you to:
+## [Unreleased]
 
-- Easily switch between different coding agents
-- Orchestrate the execution of multiple coding agents in parallel or in sequence
-- Quickly review work and start dev servers
-- Track the status of tasks that your coding agents are working on
-- Centralise configuration of coding agent MCP configs
-- Open projects remotely via SSH when running Vibe Kanban on a remote server
+### Added
 
-You can watch a video overview [here](https://youtu.be/TFT3KnZOOAk).
+#### CLI Tool
+- **Python CLI (`vibe-cli.py`)** - New command-line interface for interacting with Vibe Kanban
+  - Full project and task management commands
+  - `tasks wait` command to poll until a task completes with configurable `--interval` and `--timeout`
+  - Automatic hyphen-to-underscore normalization for command routing (e.g., `tasks create-and-start`)
 
-## Installation
+#### Task Management
+- **"Use existing branch" option** - Work on an existing branch instead of creating a new task-specific branch
+  - Toggle in task creation dialog
+  - Worktree checks out the existing branch instead of creating new one
+  - Changes commit directly to the selected branch
 
-Make sure you have authenticated with your favourite coding agent. A full list of supported coding agents can be found in the [docs](https://vibekanban.com/docs). Then in your terminal run:
+#### UI Improvements
+- **Mobile-responsive Kanban board** - Columns stack vertically on screens < 1280px
+  - Vertical scrollable layout for status columns on mobile
+  - Enhanced visual distinction between sections
+  - Better touch targets with increased padding
 
-```bash
-npx vibe-kanban
-```
+- **Project status badges** - Display "In Progress" and "Pending Review" counts on project cards
+  - Blue badge for tasks in progress
+  - Yellow badge for tasks pending review
+  - New `ProjectWithTaskCounts` type with database query optimization
 
-## Documentation
+- **Executor display on task cards** - Show which AI executor (Claude Code, Gemini, etc.) is assigned
+  - Faded text next to task title with brackets and 50% opacity
 
-Please head to the [website](https://vibekanban.com/docs) for the latest documentation and user guides.
+- **Copy path action** - Copy the current worktree path to clipboard from the Actions dropdown
 
-## Support
+- **Click-to-open notifications** - Task completion notifications open the task page when clicked
+  - macOS: Uses `terminal-notifier` with `-open` flag
+  - Linux: Uses notify-rust with `xdg-open` action
+  - Windows: Toast notification with launch action
 
-We use [GitHub Discussions](https://github.com/BloopAI/vibe-kanban/discussions) for feature requests. Please open a discussion to create a feature request. For bugs please open an issue on this repo.
+- **Settings for git status visibility** - Configure showing git status on task cards
 
-## Contributing
+- **Context usage indicator** - Track AI agent token consumption with visual progress bar
+  - Shows input/output/cached tokens
+  - Warning levels for approaching context limits
 
-We would prefer that ideas and changes are first raised with the core team via [GitHub Discussions](https://github.com/BloopAI/vibe-kanban/discussions) or [Discord](https://discord.gg/AC4nwVtJM3), where we can discuss implementation details and alignment with the existing roadmap. Please do not open PRs without first discussing your proposal with the team.
+### Fixed
 
-## Development
+- **Task completion not moving to In Review status** - Claude Code executor using bidirectional SDK protocol now properly sends exit signal when task completes
+  - Added exit signal to `ProtocolPeer::spawn()` that fires when read_loop completes
+  - Fixes exit monitor waiting indefinitely for OS process exit
 
-### Prerequisites
+- **File search cache improvements** - Better caching for file search operations
 
-- [Rust](https://rustup.rs/) (latest stable)
-- [Node.js](https://nodejs.org/) (>=18)
-- [pnpm](https://pnpm.io/) (>=8)
+### Changed
 
-Additional development tools:
-```bash
-cargo install cargo-watch
-cargo install sqlx-cli
-```
+- Config versioning updated to v9 with new task card display options
 
-Install dependencies:
-```bash
-pnpm i
-```
+### Removed
 
-### Running the dev server
-
-```bash
-pnpm run dev
-```
-
-This will start the backend. A blank DB will be copied from the `dev_assets_seed` folder.
-
-### Building the frontend
-
-To build just the frontend:
-
-```bash
-cd frontend
-pnpm build
-```
-
-### Build from source
-
-1. Run `build-npm-package.sh`
-2. In the `npx-cli` folder run `npm pack`
-3. You can run your build with `npx [GENERATED FILE].tgz`
-
-
-### Environment Variables
-
-The following environment variables can be configured at build time or runtime:
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `POSTHOG_API_KEY` | Build-time | Empty | PostHog analytics API key (disables analytics if empty) |
-| `POSTHOG_API_ENDPOINT` | Build-time | Empty | PostHog analytics endpoint (disables analytics if empty) |
-| `BACKEND_PORT` | Runtime | `0` (auto-assign) | Backend server port |
-| `FRONTEND_PORT` | Runtime | `3000` | Frontend development server port |
-| `HOST` | Runtime | `127.0.0.1` | Backend server host |
-| `DISABLE_WORKTREE_ORPHAN_CLEANUP` | Runtime | Not set | Disable git worktree cleanup (for debugging) |
-
-**Build-time variables** must be set when running `pnpm run build`. **Runtime variables** are read when the application starts.
-
-### Remote Deployment
-
-When running Vibe Kanban on a remote server (e.g., via systemctl, Docker, or cloud hosting), you can configure your editor to open projects via SSH:
-
-1. **Access via tunnel**: Use Cloudflare Tunnel, ngrok, or similar to expose the web UI
-2. **Configure remote SSH** in Settings → Editor Integration:
-   - Set **Remote SSH Host** to your server hostname or IP
-   - Set **Remote SSH User** to your SSH username (optional)
-3. **Prerequisites**:
-   - SSH access from your local machine to the remote server
-   - SSH keys configured (passwordless authentication)
-   - VSCode Remote-SSH extension
-
-When configured, the "Open in VSCode" buttons will generate URLs like `vscode://vscode-remote/ssh-remote+user@host/path` that open your local editor and connect to the remote server.
-
-See the [documentation](https://vibekanban.com/docs/configuration-customisation/global-settings#remote-ssh-configuration) for detailed setup instructions.
+- **Compact button feature** - Removed in favor of upstream's executor architecture
+  - The `InputSender` trait and `BoxedInputSender` type were removed
+  - Upstream uses `InterruptSender` for graceful executor shutdown instead
+  - Compact functionality may be re-implemented in a future version using a different approach
