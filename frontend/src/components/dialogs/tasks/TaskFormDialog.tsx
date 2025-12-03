@@ -661,7 +661,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                                   disabled={disabled}
                                   onClick={() => handleModeChange(option.value)}
                                   className={cn(
-                                    'group w-full rounded-md border px-3 py-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                                    'w-full rounded-md border px-3 py-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
                                     isActive
                                       ? 'border-primary bg-primary/10 text-foreground shadow-md ring-1 ring-primary/30'
                                       : 'border-input bg-muted/30 text-muted-foreground hover:text-foreground'
@@ -670,10 +670,8 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                                   <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                                     <CheckCircle2
                                       className={cn(
-                                        'h-4 w-4 transition-opacity',
-                                        isActive
-                                          ? 'opacity-100 text-primary'
-                                          : 'opacity-0 text-muted-foreground group-hover:opacity-40'
+                                        'h-4 w-4 transition-opacity text-primary',
+                                        isActive ? 'opacity-100' : 'opacity-0'
                                       )}
                                     />
                                     {option.label}
