@@ -181,8 +181,12 @@ pub async fn orchestrator_send(
                 Ok(contents) => contents,
                 Err(_) => {
                     // Provide a sensible default if ORCHESTRATOR.md is not found
+                    let port = std::env::var("BACKEND_PORT")
+                        .or_else(|_| std::env::var("PORT"))
+                        .unwrap_or_else(|_| "unknown".to_string());
+
                     format!(
-                        "You are a project orchestrator managing the '{}' project.\n\n\
+                        "You are a project orchestrator managing the '{}' project on port {}.\n\n\
                         Your role is to coordinate development tasks, maintain code quality, \
                         and assist with project management. You have access to the entire \
                         codebase and can help with:\n\
@@ -192,7 +196,8 @@ pub async fn orchestrator_send(
                         - Maintaining code consistency and quality\n\
                         - Providing guidance on best practices\n\n\
                         You can start by reviewing the recent commits or ask me what you'd like to work on.",
-                        project.name
+                        project.name,
+                        port
                     )
                 }
             }
