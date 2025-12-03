@@ -173,6 +173,8 @@ fn generate_types_content() -> String {
         executors::actions::coding_agent_follow_up::CodingAgentFollowUpRequest::decl(),
         executors::logs::CommandExitStatus::decl(),
         executors::logs::CommandRunResult::decl(),
+        executors::logs::ContextWarningLevel::decl(),
+        executors::logs::ContextUsage::decl(),
         executors::logs::NormalizedEntry::decl(),
         executors::logs::NormalizedEntryType::decl(),
         executors::logs::FileChange::decl(),

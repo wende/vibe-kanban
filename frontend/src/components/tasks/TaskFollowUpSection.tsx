@@ -42,6 +42,7 @@ import { VariantSelector } from '@/components/tasks/VariantSelector';
 import { useAttemptBranch } from '@/hooks/useAttemptBranch';
 import { FollowUpConflictSection } from '@/components/tasks/follow-up/FollowUpConflictSection';
 import { ClickedElementsBanner } from '@/components/tasks/ClickedElementsBanner';
+import { ContextUsageIndicator } from '@/components/context/ContextUsageIndicator';
 import WYSIWYGEditor from '@/components/ui/wysiwyg';
 import { useRetryUi } from '@/contexts/RetryUiContext';
 import { useFollowUpSend } from '@/hooks/useFollowUpSend';
@@ -752,13 +753,15 @@ export function TaskFollowUpSection({
       {/* Always-visible action bar */}
       <div className="p-4">
         <div className="flex flex-row gap-2 items-center">
-          <div className="flex-1 flex gap-2">
+          <div className="flex-1 flex gap-2 items-center">
             <VariantSelector
               currentProfile={currentProfile}
               selectedVariant={selectedVariant}
               onChange={setSelectedVariant}
               disabled={!isEditable}
             />
+            {/* Context usage indicator */}
+            <ContextUsageIndicator className="ml-auto" />
           </div>
 
           {/* Hidden file input for attachment - always present */}
