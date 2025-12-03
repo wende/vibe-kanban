@@ -160,6 +160,7 @@ pub async fn create_task_attempt(
             executor: executor_profile_id.executor,
             base_branch: payload.base_branch.clone(),
             branch: git_branch_name.clone(),
+            is_orchestrator: false,
         },
         attempt_id,
         payload.task_id,
