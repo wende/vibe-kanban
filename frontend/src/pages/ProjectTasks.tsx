@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { AlertTriangle, Plus, X, Loader2 } from 'lucide-react';
+import { AlertTriangle, Plus, X, Loader2, RotateCcw } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { tasksApi } from '@/lib/api';
 import type { GitBranch, TaskAttempt, BranchStatus } from 'shared/types';
@@ -214,7 +214,14 @@ export function ProjectTasks() {
     refetchInterval: isOrchestratorOpen ? 3000 : false,
   });
 
+  const queryClient = useQueryClient();
   const orchestratorStopMutation = useOrchestratorStop(projectId || '');
+  const orchestratorRestartMutation = useMutation({
+    mutationFn: () => orchestratorApi.send(projectId!, undefined, undefined, true),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orchestrator', projectId] });
+    },
+  });
   const isOrchestratorRunning =
     orchestrator?.latest_process?.status === 'running';
 
@@ -952,6 +959,19 @@ export function ProjectTasks() {
               )}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => orchestratorRestartMutation.mutate()}
+            disabled={orchestratorRestartMutation.isPending || isOrchestratorRunning}
+            aria-label="Restart orchestrator session"
+          >
+            {orchestratorRestartMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
+          </Button>
           <Button
             variant="icon"
             aria-label={t('common:buttons.close', { defaultValue: 'Close' })}

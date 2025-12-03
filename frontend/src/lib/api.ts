@@ -1145,13 +1145,18 @@ export const orchestratorApi = {
   send: async (
     projectId: string,
     prompt?: string,
-    variant?: string
+    variant?: string,
+    forceNewSession?: boolean
   ): Promise<ExecutionProcess> => {
     const response = await makeRequest(
       `/api/projects/${projectId}/orchestrator/send`,
       {
         method: 'POST',
-        body: JSON.stringify({ prompt, variant }),
+        body: JSON.stringify({
+          prompt,
+          variant,
+          force_new_session: forceNewSession || false
+        }),
       }
     );
     return handleApiResponse<ExecutionProcess>(response);

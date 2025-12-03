@@ -47,6 +47,9 @@ pub struct OrchestratorSendRequest {
     pub prompt: Option<String>,
     /// Optional variant override (e.g., "opus", "sonnet")
     pub variant: Option<String>,
+    /// Force a new session (ignore existing session and start fresh)
+    #[serde(default)]
+    pub force_new_session: bool,
 }
 
 /// Get the orchestrator for a project (creates if none exists)
@@ -154,9 +157,12 @@ pub async fn orchestrator_send(
         variant: payload.variant,
     };
 
-    // Check for existing session to resume
-    let latest_session_id =
-        ExecutionProcess::find_latest_session_id_by_task_attempt(pool, attempt.id).await?;
+    // Check for existing session to resume (unless force_new_session is true)
+    let latest_session_id = if payload.force_new_session {
+        None
+    } else {
+        ExecutionProcess::find_latest_session_id_by_task_attempt(pool, attempt.id).await?
+    };
     let is_resume = latest_session_id.is_some();
 
     // Determine the prompt to use
@@ -171,13 +177,25 @@ pub async fn orchestrator_send(
             p
         } else {
             let orchestrator_file = project.git_repo_path.join("ORCHESTRATOR.md");
-            std::fs::read_to_string(&orchestrator_file).map_err(|e| {
-                ApiError::BadRequest(format!(
-                    "Failed to read ORCHESTRATOR.md from {}: {}",
-                    orchestrator_file.display(),
-                    e
-                ))
-            })?
+            match std::fs::read_to_string(&orchestrator_file) {
+                Ok(contents) => contents,
+                Err(_) => {
+                    // Provide a sensible default if ORCHESTRATOR.md is not found
+                    format!(
+                        "You are a project orchestrator managing the '{}' project.\n\n\
+                        Your role is to coordinate development tasks, maintain code quality, \
+                        and assist with project management. You have access to the entire \
+                        codebase and can help with:\n\
+                        - Creating and managing tasks\n\
+                        - Reviewing recent changes\n\
+                        - Coordinating work across multiple files\n\
+                        - Maintaining code consistency and quality\n\
+                        - Providing guidance on best practices\n\n\
+                        You can start by reviewing the recent commits or ask me what you'd like to work on.",
+                        project.name
+                    )
+                }
+            }
         }
     };
 
