@@ -424,6 +424,24 @@ export function GeneralSettings() {
               {t('settings.general.taskExecution.executor.helper')}
             </p>
           </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="auto-commit-enabled"
+              checked={draft?.auto_commit_enabled ?? false}
+              onCheckedChange={(checked: boolean) =>
+                updateDraft({ auto_commit_enabled: checked })
+              }
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-commit-enabled" className="cursor-pointer">
+                {t('settings.general.taskExecution.autoCommit.label')}
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {t('settings.general.taskExecution.autoCommit.helper')}
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
