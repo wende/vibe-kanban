@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow;
 use axum::{
@@ -18,6 +19,7 @@ use db::models::{
     task_attempt::{CreateTaskAttempt, TaskAttempt},
 };
 use deployment::Deployment;
+use executors::executors::BaseCodingAgent;
 use executors::profile::ExecutorProfileId;
 use futures_util::{SinkExt, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
@@ -257,6 +259,142 @@ pub async fn create_task_and_start(
     })))
 }
 
+#[derive(Debug, Deserialize, TS)]
+pub struct StartTaskAttemptRequest {
+    pub executor: BaseCodingAgent,
+    pub base_branch: String,
+    /// Optional custom branch name. If not provided, a branch will be auto-generated.
+    pub branch: Option<String>,
+}
+
+pub async fn start_task_attempt(
+    Extension(task): Extension<Task>,
+    State(deployment): State<DeploymentImpl>,
+    Json(payload): Json<StartTaskAttemptRequest>,
+) -> Result<ResponseJson<ApiResponse<TaskAttempt>>, ApiError> {
+    let attempt_id = Uuid::new_v4();
+
+    let executor_profile_id = ExecutorProfileId::new(payload.executor);
+
+    let git_branch_name = if let Some(custom_branch) = payload.branch {
+        custom_branch
+    } else {
+        deployment
+            .container()
+            .git_branch_from_task_attempt(&attempt_id, &task.title)
+            .await
+    };
+
+    let task_attempt = TaskAttempt::create(
+        &deployment.db().pool,
+        &CreateTaskAttempt {
+            executor: executor_profile_id.executor,
+            base_branch: payload.base_branch.clone(),
+            branch: git_branch_name.clone(),
+            is_orchestrator: false,
+        },
+        attempt_id,
+        task.id,
+    )
+    .await?;
+
+    let start_result = deployment
+        .container()
+        .start_attempt(&task_attempt, executor_profile_id.clone())
+        .await;
+
+    // Handle errors from starting the attempt
+    if let Err(err) = &start_result {
+        tracing::error!("Failed to start task attempt: {}", err);
+
+        // Check if this is a "branch already checked out" error
+        if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
+            // Clean up: delete the task attempt since we can't proceed
+            if let Err(e) = TaskAttempt::delete(&deployment.db().pool, task_attempt.id).await {
+                tracing::error!("Failed to delete task attempt after worktree error: {}", e);
+            }
+
+            return Err(ApiError::Conflict(format!(
+                "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
+                Please select a different branch or create a new branch for this task.",
+                branch
+            )));
+        }
+    }
+
+    deployment
+        .track_if_analytics_allowed(
+            "task_attempt_started",
+            serde_json::json!({
+                "task_id": task_attempt.task_id.to_string(),
+                "variant": &executor_profile_id.variant,
+                "executor": &executor_profile_id.executor,
+                "attempt_id": task_attempt.id.to_string(),
+            }),
+        )
+        .await;
+
+    tracing::info!("Created attempt for task {}", task.id);
+
+    Ok(ResponseJson(ApiResponse::success(task_attempt)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WaitForTaskQuery {
+    /// Polling interval in seconds (default: 2.0)
+    #[serde(default = "default_interval")]
+    pub interval: f64,
+    /// Timeout in seconds (default: no timeout)
+    pub timeout: Option<f64>,
+}
+
+fn default_interval() -> f64 {
+    2.0
+}
+
+pub async fn wait_for_task(
+    Extension(task): Extension<Task>,
+    State(deployment): State<DeploymentImpl>,
+    Query(query): Query<WaitForTaskQuery>,
+) -> Result<ResponseJson<ApiResponse<Task>>, ApiError> {
+    use db::models::task::TaskStatus;
+
+    // Check if task is currently in progress
+    if task.status != TaskStatus::InProgress {
+        // Task is not in progress, return immediately
+        return Ok(ResponseJson(ApiResponse::success(task)));
+    }
+
+    let poll_interval = Duration::from_secs_f64(query.interval.max(0.1)); // Min 0.1s
+    let timeout = query.timeout.map(Duration::from_secs_f64);
+    let start_time = std::time::Instant::now();
+
+    loop {
+        // Check timeout
+        if let Some(timeout_duration) = timeout {
+            if start_time.elapsed() >= timeout_duration {
+                return Err(ApiError::Timeout(format!(
+                    "Task did not complete within {} seconds",
+                    timeout_duration.as_secs()
+                )));
+            }
+        }
+
+        // Wait for the polling interval
+        tokio::time::sleep(poll_interval).await;
+
+        // Poll task status
+        let current_task = Task::find_by_id(&deployment.db().pool, task.id)
+            .await?
+            .ok_or(SqlxError::RowNotFound)?;
+
+        if current_task.status != TaskStatus::InProgress {
+            // Task has transitioned from in-progress to another state
+            return Ok(ResponseJson(ApiResponse::success(current_task)));
+        }
+    }
+}
+
 pub async fn update_task(
     Extension(existing_task): Extension<Task>,
     State(deployment): State<DeploymentImpl>,
@@ -471,7 +609,9 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let task_actions_router = Router::new()
         .route("/", put(update_task))
         .route("/", delete(delete_task))
-        .route("/share", post(share_task));
+        .route("/share", post(share_task))
+        .route("/attempts", post(start_task_attempt))
+        .route("/wait", get(wait_for_task));
 
     let task_id_router = Router::new()
         .route("/", get(get_task))

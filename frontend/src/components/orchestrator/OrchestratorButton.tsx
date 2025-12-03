@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -9,6 +9,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { orchestratorApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { paths } from '@/lib/paths';
 
 // Rainbow gradient text component for VIBE
 function RainbowVibe({ className }: { className?: string }) {
@@ -36,7 +37,8 @@ export function OrchestratorButton({
   projectId,
   className,
 }: OrchestratorButtonProps) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Query orchestrator status to show if it's running
   const { data: orchestrator } = useQuery({
@@ -49,9 +51,10 @@ export function OrchestratorButton({
   const isRunning = orchestrator?.latest_process?.status === 'running';
 
   const handleClick = () => {
+    // Navigate to project tasks (clears any selected task) with orchestrator open
     const params = new URLSearchParams(searchParams);
     params.set('orchestrator', 'open');
-    setSearchParams(params);
+    navigate({ pathname: paths.projectTasks(projectId), search: `?${params.toString()}` });
   };
 
   return (

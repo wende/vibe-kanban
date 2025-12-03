@@ -32,5 +32,48 @@ The legacy `vibe-cli.py` script has been replaced by a REST helper so you can ex
 
 Always prefer these HTTP endpoints whenever an instruction previously referenced `python vibe-cli.py` or `vibe ...` commands.
 
-You can start by reviewing the recent changes and looking for any issues or improvements.
-Get accustomed with 'vibe' cli
+### Key API Endpoints
+
+#### Task Management
+
+**Start a task attempt:**
+```bash
+POST /api/tasks/{task_id}/attempts
+Content-Type: application/json
+
+{
+  "executor": "GEMINI",
+  "base_branch": "main",
+  "branch": "feature/my-branch"  // optional, auto-generated if omitted
+}
+```
+
+Available executors: `CLAUDE_CODE`, `GEMINI`, `AMP`, `CODEX`, `OPENCODE`, `CURSOR_AGENT`, `QWEN_CODE`, `COPILOT`, `DROID`
+
+**Wait for task completion:**
+```bash
+# Wait indefinitely with 2s polling (default)
+GET /api/tasks/{task_id}/wait
+
+# Wait with timeout and custom polling interval
+GET /api/tasks/{task_id}/wait?interval=1.0&timeout=300
+```
+
+Query parameters:
+- `interval`: Polling interval in seconds (default: 2.0, minimum: 0.1)
+- `timeout`: Maximum wait time in seconds (optional, no default)
+
+Returns immediately if task is not in-progress. Otherwise polls until task transitions to another state (done, in-review, cancelled, etc.).
+
+**Common automation pattern:**
+```bash
+# Create task and wait for completion
+TASK_ID=$(curl -s -X POST http://127.0.0.1:3000/api/tasks/{task_id}/attempts \
+  -H "Content-Type: application/json" \
+  -d '{"executor":"GEMINI","base_branch":"main"}' | jq -r '.data.task_id')
+
+# Wait up to 10 minutes for completion
+curl -s "http://127.0.0.1:3000/api/tasks/${TASK_ID}/wait?timeout=600" | jq
+```
+
+Run /help and if it's responding say you are ready to continue.
