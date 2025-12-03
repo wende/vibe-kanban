@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KanbanCard } from '@/components/ui/shadcn-io/kanban';
 import { CheckCircle, Link, Loader2, XCircle } from 'lucide-react';
 import type { TaskWithAttemptStatus } from 'shared/types';
 import { ActionsDropdown } from '@/components/ui/actions-dropdown';
 import { Button } from '@/components/ui/button';
-import { useNavigateWithSearch } from '@/hooks';
+import { useBranchStatus, useNavigateWithSearch } from '@/hooks';
 import { paths } from '@/lib/paths';
 import { attemptsApi } from '@/lib/api';
 import type { SharedTaskRecord } from '@/hooks/useProjectTasks';
@@ -21,6 +21,108 @@ interface TaskCardProps {
   isOpen?: boolean;
   projectId: string;
   sharedTask?: SharedTaskRecord;
+}
+
+type GitIndicator = {
+  symbol: string;
+  className: string;
+  label: string;
+};
+
+function GitStatusIndicators({
+  attemptId,
+}: {
+  attemptId?: string | null;
+}) {
+  const { data: branchStatus } = useBranchStatus(attemptId ?? undefined);
+  const [sticky, setSticky] = useState({ uncommitted: false, untracked: false });
+
+  useEffect(() => {
+    if (!branchStatus) return;
+
+    const nextUncommitted =
+      (branchStatus.uncommitted_count ?? 0) > 0 ||
+      branchStatus.has_uncommitted_changes === true ||
+      (branchStatus.conflicted_files?.length ?? 0) > 0;
+    const nextUntracked =
+      (branchStatus.untracked_count ?? 0) > 0 ||
+      (branchStatus.has_uncommitted_changes === true &&
+        branchStatus.untracked_count === null);
+
+    // Only clear sticky flag when we have EXPLICIT confirmation of zero changes.
+    // Using === 0 (not ?? 0) ensures null/undefined doesn't trigger a clear.
+    const cleanUncommitted =
+      branchStatus.uncommitted_count === 0 &&
+      branchStatus.has_uncommitted_changes === false &&
+      (branchStatus.conflicted_files?.length ?? 0) === 0;
+    const cleanUntracked = branchStatus.untracked_count === 0;
+
+    setSticky((prev) => ({
+      uncommitted: nextUncommitted ? true : cleanUncommitted ? false : prev.uncommitted,
+      untracked: nextUntracked ? true : cleanUntracked ? false : prev.untracked,
+    }));
+  }, [branchStatus]);
+
+  const indicators = useMemo((): GitIndicator[] => {
+    const hasUncommitted = sticky.uncommitted;
+    const hasUntracked = sticky.untracked;
+    const commitsAhead =
+      (branchStatus?.remote_commits_ahead ??
+        branchStatus?.commits_ahead ??
+        0) > 0;
+
+    const items: GitIndicator[] = [];
+    if (hasUncommitted) {
+      items.push({
+        symbol: '●',
+        className: 'text-amber-500',
+        label: 'Uncommitted changes in worktree',
+      });
+    }
+    if (hasUntracked) {
+      items.push({
+        symbol: '?',
+        className: 'text-purple-500',
+        label: 'Untracked files present',
+      });
+    }
+    if (commitsAhead) {
+      items.push({
+        symbol: '↑',
+        className: 'text-sky-500',
+        label: 'Local commits not pushed to origin',
+      });
+    }
+    return items;
+  }, [
+    branchStatus?.commits_ahead,
+    branchStatus?.remote_commits_ahead,
+    branchStatus?.uncommitted_count,
+    branchStatus?.untracked_count,
+    branchStatus?.has_uncommitted_changes,
+    branchStatus?.conflicted_files?.length,
+    sticky.uncommitted,
+    sticky.untracked,
+  ]);
+
+  if (!indicators.length) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-1" aria-label="Git status indicators">
+      {indicators.map((item, idx) => (
+        <span
+          key={`${item.symbol}-${idx}`}
+          className={`text-xs ${item.className}`}
+          title={item.label}
+          aria-label={item.label}
+        >
+          {item.symbol}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export function TaskCard({
@@ -108,6 +210,7 @@ export function TaskCard({
           }
           right={
             <>
+              <GitStatusIndicators attemptId={task.latest_task_attempt_id} />
               {task.has_in_progress_attempt && (
                 <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
               )}

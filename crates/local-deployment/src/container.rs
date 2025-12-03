@@ -391,13 +391,30 @@ impl LocalContainerService {
 
                 if success || cleanup_done {
                     // Commit changes (if any) and get feedback about whether changes were made
-                    let changes_committed = match container.try_commit_changes(&ctx).await {
-                        Ok(committed) => committed,
-                        Err(e) => {
-                            tracing::error!("Failed to commit changes after execution: {}", e);
-                            // Treat commit failures as if changes were made to be safe
-                            true
+                    let auto_commit_enabled = config.read().await.auto_commit_enabled;
+                    let changes_committed = if auto_commit_enabled {
+                        match container.try_commit_changes(&ctx).await {
+                            Ok(committed) => committed,
+                            Err(e) => {
+                                tracing::error!("Failed to commit changes after execution: {}", e);
+                                // Treat commit failures as if changes were made to be safe
+                                true
+                            }
                         }
+                    } else {
+                        tracing::debug!(
+                            "Auto-commit disabled, skipping commit for task attempt {}",
+                            ctx.task_attempt.id
+                        );
+                        // When auto-commit is disabled, check if there are uncommitted changes
+                        // to determine if we should proceed with next actions
+                        container
+                            .git()
+                            .is_worktree_clean(
+                                &container.task_attempt_to_current_dir(&ctx.task_attempt),
+                            )
+                            .map(|clean| !clean)
+                            .unwrap_or(false)
                     };
 
                     let should_start_next = if matches!(
