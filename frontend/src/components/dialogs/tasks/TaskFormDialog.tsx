@@ -668,7 +668,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                                   )}
                                 >
                                   {isActive && (
-                                    <CheckCircle2 className="absolute right-3 top-3 h-4 w-4 text-primary" />
+                                    <CheckCircle2 className="absolute right-3 top-3 h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                                   )}
                                   <span className="block text-sm font-medium text-foreground pr-6">
                                     {option.label}
