@@ -410,7 +410,13 @@
       "cancelled": "キャンセル"
     },
     "startLabel": "開始",
-    "useExistingBranch": "既存のブランチを使用",
+    "createNewBranchLabel": "新しいブランチを作成",
+    "createNewBranchPlaceholder": "ブランチの動作を選択",
+    "createNewBranchOptions": {
+      "create": "はい、新しいブランチを作成",
+      "existing": "いいえ、選択したブランチを使用"
+    },
+    "branchInWorktreeWarning": "ブランチ「{{branch}}」は既に使用中です。タスクは既存のワークツリーディレクトリで実行されます。",
     "attachImage": "画像を添付",
     "dropImagesHere": "画像をここにドロップ",
     "updating": "更新中...",

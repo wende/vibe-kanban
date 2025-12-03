@@ -410,7 +410,13 @@
       "cancelled": "Cancelled"
     },
     "startLabel": "Start",
-    "useExistingBranch": "Use existing branch",
+    "createNewBranchLabel": "Create new branch",
+    "createNewBranchPlaceholder": "Select branch behavior",
+    "createNewBranchOptions": {
+      "create": "Yes, create a new branch",
+      "existing": "No, use selected branch"
+    },
+    "branchInWorktreeWarning": "Branch \"{{branch}}\" is already in use. The task will run in the existing worktree directory.",
     "attachImage": "Attach image",
     "dropImagesHere": "Drop images here",
     "updating": "Updating...",
