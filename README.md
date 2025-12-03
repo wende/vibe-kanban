@@ -59,11 +59,10 @@ All notable changes to Vibe Kanban.
   - Fixed JSON parsing for Claude Code's `/compact` response format (field aliasing for `sessionid`, `parenttooluseid`)
 
 #### Task Management
-- **"Use existing branch" option** - Work on an existing branch instead of creating a new task-specific branch
-  - Toggle in task creation dialog with branch status indicator
-  - Worktree checks out the existing branch instead of creating new one
-  - Changes commit directly to the selected branch
-  - Branch worktree status check before selection
+- **Reuse existing worktrees** - When a branch is already checked out in a worktree (e.g., the main repo), tasks use that existing directory instead of failing with a conflict error
+  - Branch status indicator shows if a branch is already in a worktree
+  - Skips worktree cleanup for directories outside managed worktrees dir
+  - Enables working on branches already checked out in main repo
 
 #### UI Improvements
 - **Mobile-responsive Kanban board** - Columns stack vertically on screens < 1280px
