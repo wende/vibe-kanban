@@ -328,9 +328,7 @@ impl WorktreeManager {
                     if error_str.contains("is already used by worktree")
                         || error_str.contains("is already checked out")
                     {
-                        return Err(WorktreeError::BranchAlreadyCheckedOut(
-                            branch_name.clone(),
-                        ));
+                        return Err(WorktreeError::BranchAlreadyCheckedOut(branch_name.clone()));
                     }
 
                     tracing::info!(

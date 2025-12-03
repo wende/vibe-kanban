@@ -253,8 +253,13 @@ mod tests {
     fn test_build_context_usage_with_cache() {
         // 10K input, 2K output, 80K cache_creation, 50K cache_read
         // Context used = 10K + 80K + 50K = 140K
-        let usage =
-            build_context_usage(10_000, 2_000, "claude-3-5-sonnet", Some(80_000), Some(50_000));
+        let usage = build_context_usage(
+            10_000,
+            2_000,
+            "claude-3-5-sonnet",
+            Some(80_000),
+            Some(50_000),
+        );
 
         assert_eq!(usage.input_tokens, 10_000);
         assert_eq!(usage.output_tokens, 2_000);

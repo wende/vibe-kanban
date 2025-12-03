@@ -17,8 +17,8 @@ use workspace_utils::{
     path::make_path_relative,
 };
 
-use self::{client::ClaudeAgentClient, protocol::ProtocolPeer, types::PermissionMode};
 pub use self::protocol::ProtocolPeerSpawnResult;
+use self::{client::ClaudeAgentClient, protocol::ProtocolPeer, types::PermissionMode};
 use crate::{
     approvals::ExecutorApprovalService,
     command::{CmdOverrides, CommandBuilder, CommandParts, apply_overrides},
@@ -1603,8 +1603,9 @@ fn deserialize_user_content<'de, D>(deserializer: D) -> Result<Vec<ClaudeContent
 where
     D: serde::Deserializer<'de>,
 {
-    use serde::de::{self, Visitor};
     use std::fmt;
+
+    use serde::de::{self, Visitor};
 
     struct ContentVisitor;
 
