@@ -4,6 +4,7 @@ import {
   ApprovalStatus,
   ApiResponse,
   BranchStatus,
+  BranchWorktreeStatus,
   Config,
   CreateFollowUpAttempt,
   EditorType,
@@ -275,6 +276,16 @@ export const projectsApi = {
   getBranches: async (id: string): Promise<GitBranch[]> => {
     const response = await makeRequest(`/api/projects/${id}/branches`);
     return handleApiResponse<GitBranch[]>(response);
+  },
+
+  checkBranchInWorktree: async (
+    id: string,
+    branch: string
+  ): Promise<BranchWorktreeStatus> => {
+    const response = await makeRequest(
+      `/api/projects/${id}/branches/check-worktree?branch=${encodeURIComponent(branch)}`
+    );
+    return handleApiResponse<BranchWorktreeStatus>(response);
   },
 
   searchFiles: async (

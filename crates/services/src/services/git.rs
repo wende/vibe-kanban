@@ -1239,6 +1239,17 @@ impl GitService {
         Ok(branches)
     }
 
+    /// Check if a branch is currently checked out in any worktree.
+    /// Returns the worktree path if the branch is in use, None otherwise.
+    pub fn check_branch_in_worktree(
+        &self,
+        repo_path: &Path,
+        branch_name: &str,
+    ) -> Result<Option<String>, GitServiceError> {
+        let path = self.find_checkout_path_for_branch(repo_path, branch_name)?;
+        Ok(path.map(|p| p.to_string_lossy().to_string()))
+    }
+
     /// Perform a squash merge of task branch into base branch, but fail on conflicts
     fn perform_squash_merge(
         &self,

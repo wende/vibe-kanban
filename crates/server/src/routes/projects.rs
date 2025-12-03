@@ -17,7 +17,7 @@ use db::models::{
 };
 use deployment::Deployment;
 use ignore::WalkBuilder;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use services::services::{
     file_ranker::FileRanker,
     file_search_cache::{CacheError, SearchMode, SearchQuery},
@@ -38,6 +38,20 @@ use crate::{DeploymentImpl, error::ApiError, middleware::load_project_middleware
 #[derive(Deserialize, TS)]
 pub struct LinkToExistingRequest {
     pub remote_project_id: Uuid,
+}
+
+#[derive(Debug, Serialize, TS)]
+#[ts(export)]
+pub struct BranchWorktreeStatus {
+    /// Whether the branch is currently checked out in a worktree
+    pub in_worktree: bool,
+    /// Path to the worktree if the branch is checked out
+    pub worktree_path: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CheckBranchQuery {
+    branch: String,
 }
 
 #[derive(Deserialize, TS)]
@@ -65,6 +79,21 @@ pub async fn get_project_branches(
 ) -> Result<ResponseJson<ApiResponse<Vec<GitBranch>>>, ApiError> {
     let branches = deployment.git().get_all_branches(&project.git_repo_path)?;
     Ok(ResponseJson(ApiResponse::success(branches)))
+}
+
+pub async fn check_branch_in_worktree(
+    Extension(project): Extension<Project>,
+    State(deployment): State<DeploymentImpl>,
+    Query(query): Query<CheckBranchQuery>,
+) -> Result<ResponseJson<ApiResponse<BranchWorktreeStatus>>, ApiError> {
+    let worktree_path = deployment
+        .git()
+        .check_branch_in_worktree(&project.git_repo_path, &query.branch)?;
+
+    Ok(ResponseJson(ApiResponse::success(BranchWorktreeStatus {
+        in_worktree: worktree_path.is_some(),
+        worktree_path,
+    })))
 }
 
 pub async fn link_project_to_existing_remote(
@@ -665,6 +694,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         )
         .route("/remote/members", get(get_project_remote_members))
         .route("/branches", get(get_project_branches))
+        .route("/branches/check-worktree", get(check_branch_in_worktree))
         .route("/search", get(search_project_files))
         .route("/open-editor", post(open_project_in_editor))
         .route(
