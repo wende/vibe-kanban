@@ -896,6 +896,7 @@ export function TaskFollowUpSection({
                   }
                   size="sm"
                   variant="secondary"
+                  className="bg-secondary/60 text-foreground hover:bg-secondary/80"
                 >
                   {isQueueLoading ? (
                     <Loader2 className="animate-spin h-4 w-4 mr-2" />
