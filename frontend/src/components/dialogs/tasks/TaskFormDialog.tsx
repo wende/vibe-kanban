@@ -577,7 +577,16 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                         <BranchSelector
                           branches={branches ?? []}
                           selectedBranch={field.state.value}
-                          onBranchSelect={(branch) => field.handleChange(branch)}
+                          onBranchSelect={(branch) => {
+                            field.handleChange(branch);
+                            const shouldUseExisting =
+                              !form.getFieldValue('createNewBranch');
+                            if (shouldUseExisting && branch) {
+                              checkBranchInWorktree(branch);
+                            } else if (shouldUseExisting) {
+                              setBranchWorktreeWarning(null);
+                            }
+                          }}
                           placeholder="Branch"
                           className={cn(
                             'h-9 flex-1 min-w-0 text-xs',
