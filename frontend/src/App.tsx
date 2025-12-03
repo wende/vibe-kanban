@@ -34,7 +34,11 @@ import { ReleaseNotesDialog } from '@/components/dialogs/global/ReleaseNotesDial
 import { ClickedElementsProvider } from './contexts/ClickedElementsProvider';
 import NiceModal from '@ebay/nice-modal-react';
 
-const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Routes);
+// Use regular Routes in dev to avoid HMR conflicts with Sentry's hook wrapper
+const SentryRoutes =
+  import.meta.env.DEV
+    ? Routes
+    : Sentry.withSentryReactRouterV6Routing(Routes);
 
 function AppContent() {
   const { config, analyticsUserId, updateAndSaveConfig, loading } =
