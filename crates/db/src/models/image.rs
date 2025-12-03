@@ -214,18 +214,19 @@ impl TaskImage {
         task_id: Uuid,
         image_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query_scalar!(
-            r#"SELECT EXISTS(
+        let exists = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
                 SELECT 1
                 FROM task_images
                 WHERE task_id = $1 AND image_id = $2
-               ) AS "exists!: bool"
+            ) as "exists!: bool"
             "#,
             task_id,
             image_id
         )
         .fetch_one(pool)
         .await?;
-        Ok(result)
+        Ok(exists)
     }
 }

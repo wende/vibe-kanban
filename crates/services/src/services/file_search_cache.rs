@@ -466,8 +466,8 @@ impl FileSearchCache {
             return Ok(()); // Already watching
         }
 
-        let git_dir = resolve_git_dir(repo_path)
-            .ok_or_else(|| "Not a git repository".to_string())?;
+        let git_dir =
+            resolve_git_dir(repo_path).ok_or_else(|| "Not a git repository".to_string())?;
 
         let build_queue = self.build_queue.clone();
         let watched_path = repo_path_buf.clone();

@@ -148,7 +148,9 @@ pub enum NormalizedEntryType {
         needs_setup: bool,
     },
     /// Context/token usage update from AI agent
-    ContextUsage { usage: ContextUsage },
+    ContextUsage {
+        usage: ContextUsage,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

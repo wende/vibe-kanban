@@ -114,7 +114,12 @@ impl BaseCodingAgent {
             // Codex uses compact_prompt parameter at conversation start, not interactive command
             Self::Codex => None,
             // Other agents - not yet known if they support compaction
-            Self::Amp | Self::Opencode | Self::CursorAgent | Self::QwenCode | Self::Copilot | Self::Droid => None,
+            Self::Amp
+            | Self::Opencode
+            | Self::CursorAgent
+            | Self::QwenCode
+            | Self::Copilot
+            | Self::Droid => None,
         }
     }
 }
