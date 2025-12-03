@@ -45,6 +45,7 @@ use services::services::{
 use sqlx::Error as SqlxError;
 use ts_rs::TS;
 use utils::response::ApiResponse;
+use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::{
@@ -917,8 +918,21 @@ pub async fn get_task_attempt_branch_status(
         .ok_or(ApiError::TaskAttempt(TaskAttemptError::TaskNotFound))?;
     let ctx = TaskAttempt::load_context(pool, task_attempt.id, task.id, task.project_id).await?;
 
-    // Get worktree path once and reuse it
-    let wt_buf = ensure_worktree_path(&deployment, &task_attempt).await?;
+    // For orchestrator tasks, use container_ref directly (it's the main repo, not a worktree)
+    // This avoids unnecessary ensure_worktree_path calls on every poll
+    let wt_buf = if task_attempt.is_orchestrator {
+        task_attempt
+            .container_ref
+            .as_ref()
+            .map(PathBuf::from)
+            .ok_or_else(|| {
+                ApiError::TaskAttempt(TaskAttemptError::ValidationError(
+                    "Orchestrator attempt missing container_ref".to_string(),
+                ))
+            })?
+    } else {
+        ensure_worktree_path(&deployment, &task_attempt).await?
+    };
     let wt = wt_buf.as_path();
 
     let has_uncommitted_changes = deployment
