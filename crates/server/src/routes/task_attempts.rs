@@ -916,40 +916,33 @@ pub async fn get_task_attempt_branch_status(
         .await?
         .ok_or(ApiError::TaskAttempt(TaskAttemptError::TaskNotFound))?;
     let ctx = TaskAttempt::load_context(pool, task_attempt.id, task.id, task.project_id).await?;
+
+    // Get worktree path once and reuse it
+    let wt_buf = ensure_worktree_path(&deployment, &task_attempt).await?;
+    let wt = wt_buf.as_path();
+
     let has_uncommitted_changes = deployment
         .container()
         .is_container_clean(&task_attempt)
         .await
         .ok()
         .map(|is_clean| !is_clean);
-    let head_oid = {
-        let wt_buf = ensure_worktree_path(&deployment, &task_attempt).await?;
-        let wt = wt_buf.as_path();
-        deployment.git().get_head_info(wt).ok().map(|h| h.oid)
-    };
+    let head_oid = deployment.git().get_head_info(wt).ok().map(|h| h.oid);
     // Detect conflicts and operation in progress (best-effort)
-    let (is_rebase_in_progress, conflicted_files, conflict_op) = {
-        let wt_buf = ensure_worktree_path(&deployment, &task_attempt).await?;
-        let wt = wt_buf.as_path();
-        let in_rebase = deployment.git().is_rebase_in_progress(wt).unwrap_or(false);
-        let conflicts = deployment
-            .git()
-            .get_conflicted_files(wt)
-            .unwrap_or_default();
-        let op = if conflicts.is_empty() {
-            None
-        } else {
-            deployment.git().detect_conflict_op(wt).unwrap_or(None)
-        };
-        (in_rebase, conflicts, op)
+    let is_rebase_in_progress = deployment.git().is_rebase_in_progress(wt).unwrap_or(false);
+    let conflicted_files = deployment
+        .git()
+        .get_conflicted_files(wt)
+        .unwrap_or_default();
+    let conflict_op = if conflicted_files.is_empty() {
+        None
+    } else {
+        deployment.git().detect_conflict_op(wt).unwrap_or(None)
     };
-    let (uncommitted_count, untracked_count) = {
-        let wt_buf = ensure_worktree_path(&deployment, &task_attempt).await?;
-        let wt = wt_buf.as_path();
-        match deployment.git().get_worktree_change_counts(wt) {
-            Ok((a, b)) => (Some(a), Some(b)),
-            Err(_) => (None, None),
-        }
+    let (uncommitted_count, untracked_count) = match deployment.git().get_worktree_change_counts(wt)
+    {
+        Ok((a, b)) => (Some(a), Some(b)),
+        Err(_) => (None, None),
     };
 
     let target_branch_type = deployment
