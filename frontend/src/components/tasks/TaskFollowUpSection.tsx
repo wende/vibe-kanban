@@ -689,18 +689,6 @@ export function TaskFollowUpSection({
             onChange={handleFileInputChange}
           />
 
-          {/* Attach button - always visible */}
-          <Button
-            onClick={handleAttachClick}
-            disabled={!isEditable}
-            size="sm"
-            variant="outline"
-            title="Attach image"
-            aria-label="Attach image"
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-
           {/* Compact button - shown when compaction is available */}
           {canCompact && (
             <Button
@@ -717,6 +705,18 @@ export function TaskFollowUpSection({
               )}
             </Button>
           )}
+
+          {/* Attach button - always visible */}
+          <Button
+            onClick={handleAttachClick}
+            disabled={!isEditable}
+            size="sm"
+            variant="outline"
+            title="Attach image"
+            aria-label="Attach image"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
 
           {isAttemptRunning ? (
             <div className="flex items-center gap-2">

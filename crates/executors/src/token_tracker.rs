@@ -2,6 +2,12 @@
 //!
 //! This module provides context window size information and utilities
 //! for calculating token usage across different AI agents.
+//!
+//! IMPORTANT: Context window usage is calculated as:
+//!   context_used = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+//!
+//! Output tokens do NOT count toward context window usage - they are generated
+//! tokens that don't consume the context window.
 
 use crate::logs::{ContextUsage, ContextWarningLevel};
 
@@ -107,23 +113,43 @@ pub fn calculate_warning_level(percent: f64) -> ContextWarningLevel {
 }
 
 /// Build a ContextUsage struct from token counts
+///
+/// IMPORTANT: Context window usage calculation:
+/// - `input_tokens`: Fresh input tokens (from user messages, tool results, etc.)
+/// - `cache_creation_input_tokens`: Tokens used to create cache entries
+/// - `cache_read_input_tokens`: Tokens retrieved from cache
+///
+/// Context used = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+///
+/// Output tokens are NOT included in context usage - they are generated tokens
+/// that don't consume the context window.
 pub fn build_context_usage(
     input_tokens: u64,
     output_tokens: u64,
     model: &str,
-    cached_input_tokens: Option<u64>,
-    cache_read_tokens: Option<u64>,
-    cache_write_tokens: Option<u64>,
+    cache_creation_input_tokens: Option<u64>,
+    cache_read_input_tokens: Option<u64>,
 ) -> ContextUsage {
     let context_window_size = get_context_window_size(model);
-    let total_tokens = input_tokens + output_tokens;
+
+    // Context usage = all input tokens (fresh + cached)
+    // Output tokens do NOT count toward context window
+    let cache_creation = cache_creation_input_tokens.unwrap_or(0);
+    let cache_read = cache_read_input_tokens.unwrap_or(0);
+
+    // Total context consumed = input + cache_creation + cache_read
+    let context_tokens = input_tokens + cache_creation + cache_read;
+
     let context_used_percent = if context_window_size > 0 {
-        (total_tokens as f64 / context_window_size as f64) * 100.0
+        (context_tokens as f64 / context_window_size as f64) * 100.0
     } else {
         0.0
     };
-    let context_remaining = context_window_size.saturating_sub(total_tokens);
+    let context_remaining = context_window_size.saturating_sub(context_tokens);
     let warning_level = calculate_warning_level(context_used_percent);
+
+    // Total tokens for display (includes output for billing/info purposes)
+    let total_tokens = context_tokens + output_tokens;
 
     ContextUsage {
         input_tokens,
@@ -132,9 +158,9 @@ pub fn build_context_usage(
         context_window_size,
         context_used_percent,
         context_remaining,
-        cached_input_tokens,
-        cache_read_tokens,
-        cache_write_tokens,
+        cached_input_tokens: cache_creation_input_tokens,
+        cache_read_tokens: cache_read_input_tokens,
+        cache_write_tokens: None,
         model: model.to_string(),
         warning_level,
         is_estimated: false,
@@ -201,19 +227,52 @@ mod tests {
     #[test]
     fn test_warning_levels() {
         assert_eq!(calculate_warning_level(50.0), ContextWarningLevel::None);
-        assert_eq!(calculate_warning_level(70.0), ContextWarningLevel::Approaching);
+        assert_eq!(
+            calculate_warning_level(70.0),
+            ContextWarningLevel::Approaching
+        );
         assert_eq!(calculate_warning_level(85.0), ContextWarningLevel::Critical);
         assert_eq!(calculate_warning_level(95.0), ContextWarningLevel::Critical);
     }
 
     #[test]
-    fn test_build_context_usage() {
-        let usage = build_context_usage(100_000, 5_000, "claude-3-5-sonnet", None, None, None);
-        assert_eq!(usage.total_tokens, 105_000);
-        assert_eq!(usage.context_window_size, 200_000);
-        assert!((usage.context_used_percent - 52.5).abs() < 0.01);
-        assert_eq!(usage.context_remaining, 95_000);
+    fn test_build_context_usage_without_cache() {
+        // 100K input tokens, 5K output tokens
+        // Context used should be 100K (only input counts)
+        let usage = build_context_usage(100_000, 5_000, "claude-3-5-sonnet", None, None);
+
+        assert_eq!(usage.input_tokens, 100_000);
+        assert_eq!(usage.output_tokens, 5_000);
+        // Context = input only (no cache)
+        assert_eq!(usage.context_remaining, 100_000); // 200K - 100K
+        assert!((usage.context_used_percent - 50.0).abs() < 0.01);
         assert_eq!(usage.warning_level, ContextWarningLevel::None);
+    }
+
+    #[test]
+    fn test_build_context_usage_with_cache() {
+        // 10K input, 2K output, 80K cache_creation, 50K cache_read
+        // Context used = 10K + 80K + 50K = 140K
+        let usage =
+            build_context_usage(10_000, 2_000, "claude-3-5-sonnet", Some(80_000), Some(50_000));
+
+        assert_eq!(usage.input_tokens, 10_000);
+        assert_eq!(usage.output_tokens, 2_000);
+        // Context = input + cache_creation + cache_read = 140K
+        assert_eq!(usage.context_remaining, 60_000); // 200K - 140K
+        assert!((usage.context_used_percent - 70.0).abs() < 0.01);
+        assert_eq!(usage.warning_level, ContextWarningLevel::Approaching);
+    }
+
+    #[test]
+    fn test_output_tokens_dont_affect_context_percentage() {
+        // Same input tokens, different output tokens
+        // Context percentage should be the same
+        let usage1 = build_context_usage(100_000, 0, "claude-3-5-sonnet", None, None);
+        let usage2 = build_context_usage(100_000, 50_000, "claude-3-5-sonnet", None, None);
+
+        assert!((usage1.context_used_percent - usage2.context_used_percent).abs() < 0.01);
+        assert_eq!(usage1.context_remaining, usage2.context_remaining);
     }
 
     #[test]

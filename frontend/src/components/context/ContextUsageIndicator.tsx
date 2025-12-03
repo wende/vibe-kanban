@@ -76,7 +76,6 @@ function ContextUsageDetails({ usage }: { usage: ContextUsage }) {
   // Convert bigint to number for display
   const inputTokens = Number(usage.input_tokens);
   const outputTokens = Number(usage.output_tokens);
-  const totalTokens = Number(usage.total_tokens);
   const contextWindowSize = Number(usage.context_window_size);
   const contextRemaining = Number(usage.context_remaining);
   const cachedInputTokens = usage.cached_input_tokens
@@ -85,6 +84,10 @@ function ContextUsageDetails({ usage }: { usage: ContextUsage }) {
   const cacheReadTokens = usage.cache_read_tokens
     ? Number(usage.cache_read_tokens)
     : null;
+
+  // Calculate context used (input + cache_creation + cache_read)
+  const contextUsed =
+    inputTokens + (cachedInputTokens ?? 0) + (cacheReadTokens ?? 0);
 
   return (
     <div className={cn('p-3 rounded-md space-y-3', styles.bgColor)}>
@@ -127,9 +130,9 @@ function ContextUsageDetails({ usage }: { usage: ContextUsage }) {
 
       <div className="pt-2 border-t border-border">
         <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">Total:</span>
+          <span className="text-muted-foreground">Context Used:</span>
           <span className="font-mono">
-            {formatTokens(totalTokens)} / {formatTokens(contextWindowSize)}
+            {formatTokens(contextUsed)} / {formatTokens(contextWindowSize)}
           </span>
         </div>
         <div className="flex justify-between text-xs mt-1">
@@ -173,7 +176,16 @@ export function ContextUsageIndicator({
   }
 
   const styles = getWarningStyles(usage.warning_level);
-  const totalTokens = Number(usage.total_tokens);
+
+  // Calculate context used for tooltip
+  const inputTokens = Number(usage.input_tokens);
+  const cachedInputTokens = usage.cached_input_tokens
+    ? Number(usage.cached_input_tokens)
+    : 0;
+  const cacheReadTokens = usage.cache_read_tokens
+    ? Number(usage.cache_read_tokens)
+    : 0;
+  const contextUsed = inputTokens + cachedInputTokens + cacheReadTokens;
   const contextWindowSize = Number(usage.context_window_size);
 
   if (compact && !expanded) {
@@ -207,7 +219,8 @@ export function ContextUsageIndicator({
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs">
             <p>
-              Context: {formatTokens(totalTokens)} / {formatTokens(contextWindowSize)} tokens
+              Context: {formatTokens(contextUsed)} /{' '}
+              {formatTokens(contextWindowSize)} tokens
             </p>
             <p className="text-muted-foreground">Click to expand</p>
           </TooltipContent>
