@@ -27,6 +27,7 @@ use utils::response::ApiResponse;
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
+use deployment::Deployment;
 
 /// Response type for orchestrator endpoints
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -69,10 +70,10 @@ pub async fn get_orchestrator(
     let attempt = if let Some(attempt) = existing_attempt {
         attempt
     } else {
-        // Get default branch from project
-        let default_branch = deployment
+        // Get current branch from repo (orchestrator operates on whatever branch is checked out)
+        let current_branch = deployment
             .git()
-            .get_default_branch(&project.git_repo_path)
+            .get_current_branch(&project.git_repo_path)
             .unwrap_or_else(|_| "main".to_string());
 
         // Create a new orchestrator attempt
@@ -81,8 +82,8 @@ pub async fn get_orchestrator(
             pool,
             &CreateTaskAttempt {
                 executor: BaseCodingAgent::ClaudeCode,
-                base_branch: default_branch.clone(),
-                branch: default_branch, // Orchestrator works on main branch
+                base_branch: current_branch.clone(),
+                branch: current_branch, // Orchestrator works on current branch
                 is_orchestrator: true,
             },
             attempt_id,
@@ -155,6 +156,7 @@ pub async fn orchestrator_send(
     // Check for existing session to resume
     let latest_session_id =
         ExecutionProcess::find_latest_session_id_by_task_attempt(pool, attempt.id).await?;
+    let is_resume = latest_session_id.is_some();
 
     let action_type = if let Some(session_id) = latest_session_id {
         // Resume existing session
@@ -185,7 +187,7 @@ pub async fn orchestrator_send(
             serde_json::json!({
                 "project_id": project_id.to_string(),
                 "attempt_id": attempt.id.to_string(),
-                "is_resume": latest_session_id.is_some(),
+                "is_resume": is_resume,
             }),
         )
         .await;
