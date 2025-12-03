@@ -45,7 +45,7 @@ pub struct TaskAttempt {
     // "GEMINI", etc.)
     pub worktree_deleted: bool, // Flag indicating if worktree has been cleaned up
     pub setup_completed_at: Option<DateTime<Utc>>, // When setup script was last completed
-    pub is_orchestrator: bool, // Flag indicating this is a global orchestrator session
+    pub is_orchestrator: bool,  // Flag indicating this is a global orchestrator session
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -326,10 +326,13 @@ impl TaskAttempt {
     /// and any attempts that are currently in progress
     pub async fn find_expired_for_cleanup(
         pool: &SqlitePool,
-    ) -> Result<Vec<(Uuid, String, String)>, sqlx::Error> {
+    ) -> Result<Vec<(Uuid, String, String, bool)>, sqlx::Error> {
         let records = sqlx::query!(
             r#"
-            SELECT ta.id as "attempt_id!: Uuid", ta.container_ref, p.git_repo_path as "git_repo_path!"
+            SELECT ta.id as "attempt_id!: Uuid",
+                   ta.container_ref,
+                   p.git_repo_path as "git_repo_path!",
+                   ta.is_orchestrator as "is_orchestrator!: bool"
             FROM task_attempts ta
             LEFT JOIN execution_processes ep ON ta.id = ep.task_attempt_id AND ep.completed_at IS NOT NULL
             JOIN tasks t ON ta.task_id = t.id
@@ -365,7 +368,7 @@ impl TaskAttempt {
             .into_iter()
             .filter_map(|r| {
                 r.container_ref
-                    .map(|path| (r.attempt_id, path, r.git_repo_path))
+                    .map(|path| (r.attempt_id, path, r.git_repo_path, r.is_orchestrator))
             })
             .collect())
     }

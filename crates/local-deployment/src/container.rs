@@ -268,11 +268,31 @@ impl LocalContainerService {
             "Found {} expired worktrees to clean up",
             expired_attempts.len()
         );
-        for (attempt_id, worktree_path, git_repo_path) in expired_attempts {
+        for (attempt_id, worktree_path, git_repo_path, is_orchestrator) in expired_attempts {
+            if is_orchestrator {
+                tracing::info!(
+                    "Skipping cleanup for orchestrator attempt {} - uses project repository directly",
+                    attempt_id
+                );
+                continue;
+            }
+
+            let worktree_path_buf = PathBuf::from(&worktree_path);
+            let worktree_base = WorktreeManager::get_worktree_base_dir();
+            if !worktree_path_buf.starts_with(&worktree_base) {
+                tracing::warn!(
+                    "Skipping cleanup for attempt {} - path '{}' is outside managed worktree directory {}",
+                    attempt_id,
+                    worktree_path,
+                    worktree_base.display()
+                );
+                continue;
+            }
+
             Self::cleanup_expired_attempt(
                 db,
                 attempt_id,
-                PathBuf::from(worktree_path),
+                worktree_path_buf,
                 PathBuf::from(git_repo_path),
             )
             .await
