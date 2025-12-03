@@ -225,31 +225,12 @@ export function ProjectTasks() {
   const isOrchestratorRunning =
     orchestrator?.latest_process?.status === 'running';
 
-  // Close orchestrator when a task is selected
+  // Close shared task selection when orchestrator is opened
   useEffect(() => {
-    if (taskId && isOrchestratorOpen) {
-      const params = new URLSearchParams(searchParams);
-      params.delete('orchestrator');
-      setSearchParams(params, { replace: true });
-    }
-  }, [taskId, isOrchestratorOpen, searchParams, setSearchParams]);
-
-  // Close task/shared task when orchestrator is opened
-  useEffect(() => {
-    if (isOrchestratorOpen && (taskId || selectedSharedTaskId)) {
-      if (taskId && projectId) {
-        const search = searchParams.toString();
-        navigate(
-          {
-            pathname: paths.projectTasks(projectId),
-            search: search ? `?${search}` : '',
-          },
-          { replace: true }
-        );
-      }
+    if (isOrchestratorOpen && selectedSharedTaskId) {
       setSelectedSharedTaskId(null);
     }
-  }, [isOrchestratorOpen, taskId, selectedSharedTaskId, projectId, navigate, searchParams]);
+  }, [isOrchestratorOpen, selectedSharedTaskId]);
 
   const isTaskPanelOpen = Boolean(taskId && selectedTask);
   const isSharedPanelOpen = Boolean(selectedSharedTask);
@@ -713,13 +694,18 @@ export function ProjectTasks() {
       if (!projectId) return;
       setSelectedSharedTaskId(null);
 
+      // Clear orchestrator param when opening a task
+      const params = new URLSearchParams(searchParams);
+      params.delete('orchestrator');
+      const search = params.toString();
+
       if (attemptIdToShow) {
-        navigateWithSearch(paths.attempt(projectId, task.id, attemptIdToShow));
+        navigate({ pathname: paths.attempt(projectId, task.id, attemptIdToShow), search: search ? `?${search}` : '' });
       } else {
-        navigateWithSearch(`${paths.task(projectId, task.id)}/attempts/latest`);
+        navigate({ pathname: `${paths.task(projectId, task.id)}/attempts/latest`, search: search ? `?${search}` : '' });
       }
     },
-    [projectId, navigateWithSearch]
+    [projectId, navigate, searchParams]
   );
 
   const handleViewSharedTask = useCallback(

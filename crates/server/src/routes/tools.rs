@@ -94,6 +94,17 @@ pub async fn vibe_cli_help() -> ResponseJson<ApiResponse<VibeCliHelpResponse>> {
             notes: Some("branch/base_branch follow the same semantics used in the CLI"),
         },
         HelpCommand {
+            name: "tasks.wait",
+            summary: "Wait for a task to transition from in-progress to another state",
+            method: "GET",
+            endpoint: "/api/tasks/{task_id}/wait?interval=2.0&timeout=300",
+            payload_example: None,
+            equivalent_cli: "vibe tasks wait <uuid> --interval 2.0 --timeout 300",
+            notes: Some(
+                "Query params: interval (polling interval in seconds, default: 2.0), timeout (timeout in seconds, optional)"
+            ),
+        },
+        HelpCommand {
             name: "orchestrator.send",
             summary: "Start or continue the global orchestrator for a project",
             method: "POST",

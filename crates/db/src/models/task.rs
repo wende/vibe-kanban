@@ -200,6 +200,10 @@ impl Task {
 
 FROM tasks t
 WHERE t.project_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM task_attempts ta
+    WHERE ta.task_id = t.id AND ta.is_orchestrator = TRUE
+  )
 ORDER BY t.created_at DESC"#,
             project_id
         )
