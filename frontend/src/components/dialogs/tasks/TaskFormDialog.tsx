@@ -78,7 +78,7 @@ type TaskFormValues = {
   executorProfileId: ExecutorProfileId | null;
   branch: string;
   autoStart: boolean;
-  useExistingBranch: boolean;
+  createNewBranch: boolean;
   customBranch: string;
 };
 
@@ -137,7 +137,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           executorProfileId: baseProfile,
           branch: defaultBranch || '',
           autoStart: false,
-          useExistingBranch: false,
+          createNewBranch: true,
           customBranch: '',
         };
 
@@ -149,7 +149,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           executorProfileId: baseProfile,
           branch: defaultBranch || '',
           autoStart: true,
-          useExistingBranch: false,
+          createNewBranch: true,
           customBranch: '',
         };
 
@@ -163,7 +163,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           executorProfileId: baseProfile,
           branch: defaultBranch || '',
           autoStart: true,
-          useExistingBranch: false,
+          createNewBranch: true,
           customBranch: '',
         };
     }
@@ -205,8 +205,10 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
             task,
             executor_profile_id: value.executorProfileId!,
             base_branch: value.branch,
-            use_existing_branch: value.useExistingBranch,
-            custom_branch: value.customBranch.trim() || null,
+            use_existing_branch: !value.createNewBranch,
+            custom_branch: value.createNewBranch
+              ? value.customBranch.trim() || null
+              : null,
           },
           { onSuccess: () => modal.remove() }
         );
@@ -242,6 +244,10 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const isDirty = useStore(form.store, (state) => state.isDirty);
   const canSubmit = useStore(form.store, (state) => state.canSubmit);
+  const createNewBranchEnabled = useStore(
+    form.store,
+    (state) => state.values.createNewBranch
+  );
 
   // Load images for edit mode
   useEffect(() => {
@@ -581,51 +587,71 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                       )}
                     </form.Field>
                   </div>
-                  <form.Field name="useExistingBranch">
+                  <form.Field name="createNewBranch">
                     {(field) => (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id="use-existing-branch-switch"
-                            checked={field.state.value}
-                            onCheckedChange={(checked) => {
-                              field.handleChange(checked);
-                              if (checked) {
-                                // Check if the selected branch is in a worktree
-                                const currentBranch = form.getFieldValue(
-                                  'branch'
-                                );
-                                if (currentBranch) {
-                                  checkBranchInWorktree(currentBranch);
-                                }
-                              } else {
-                                // Clear warning when turning off the toggle
-                                setBranchWorktreeWarning(null);
+                      <div className="flex flex-col gap-1.5">
+                        <Label
+                          htmlFor="create-new-branch-select"
+                          className="text-xs text-muted-foreground"
+                        >
+                          {t('taskFormDialog.createNewBranchLabel')}
+                        </Label>
+                        <Select
+                          value={field.state.value ? 'create' : 'existing'}
+                          onValueChange={(value) => {
+                            const shouldCreate = value === 'create';
+                            field.handleChange(shouldCreate);
+                            if (!shouldCreate) {
+                              form.setFieldValue('customBranch', () => '');
+                              const currentBranch =
+                                form.getFieldValue('branch');
+                              if (currentBranch) {
+                                checkBranchInWorktree(currentBranch);
                               }
-                            }}
-                            disabled={
-                              isSubmitting ||
-                              !autoStartField.state.value ||
-                              checkingWorktree
+                            } else {
+                              setBranchWorktreeWarning(null);
                             }
-                            className="data-[state=checked]:bg-gray-900 dark:data-[state=checked]:bg-gray-100"
-                            aria-label={t('taskFormDialog.useExistingBranch')}
-                          />
-                          <Label
-                            htmlFor="use-existing-branch-switch"
-                            className="text-sm cursor-pointer text-muted-foreground"
+                          }}
+                          disabled={
+                            isSubmitting ||
+                            !autoStartField.state.value ||
+                            checkingWorktree
+                          }
+                          aria-label={t(
+                            'taskFormDialog.createNewBranchLabel'
+                          )}
+                        >
+                          <SelectTrigger
+                            id="create-new-branch-select"
+                            className="h-9 text-xs"
                           >
-                            {t('taskFormDialog.useExistingBranch')}
-                            {checkingWorktree && (
-                              <span className="ml-2 text-xs text-muted-foreground">
-                                {t('common:checking', {
-                                  defaultValue: 'Checking...',
-                                })}
-                              </span>
-                            )}
-                          </Label>
-                        </div>
-                        {branchWorktreeWarning && field.state.value && (
+                            <SelectValue
+                              placeholder={t(
+                                'taskFormDialog.createNewBranchPlaceholder'
+                              )}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="create">
+                              {t(
+                                'taskFormDialog.createNewBranchOptions.create'
+                              )}
+                            </SelectItem>
+                            <SelectItem value="existing">
+                              {t(
+                                'taskFormDialog.createNewBranchOptions.existing'
+                              )}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {!field.state.value && checkingWorktree && (
+                          <span className="text-xs text-muted-foreground">
+                            {t('common:checking', {
+                              defaultValue: 'Checking...',
+                            })}
+                          </span>
+                        )}
+                        {!field.state.value && branchWorktreeWarning && (
                           <p className="text-xs text-amber-600 dark:text-amber-500">
                             {branchWorktreeWarning}
                           </p>
@@ -633,26 +659,30 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                       </div>
                     )}
                   </form.Field>
-                  <form.Field name="customBranch">
-                    {(field) => (
-                      <div className="flex flex-col gap-1.5">
-                        <Label
-                          htmlFor="custom-branch-input"
-                          className="text-xs text-muted-foreground"
-                        >
-                          Custom branch name (optional)
-                        </Label>
-                        <Input
-                          id="custom-branch-input"
-                          value={field.state.value}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                          placeholder="feature/my-custom-branch"
-                          className="h-9 text-xs"
-                          disabled={isSubmitting || !autoStartField.state.value}
-                        />
-                      </div>
-                    )}
-                  </form.Field>
+                  {createNewBranchEnabled && (
+                    <form.Field name="customBranch">
+                      {(field) => (
+                        <div className="flex flex-col gap-1.5">
+                          <Label
+                            htmlFor="custom-branch-input"
+                            className="text-xs text-muted-foreground"
+                          >
+                            Custom branch name (optional)
+                          </Label>
+                          <Input
+                            id="custom-branch-input"
+                            value={field.state.value}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                            placeholder="feature/my-custom-branch"
+                            className="h-9 text-xs"
+                            disabled={
+                              isSubmitting || !autoStartField.state.value
+                            }
+                          />
+                        </div>
+                      )}
+                    </form.Field>
+                  )}
                 </div>
               )}
             </form.Field>

@@ -431,7 +431,13 @@
       "cancelled": "취소됨"
     },
     "startLabel": "시작",
-    "useExistingBranch": "기존 브랜치 사용",
+    "createNewBranchLabel": "새 브랜치 만들기",
+    "createNewBranchPlaceholder": "브랜치 동작을 선택하세요",
+    "createNewBranchOptions": {
+      "create": "예, 새 브랜치를 만듭니다",
+      "existing": "아니요, 선택한 브랜치를 사용합니다"
+    },
+    "branchInWorktreeWarning": "\"{{branch}}\" 브랜치는 이미 사용 중입니다. 작업은 기존 워크트리 디렉터리에서 실행됩니다.",
     "attachImage": "이미지 첨부",
     "dropImagesHere": "여기에 이미지를 드롭하세요",
     "updating": "업데이트 중...",
