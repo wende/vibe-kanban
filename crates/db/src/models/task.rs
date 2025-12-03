@@ -514,4 +514,35 @@ ORDER BY t.created_at DESC"#,
             children,
         })
     }
+
+    /// Get or create the orchestrator task for a project
+    /// Returns the existing orchestrator task or creates a new one
+    pub async fn get_or_create_orchestrator(
+        pool: &SqlitePool,
+        project_id: Uuid,
+    ) -> Result<Self, sqlx::Error> {
+        // Check if an orchestrator attempt exists for this project
+        if let Some(attempt) =
+            TaskAttempt::find_orchestrator_by_project_id(pool, project_id).await?
+        {
+            // Return the task that owns the orchestrator attempt
+            return Self::find_by_id(pool, attempt.task_id)
+                .await?
+                .ok_or(sqlx::Error::RowNotFound);
+        }
+
+        // Create a new orchestrator task
+        let task_id = Uuid::new_v4();
+        let create_data = CreateTask {
+            project_id,
+            title: "Orchestrator".to_string(),
+            description: Some("Global orchestrator session for this project".to_string()),
+            status: Some(TaskStatus::InProgress),
+            parent_task_attempt: None,
+            image_ids: None,
+            shared_task_id: None,
+        };
+
+        Self::create(pool, &create_data, task_id).await
+    }
 }

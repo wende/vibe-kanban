@@ -855,6 +855,14 @@ impl ContainerService for LocalContainerService {
             .await?
             .ok_or(sqlx::Error::RowNotFound)?;
 
+        // For orchestrator attempts, use the project's git repo path directly (no worktree)
+        if task_attempt.is_orchestrator {
+            let container_ref = project.git_repo_path.to_string_lossy().to_string();
+            TaskAttempt::update_container_ref(&self.db.pool, task_attempt.id, &container_ref)
+                .await?;
+            return Ok(container_ref);
+        }
+
         // When branch == target_branch, we're using an existing branch (no new branch needed)
         let using_existing_branch = task_attempt.branch == task_attempt.target_branch;
 
@@ -928,6 +936,15 @@ impl ContainerService for LocalContainerService {
     }
 
     async fn delete_inner(&self, task_attempt: &TaskAttempt) -> Result<(), ContainerError> {
+        // Orchestrator attempts don't have worktrees to clean up
+        if task_attempt.is_orchestrator {
+            tracing::info!(
+                "Skipping cleanup for orchestrator attempt {} - no worktree to clean up",
+                task_attempt.id
+            );
+            return Ok(());
+        }
+
         // cleanup the container, here that means deleting the worktree
         let container_ref = task_attempt.container_ref.clone().unwrap_or_default();
         let worktree_path = PathBuf::from(&container_ref);

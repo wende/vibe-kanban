@@ -27,6 +27,7 @@ import { openTaskForm } from '@/lib/openTaskForm';
 import { useProject } from '@/contexts/ProjectContext';
 import { useOpenProjectInEditor } from '@/hooks/useOpenProjectInEditor';
 import { OpenInIdeButton } from '@/components/ide/OpenInIdeButton';
+import { OrchestratorButton } from '@/components/orchestrator/OrchestratorButton';
 import { useDiscordOnlineCount } from '@/hooks/useDiscordOnlineCount';
 import { useTranslation } from 'react-i18next';
 import { Switch } from '@/components/ui/switch';
@@ -179,6 +180,7 @@ export function Navbar() {
               onClear={clear}
               project={project || null}
             />
+            {projectId && <OrchestratorButton projectId={projectId} />}
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-1">
