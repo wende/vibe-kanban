@@ -329,6 +329,47 @@ def cmd_tasks_delete(args):
     print(f"Task {args.id} deleted")
 
 
+def cmd_tasks_wait(args):
+    """Wait for a task to transition from in-progress to another state."""
+    import time
+
+    poll_interval = args.interval
+    timeout = args.timeout
+    start_time = time.time()
+
+    # Get initial task state
+    result = api_request("GET", f"/tasks/{args.id}")
+    task = result.get("data", result)
+    initial_status = task.get("status")
+
+    if initial_status != "inprogress":
+        print(f"Task is not in-progress (current status: {initial_status})", file=sys.stderr)
+        print_json(result)
+        return
+
+    print(f"Waiting for task {args.id} to complete...", file=sys.stderr)
+    print(f"Current status: {initial_status}", file=sys.stderr)
+
+    while True:
+        # Check timeout
+        elapsed = time.time() - start_time
+        if timeout and elapsed >= timeout:
+            print(f"Timeout after {timeout} seconds", file=sys.stderr)
+            sys.exit(1)
+
+        time.sleep(poll_interval)
+
+        # Poll task status
+        result = api_request("GET", f"/tasks/{args.id}")
+        task = result.get("data", result)
+        current_status = task.get("status")
+
+        if current_status != "inprogress":
+            print(f"Task completed with status: {current_status}", file=sys.stderr)
+            print_json(result)
+            return
+
+
 # =============================================================================
 # Task Attempt Commands
 # =============================================================================
@@ -644,6 +685,14 @@ For more information, visit: https://github.com/vibe-teams/vibe-kanban
     p = tasks_sub.add_parser("delete", help="Delete a task")
     p.add_argument("id", help="Task ID (UUID)")
 
+    # tasks wait
+    p = tasks_sub.add_parser("wait", help="Wait for a task to transition from in-progress to another state")
+    p.add_argument("id", help="Task ID (UUID)")
+    p.add_argument("--interval", type=float, default=2.0,
+                   help="Polling interval in seconds (default: 2.0)")
+    p.add_argument("--timeout", type=float, default=None,
+                   help="Timeout in seconds (default: no timeout)")
+
     # -------------------------------------------------------------------------
     # Attempts
     # -------------------------------------------------------------------------
@@ -749,7 +798,9 @@ For more information, visit: https://github.com/vibe-teams/vibe-kanban
 
     # Build command handler name
     if hasattr(args, "subcommand") and args.subcommand:
-        handler_name = f"cmd_{args.command}_{args.subcommand}"
+        # Normalize hyphens to underscores for handler lookup
+        subcommand = args.subcommand.replace("-", "_")
+        handler_name = f"cmd_{args.command}_{subcommand}"
     else:
         # Show subcommand help if no subcommand given
         subparser = subparsers.choices.get(args.command)
