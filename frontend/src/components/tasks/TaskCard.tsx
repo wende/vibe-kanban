@@ -10,6 +10,7 @@ import { attemptsApi } from '@/lib/api';
 import type { SharedTaskRecord } from '@/hooks/useProjectTasks';
 import { TaskCardHeader } from './TaskCardHeader';
 import { useTranslation } from 'react-i18next';
+import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
 
 type Task = TaskWithAttemptStatus;
 
@@ -137,10 +138,14 @@ export function TaskCard({
   const { t } = useTranslation('tasks');
   const navigate = useNavigateWithSearch();
   const [isNavigatingToParent, setIsNavigatingToParent] = useState(false);
+  const { markAsRead, hasUnread } = useTaskReadStatus();
+
+  const taskHasUnread = hasUnread(task.id, task.updated_at);
 
   const handleClick = useCallback(() => {
+    markAsRead(task.id);
     onViewDetails(task);
-  }, [task, onViewDetails]);
+  }, [task, onViewDetails, markAsRead]);
 
   const handleParentClick = useCallback(
     async (e: React.MouseEvent) => {
@@ -189,6 +194,7 @@ export function TaskCard({
       onClick={handleClick}
       isOpen={isOpen}
       forwardedRef={localRef}
+      hasUnread={taskHasUnread}
       className={
         sharedTask
           ? 'relative overflow-hidden pl-5 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-card-foreground before:content-[""]'

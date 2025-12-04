@@ -32,6 +32,7 @@ import { DisclaimerDialog } from '@/components/dialogs/global/DisclaimerDialog';
 import { OnboardingDialog } from '@/components/dialogs/global/OnboardingDialog';
 import { ReleaseNotesDialog } from '@/components/dialogs/global/ReleaseNotesDialog';
 import { ClickedElementsProvider } from './contexts/ClickedElementsProvider';
+import { TaskReadStatusProvider } from './contexts/TaskReadStatusContext';
 import NiceModal from '@ebay/nice-modal-react';
 
 // Use regular Routes in dev to avoid HMR conflicts with Sentry's hook wrapper
@@ -172,13 +173,15 @@ function App() {
     <BrowserRouter>
       <UserSystemProvider>
         <ClickedElementsProvider>
-          <ProjectProvider>
-            <HotkeysProvider initiallyActiveScopes={['*', 'global', 'kanban']}>
-              <NiceModal.Provider>
-                <AppContent />
-              </NiceModal.Provider>
-            </HotkeysProvider>
-          </ProjectProvider>
+          <TaskReadStatusProvider>
+            <ProjectProvider>
+              <HotkeysProvider initiallyActiveScopes={['*', 'global', 'kanban']}>
+                <NiceModal.Provider>
+                  <AppContent />
+                </NiceModal.Provider>
+              </HotkeysProvider>
+            </ProjectProvider>
+          </TaskReadStatusProvider>
         </ClickedElementsProvider>
       </UserSystemProvider>
     </BrowserRouter>
