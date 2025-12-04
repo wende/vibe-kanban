@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                p.id as \"id!: Uuid\",\n                p.name,\n                p.git_repo_path,\n                p.setup_script,\n                p.dev_script,\n                p.cleanup_script,\n                p.copy_files,\n                p.remote_project_id as \"remote_project_id: Uuid\",\n                p.created_at as \"created_at!: DateTime<Utc>\",\n                p.updated_at as \"updated_at!: DateTime<Utc>\",\n                COALESCE(SUM(CASE WHEN t.status = 'inprogress' THEN 1 ELSE 0 END), 0) as \"inprogress_count!: i64\",\n                COALESCE(SUM(CASE WHEN t.status = 'inreview' THEN 1 ELSE 0 END), 0) as \"inreview_count!: i64\"\n            FROM projects p\n            LEFT JOIN tasks t ON t.project_id = p.id\n            GROUP BY p.id\n            ORDER BY p.created_at DESC",
+  "query": "SELECT\n                p.id as \"id!: Uuid\",\n                p.name,\n                p.git_repo_path,\n                p.setup_script,\n                p.dev_script,\n                p.cleanup_script,\n                p.copy_files,\n                p.remote_project_id as \"remote_project_id: Uuid\",\n                p.created_at as \"created_at!: DateTime<Utc>\",\n                p.updated_at as \"updated_at!: DateTime<Utc>\",\n                COALESCE(SUM(CASE WHEN t.status = 'inprogress' THEN 1 ELSE 0 END), 0) as \"inprogress_count!: i64\",\n                COALESCE(SUM(CASE WHEN t.status = 'inreview' THEN 1 ELSE 0 END), 0) as \"inreview_count!: i64\"\n            FROM projects p\n            LEFT JOIN tasks t ON t.project_id = p.id\n                AND NOT EXISTS (\n                    SELECT 1 FROM task_attempts ta\n                    WHERE ta.task_id = t.id AND ta.is_orchestrator = TRUE\n                )\n            GROUP BY p.id\n            ORDER BY p.created_at DESC",
   "describe": {
     "columns": [
       {
@@ -82,5 +82,5 @@
       false
     ]
   },
-  "hash": "29c31085060e86eee65c2d169ab4e3a4568c6276a3c0084bb7f833eff7ffadb0"
+  "hash": "70589a4b07c2837baf6f51a29c8fcbc1b32330fed2c843717f6ffe02a89ff32c"
 }
