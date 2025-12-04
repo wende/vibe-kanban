@@ -178,28 +178,8 @@ pub async fn orchestrator_send(
             match std::fs::read_to_string(&orchestrator_file) {
                 Ok(contents) => contents,
                 Err(_) => {
-                    // Provide a sensible default if ORCHESTRATOR.md is not found
-                    let port = std::env::var("BACKEND_PORT")
-                        .or_else(|_| std::env::var("PORT"))
-                        .unwrap_or_else(|_| "unknown".to_string());
-
-                    format!(
-                        "You are a project orchestrator managing the '{}' project on port {}.\n\n\
-                        Your role is to coordinate development tasks, maintain code quality, \
-                        and assist with project management. You have access to the entire \
-                        codebase and can help with:\n\
-                        - Creating and managing tasks\n\
-                        - Reviewing recent changes\n\
-                        - Coordinating work across multiple files\n\
-                        - Maintaining code consistency and quality\n\
-                        - Providing guidance on best practices\n\n\
-                        REST helper: query http://127.0.0.1:{port}/api/tools/vibe-cli/help to see \
-                        how to perform common actions (listing projects, creating tasks, running the orchestrator, etc.) \
-                        through HTTP endpoints.\n\
-                        Use those endpoints with curl or similar tools whenever you would have executed vibe-cli.py.\n\n\
-                        You can start by reviewing recent commits or asking what to tackle next.",
-                        project.name, port
-                    )
+                    // Use the default ORCHESTRATOR.md embedded at compile time
+                    include_str!("../../../../ORCHESTRATOR.md").to_string()
                 }
             }
         }
