@@ -79,6 +79,7 @@ export type KanbanCardProps = Pick<Feature, 'id' | 'name'> & {
   onKeyDown?: (e: KeyboardEvent) => void;
   isOpen?: boolean;
   dragDisabled?: boolean;
+  hasUnread?: boolean;
 };
 
 export const KanbanCard = ({
@@ -94,6 +95,7 @@ export const KanbanCard = ({
   onKeyDown,
   isOpen,
   dragDisabled = false,
+  hasUnread = false,
 }: KanbanCardProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -119,6 +121,9 @@ export const KanbanCard = ({
         'p-3 outline-none border-b flex-col space-y-2',
         isDragging && 'cursor-grabbing',
         isOpen && 'ring-2 ring-secondary-foreground ring-inset',
+        hasUnread &&
+          !isOpen &&
+          'shadow-[0_0_12px_2px_rgba(251,146,60,0.5)] ring-1 ring-orange-400/50',
         className
       )}
       {...listeners}
