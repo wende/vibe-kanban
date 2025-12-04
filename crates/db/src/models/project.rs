@@ -127,6 +127,10 @@ impl Project {
                 COALESCE(SUM(CASE WHEN t.status = 'inreview' THEN 1 ELSE 0 END), 0) as "inreview_count!: i64"
             FROM projects p
             LEFT JOIN tasks t ON t.project_id = p.id
+                AND NOT EXISTS (
+                    SELECT 1 FROM task_attempts ta
+                    WHERE ta.task_id = t.id AND ta.is_orchestrator = TRUE
+                )
             GROUP BY p.id
             ORDER BY p.created_at DESC"#
         )
