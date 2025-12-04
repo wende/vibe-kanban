@@ -237,9 +237,12 @@ export function ProjectTasks() {
   const isPanelOpen = isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
 
   const { config, updateAndSaveConfig, loading } = useUserSystem();
+  const taskPanelShowcase = showcases.taskPanel;
+  const isTaskPanelShowcaseEnabled = taskPanelShowcase.enabled ?? true;
+  const hasTaskPanelShowcaseStages = taskPanelShowcase.stages.length > 0;
 
   const isLoaded = !loading;
-  const showcaseId = showcases.taskPanel.id;
+  const showcaseId = taskPanelShowcase.id;
   const seenFeatures = useMemo(
     () => config?.showcases?.seen_features ?? [],
     [config?.showcases?.seen_features]
@@ -247,9 +250,16 @@ export function ProjectTasks() {
   const seen = isLoaded && seenFeatures.includes(showcaseId);
 
   useEffect(() => {
-    if (!isLoaded || !isPanelOpen || seen) return;
+    if (
+      !isTaskPanelShowcaseEnabled ||
+      !hasTaskPanelShowcaseStages ||
+      !isLoaded ||
+      !isPanelOpen ||
+      seen
+    )
+      return;
 
-    FeatureShowcaseDialog.show({ config: showcases.taskPanel }).finally(() => {
+    FeatureShowcaseDialog.show({ config: taskPanelShowcase }).finally(() => {
       FeatureShowcaseDialog.hide();
       if (seenFeatures.includes(showcaseId)) return;
       void updateAndSaveConfig({
@@ -257,6 +267,9 @@ export function ProjectTasks() {
       });
     });
   }, [
+    isTaskPanelShowcaseEnabled,
+    hasTaskPanelShowcaseStages,
+    taskPanelShowcase,
     isLoaded,
     isPanelOpen,
     seen,
