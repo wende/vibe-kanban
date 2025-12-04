@@ -14,4 +14,5 @@ export interface ShowcaseStage {
 export interface ShowcaseConfig {
   id: string;
   stages: ShowcaseStage[];
+  enabled?: boolean;
 }
