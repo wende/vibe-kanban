@@ -179,7 +179,12 @@ pub async fn orchestrator_send(
                 Ok(contents) => contents,
                 Err(_) => {
                     // Use the default ORCHESTRATOR.md embedded at compile time
-                    include_str!("../../../../ORCHESTRATOR.md").to_string()
+                    // CARGO_MANIFEST_DIR points to crates/server/, so we go up to workspace root
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../ORCHESTRATOR.md"
+                    ))
+                    .to_string()
                 }
             }
         }
