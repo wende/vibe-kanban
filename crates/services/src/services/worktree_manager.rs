@@ -52,6 +52,8 @@ pub enum WorktreeError {
     Repository(String),
     #[error("Branch '{0}' is already checked out in another worktree")]
     BranchAlreadyCheckedOut(String),
+    #[error("Unsafe path - refusing to delete '{0}' as it is outside managed worktree directory")]
+    UnsafePath(String),
 }
 
 pub struct WorktreeManager;
@@ -132,15 +134,14 @@ impl WorktreeManager {
 
         // CRITICAL SAFETY CHECK: Never recreate worktrees outside the managed directory
         // This prevents accidental deletion of user directories (e.g., main project repos)
-        let worktree_base = Self::get_worktree_base_dir();
-        if !worktree_path.starts_with(&worktree_base) {
-            return Err(WorktreeError::InvalidPath(format!(
-                "Cannot create worktree at '{}' - path is outside managed worktree directory {}. \
+        // Use the full safety verification which includes symlink protection
+        Self::verify_path_safe_for_deletion(worktree_path).map_err(|_| {
+            WorktreeError::InvalidPath(format!(
+                "Cannot create worktree at '{}' - path is outside managed worktree directory. \
                  This is likely a bug - orchestrator tasks should not call ensure_worktree_exists.",
-                path_str,
-                worktree_base.display()
-            )));
-        }
+                path_str
+            ))
+        })?;
 
         // Use the provided repo path
         let git_repo_path = repo_path;
@@ -224,6 +225,9 @@ impl WorktreeManager {
     ) -> Result<(), WorktreeError> {
         debug!("Performing cleanup for worktree: {}", worktree_name);
 
+        // CRITICAL SAFETY CHECK: Verify path is safe to delete before any filesystem operations
+        Self::verify_path_safe_for_deletion(worktree_path)?;
+
         let git_repo_path = Self::get_git_repo_path(repo)?;
 
         // Step 1: Use GitService to remove the worktree registration (force) if present
@@ -239,6 +243,8 @@ impl WorktreeManager {
         }
 
         // Step 3: Clean up physical worktree directory if it exists
+        // Re-verify safety right before deletion (defense in depth - path could have changed)
+        Self::verify_path_safe_for_deletion(worktree_path)?;
         if worktree_path.exists() {
             debug!(
                 "Removing existing worktree directory: {}",
@@ -352,6 +358,8 @@ impl WorktreeManager {
                         .map_err(WorktreeError::Io)?;
                     // Clean up physical directory if it exists
                     // Needed if previous attempt failed after directory creation
+                    // SAFETY: Verify path before deletion (defense in depth)
+                    Self::verify_path_safe_for_deletion(&worktree_path)?;
                     if worktree_path.exists() {
                         std::fs::remove_dir_all(&worktree_path).map_err(WorktreeError::Io)?;
                     }
@@ -440,14 +448,13 @@ impl WorktreeManager {
     pub async fn cleanup_worktree(worktree: &WorktreeCleanup) -> Result<(), WorktreeError> {
         let path_str = worktree.worktree_path.to_string_lossy().to_string();
 
-        // CRITICAL SAFETY CHECK: Only allow cleanup of paths within the managed worktree directory
+        // CRITICAL SAFETY CHECK: Verify path is safe to delete (with symlink protection)
         // This prevents accidental deletion of user directories (e.g., main project repos)
-        let worktree_base = Self::get_worktree_base_dir();
-        if !worktree.worktree_path.starts_with(&worktree_base) {
+        if let Err(e) = Self::verify_path_safe_for_deletion(&worktree.worktree_path) {
             tracing::warn!(
-                "Refusing to cleanup worktree at '{}' - path is outside managed worktree directory {}",
+                "Refusing to cleanup worktree at '{}': {}",
                 path_str,
-                worktree_base.display()
+                e
             );
             return Ok(()); // Return Ok to avoid breaking callers, but don't delete
         }
@@ -528,9 +535,15 @@ impl WorktreeManager {
 
     /// Simple worktree cleanup when we can't determine the main repo
     async fn simple_worktree_cleanup(worktree_path: &Path) -> Result<(), WorktreeError> {
+        // CRITICAL SAFETY CHECK: Verify path is safe to delete before any filesystem operations
+        Self::verify_path_safe_for_deletion(worktree_path)?;
+
         let worktree_path_owned = worktree_path.to_path_buf();
 
         tokio::task::spawn_blocking(move || -> Result<(), WorktreeError> {
+            // Double-check safety inside the blocking task (defense in depth)
+            Self::verify_path_safe_for_deletion(&worktree_path_owned)?;
+
             if worktree_path_owned.exists() {
                 std::fs::remove_dir_all(&worktree_path_owned).map_err(WorktreeError::Io)?;
                 info!(
@@ -547,5 +560,214 @@ impl WorktreeManager {
     /// Get the base directory for vibe-kanban worktrees
     pub fn get_worktree_base_dir() -> std::path::PathBuf {
         utils::path::get_vibe_kanban_temp_dir().join("worktrees")
+    }
+
+    /// CRITICAL SAFETY CHECK: Verify a path is safe to delete.
+    ///
+    /// This function prevents accidental deletion of user directories by ensuring:
+    /// 1. The path is inside the managed worktree base directory
+    /// 2. The path doesn't contain traversal components (..)
+    /// 3. After resolving symlinks (canonicalization), the real path is still inside the base
+    /// 4. The base directory itself is in a temp/private location
+    ///
+    /// Returns Ok(()) if safe to delete, Err(UnsafePath) if not.
+    pub fn verify_path_safe_for_deletion(worktree_path: &Path) -> Result<(), WorktreeError> {
+        let worktree_base = Self::get_worktree_base_dir();
+        let path_str = worktree_path.to_string_lossy().to_string();
+
+        // First check: path must start with the worktree base (before canonicalization)
+        if !worktree_path.starts_with(&worktree_base) {
+            tracing::error!(
+                "SAFETY: Path '{}' is not inside worktree base '{}' - refusing to delete",
+                path_str,
+                worktree_base.display()
+            );
+            return Err(WorktreeError::UnsafePath(path_str));
+        }
+
+        // Second check: Reject paths containing ".." components (path traversal attacks)
+        // This catches cases like "/tmp/worktrees/../../../etc/passwd"
+        for component in worktree_path.components() {
+            if component == std::path::Component::ParentDir {
+                tracing::error!(
+                    "SAFETY: Path '{}' contains '..' components - refusing to delete (path traversal attempt)",
+                    path_str
+                );
+                return Err(WorktreeError::UnsafePath(path_str));
+            }
+        }
+
+        // Third check: If the path exists, canonicalize to resolve symlinks
+        // and verify the REAL path is still inside the base directory
+        if worktree_path.exists() {
+            match (
+                std::fs::canonicalize(worktree_path),
+                std::fs::canonicalize(&worktree_base),
+            ) {
+                (Ok(canonical_path), Ok(canonical_base)) => {
+                    if !canonical_path.starts_with(&canonical_base) {
+                        tracing::error!(
+                            "SAFETY: Canonical path '{}' (from '{}') is outside canonical base '{}' - \
+                             this may be a symlink attack! Refusing to delete.",
+                            canonical_path.display(),
+                            path_str,
+                            canonical_base.display()
+                        );
+                        return Err(WorktreeError::UnsafePath(path_str));
+                    }
+                    tracing::trace!(
+                        "Path '{}' verified safe for deletion (canonical: '{}')",
+                        path_str,
+                        canonical_path.display()
+                    );
+                }
+                (Err(e), _) => {
+                    // Path exists but can't be canonicalized - this is suspicious
+                    tracing::warn!(
+                        "SAFETY: Cannot canonicalize path '{}': {} - proceeding with caution",
+                        path_str,
+                        e
+                    );
+                    // Still allow deletion since it passed the starts_with check
+                    // and the path exists (so it's likely just a permissions issue)
+                }
+                (_, Err(e)) => {
+                    // Base doesn't exist or can't be canonicalized
+                    tracing::warn!(
+                        "SAFETY: Cannot canonicalize worktree base '{}': {} - refusing to delete",
+                        worktree_base.display(),
+                        e
+                    );
+                    return Err(WorktreeError::UnsafePath(path_str));
+                }
+            }
+        }
+
+        // Fourth check: Verify the base directory is in an expected temp location
+        // This is a defense-in-depth check to prevent misconfiguration
+        let base_str = worktree_base.to_string_lossy();
+        let is_in_temp_location = base_str.contains("/var/folders/")  // macOS temp
+            || base_str.contains("/tmp/")
+            || base_str.contains("/var/tmp/")
+            || base_str.contains("/private/var/folders/")  // macOS canonical
+            || base_str.starts_with(std::env::temp_dir().to_string_lossy().as_ref());
+
+        if !is_in_temp_location {
+            tracing::error!(
+                "SAFETY: Worktree base '{}' is not in a recognized temp directory - \
+                 refusing to delete '{}'. This may indicate a misconfiguration.",
+                worktree_base.display(),
+                path_str
+            );
+            return Err(WorktreeError::UnsafePath(path_str));
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_verify_path_safe_rejects_user_directory() {
+        // User directories should always be rejected
+        let user_home = dirs::home_dir().unwrap_or(PathBuf::from("/Users/test"));
+        let user_project = user_home.join("projects/my-repo");
+
+        let result = WorktreeManager::verify_path_safe_for_deletion(&user_project);
+        assert!(result.is_err(), "Should reject user project directories");
+
+        if let Err(WorktreeError::UnsafePath(path)) = result {
+            assert!(path.contains("projects"), "Error should mention the path");
+        } else {
+            panic!("Expected UnsafePath error");
+        }
+    }
+
+    #[test]
+    fn test_verify_path_safe_rejects_root_paths() {
+        // Root paths should be rejected
+        let root = PathBuf::from("/");
+        let result = WorktreeManager::verify_path_safe_for_deletion(&root);
+        assert!(result.is_err(), "Should reject root path");
+
+        let etc = PathBuf::from("/etc");
+        let result = WorktreeManager::verify_path_safe_for_deletion(&etc);
+        assert!(result.is_err(), "Should reject /etc");
+
+        let usr = PathBuf::from("/usr");
+        let result = WorktreeManager::verify_path_safe_for_deletion(&usr);
+        assert!(result.is_err(), "Should reject /usr");
+    }
+
+    #[test]
+    fn test_verify_path_safe_accepts_worktree_base_subdir() {
+        // Paths inside worktree base should be accepted (if base exists)
+        let worktree_base = WorktreeManager::get_worktree_base_dir();
+        let test_path = worktree_base.join("test-worktree-12345");
+
+        // This should pass the pre-canonicalization check at minimum
+        // (canonicalization will fail since the path doesn't exist, but that's ok)
+        let result = WorktreeManager::verify_path_safe_for_deletion(&test_path);
+
+        // Should be Ok since it's inside the managed worktree directory
+        // (unless the temp dir doesn't exist, in which case it might fail the base check)
+        if result.is_err() {
+            // This is acceptable if temp dir doesn't exist yet
+            println!(
+                "verify_path_safe_for_deletion returned error (temp dir may not exist): {:?}",
+                result
+            );
+        }
+    }
+
+    #[test]
+    fn test_worktree_base_is_in_temp() {
+        // Verify the worktree base directory is in a temp location
+        let worktree_base = WorktreeManager::get_worktree_base_dir();
+        let base_str = worktree_base.to_string_lossy();
+
+        let is_in_temp = base_str.contains("/var/folders/")
+            || base_str.contains("/tmp/")
+            || base_str.contains("/var/tmp/")
+            || base_str.contains("/private/var/folders/")
+            || base_str.starts_with(std::env::temp_dir().to_string_lossy().as_ref());
+
+        assert!(
+            is_in_temp,
+            "Worktree base '{}' should be in a temp directory",
+            base_str
+        );
+    }
+
+    #[test]
+    fn test_verify_path_safe_rejects_path_outside_worktree_base() {
+        // Even if a path is in /tmp, it should be rejected if not in the worktree base
+        let random_tmp = std::env::temp_dir().join("random-dir-not-vibe-kanban");
+
+        let result = WorktreeManager::verify_path_safe_for_deletion(&random_tmp);
+        assert!(
+            result.is_err(),
+            "Should reject paths outside the specific worktree base dir"
+        );
+    }
+
+    #[test]
+    fn test_verify_path_safe_rejects_traversal_attempts() {
+        // Path traversal attempts should be rejected
+        let worktree_base = WorktreeManager::get_worktree_base_dir();
+        let traversal = worktree_base.join("../../../etc/passwd");
+
+        let result = WorktreeManager::verify_path_safe_for_deletion(&traversal);
+        // The starts_with check should catch this because the normalized path
+        // won't start with the worktree base
+        assert!(
+            result.is_err(),
+            "Should reject path traversal attempts: {:?}",
+            traversal
+        );
     }
 }

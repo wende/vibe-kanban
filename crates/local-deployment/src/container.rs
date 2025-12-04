@@ -1043,10 +1043,6 @@ impl ContainerService for LocalContainerService {
 
         // For orchestrator tasks, container_ref IS the main repo - don't try to create a worktree
         if task_attempt.is_orchestrator {
-            tracing::debug!(
-                "Orchestrator task - using main repo directly: {}",
-                container_ref
-            );
             return Ok(container_ref.to_string());
         }
 
@@ -1249,8 +1245,19 @@ impl ContainerService for LocalContainerService {
             return Ok(Box::pin(wrapper));
         }
 
-        let container_ref = self.ensure_container_exists(task_attempt).await?;
-        let worktree_path = PathBuf::from(container_ref);
+        // For orchestrator tasks, use container_ref directly (it's the main repo, not a worktree)
+        let worktree_path = if task_attempt.is_orchestrator {
+            task_attempt
+                .container_ref
+                .as_ref()
+                .map(PathBuf::from)
+                .ok_or_else(|| {
+                    ContainerError::Other(anyhow!("Orchestrator attempt missing container_ref"))
+                })?
+        } else {
+            let container_ref = self.ensure_container_exists(task_attempt).await?;
+            PathBuf::from(container_ref)
+        };
         let base_commit = self.git().get_base_commit(
             &project_repo_path,
             &task_attempt.branch,
