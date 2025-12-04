@@ -18,7 +18,7 @@ use axum::{
 };
 use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus},
-    merge::{Merge, MergeStatus, PrMerge, PullRequestInfo},
+    merge::{Merge, MergeStatus},
     project::{Project, ProjectError},
     scratch::{Scratch, ScratchType},
     task::{Task, TaskRelationships, TaskStatus},
@@ -983,22 +983,14 @@ pub async fn get_task_attempt_branch_status(
     };
     // Fetch merges for this task attempt and add to branch status
     let merges = Merge::find_by_task_attempt_id(pool, task_attempt.id).await?;
-    let (remote_ahead, remote_behind) = if let Some(Merge::Pr(PrMerge {
-        pr_info: PullRequestInfo {
-            status: MergeStatus::Open,
-            ..
-        },
-        ..
-    })) = merges.first()
-    {
-        // check remote status if the attempt has an open PR
-        let (remote_commits_ahead, remote_commits_behind) = deployment
-            .git()
-            .get_remote_branch_status(&ctx.project.git_repo_path, &task_attempt.branch, None)?;
-        (Some(remote_commits_ahead), Some(remote_commits_behind))
-    } else {
-        (None, None)
-    };
+
+    // Always check remote status to show if local commits are not pushed to origin
+    // This is used by the arrow-up indicator in the UI
+    let (remote_ahead, remote_behind) = deployment
+        .git()
+        .get_remote_branch_status(&ctx.project.git_repo_path, &task_attempt.branch, None)
+        .map(|(ahead, behind)| (Some(ahead), Some(behind)))
+        .unwrap_or((None, None));
 
     let branch_status = BranchStatus {
         commits_ahead,
