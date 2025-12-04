@@ -15,6 +15,7 @@ import { ActionsDropdown } from '../ui/actions-dropdown';
 import { usePostHog } from 'posthog-js/react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import type { SharedTaskRecord } from '@/hooks/useProjectTasks';
+import { cn } from '@/lib/utils';
 
 interface AttemptHeaderActionsProps {
   onClose: () => void;
@@ -49,34 +50,38 @@ export const AttemptHeaderActions = ({
     }
   }, [attempt?.container_ref]);
 
-  const copyPathButton = attempt?.container_ref ? (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="icon"
-          aria-label={
-            copied ? t('actionsMenu.pathCopied') : t('actionsMenu.copyPath')
-          }
-          onClick={handleCopyPath}
-        >
-          {copied ? (
-            <Check className="h-4 w-4 text-emerald-500" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        {copied ? t('actionsMenu.pathCopied') : t('actionsMenu.copyPath')}
-      </TooltipContent>
-    </Tooltip>
-  ) : null;
+  const CopyPathButton = ({ className }: { className?: string }) => {
+    if (!attempt?.container_ref) return null;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="icon"
+            className={cn('shrink-0', className)}
+            aria-label={
+              copied ? t('actionsMenu.pathCopied') : t('actionsMenu.copyPath')
+            }
+            onClick={handleCopyPath}
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {copied ? t('actionsMenu.pathCopied') : t('actionsMenu.copyPath')}
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
 
   return (
     <>
       {typeof mode !== 'undefined' && onModeChange && isXL && (
         <TooltipProvider>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <ToggleGroup
               type="single"
               value={mode ?? ''}
@@ -141,7 +146,7 @@ export const AttemptHeaderActions = ({
                 </TooltipContent>
               </Tooltip>
             </ToggleGroup>
-            {copyPathButton}
+            <CopyPathButton />
           </div>
         </TooltipProvider>
       )}
@@ -149,7 +154,11 @@ export const AttemptHeaderActions = ({
         <div className="h-4 w-px bg-border" />
       )}
       {(!isXL || typeof mode === 'undefined' || !onModeChange) &&
-        copyPathButton && <TooltipProvider>{copyPathButton}</TooltipProvider>}
+        attempt?.container_ref && (
+          <TooltipProvider>
+            <CopyPathButton />
+          </TooltipProvider>
+        )}
       <ActionsDropdown task={task} attempt={attempt} sharedTask={sharedTask} />
       <Button variant="icon" aria-label="Close" onClick={onClose}>
         <X size={16} />
