@@ -22,6 +22,7 @@ import { ApprovalFormProvider } from '@/contexts/ApprovalFormContext';
 interface VirtualizedListProps {
   attempt: TaskAttempt;
   task?: TaskWithAttemptStatus;
+  disableLoadingOverlay?: boolean; // Disable internal loading overlay when parent already has one
 }
 
 interface MessageListContext {
@@ -75,7 +76,7 @@ const computeItemKey: VirtuosoMessageListProps<
   MessageListContext
 >['computeItemKey'] = ({ data }) => `l-${data.patchKey}`;
 
-const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
+const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: VirtualizedListProps) => {
   const [channelData, setChannelData] = useState<
     DataWithScrollModifier<PatchTypeWithKey>
   >({ data: [], scrollModifier: InitialDataScrollModifier });
@@ -165,21 +166,27 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
   return (
     <ApprovalFormProvider>
       <div className="relative h-full min-h-0">
-        {/* Loading overlay with fade out animation */}
-        <div
-          className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
-            readyToShow ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          }`}
-        >
-          <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
-            <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-            <span>Loading...</span>
+        {/* Loading overlay with fade out animation - only show if not disabled by parent */}
+        {!disableLoadingOverlay && (
+          <div
+            className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
+              readyToShow ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
+              <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+              <span>Loading...</span>
+            </div>
           </div>
-        </div>
-        {/* Content with fade in animation - hidden with visibility to prevent overflow */}
+        )}
+        {/* Content with fade in animation - when parent controls loading, always show content */}
         <div
-          className={`h-full transition-opacity duration-200 ${
-            readyToShow ? 'opacity-100 visible' : 'opacity-0 invisible'
+          className={`h-full ${
+            disableLoadingOverlay
+              ? '' // Parent controls visibility
+              : `transition-opacity duration-200 ${
+                  readyToShow ? 'opacity-100 visible' : 'opacity-0 invisible'
+                }`
           }`}
         >
           <VirtuosoMessageListLicense

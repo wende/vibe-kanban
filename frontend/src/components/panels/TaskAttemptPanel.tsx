@@ -35,6 +35,7 @@ interface TaskAttemptPanelProps {
   task: TaskWithAttemptStatus | null;
   attemptId?: string;
   children: (sections: { logs: ReactNode; followUp: ReactNode }) => ReactNode;
+  disableLoadingOverlay?: boolean; // Pass through to VirtualizedList
 }
 
 function SkeletonLine({ className }: { className?: string }) {
@@ -83,6 +84,7 @@ const TaskAttemptPanel = ({
   task,
   attemptId,
   children,
+  disableLoadingOverlay = false,
 }: TaskAttemptPanelProps) => {
   const { markAsRead } = useTaskReadStatus();
   // Keep track of the last valid attempt to prevent flickering during transitions
@@ -110,7 +112,11 @@ const TaskAttemptPanel = ({
 
   const logsContent =
     displayTask && displayAttempt ? (
-      <VirtualizedList attempt={displayAttempt} task={displayTask} />
+      <VirtualizedList
+        attempt={displayAttempt}
+        task={displayTask}
+        disableLoadingOverlay={disableLoadingOverlay}
+      />
     ) : (
       <LogsSkeleton />
     );
