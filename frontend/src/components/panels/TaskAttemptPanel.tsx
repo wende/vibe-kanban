@@ -61,12 +61,12 @@ const TaskAttemptPanel = ({
 }: TaskAttemptPanelProps) => {
   const { markAsRead } = useTaskReadStatus();
 
-  // Mark task as read when opening the panel
+  // Mark task as read when viewing the panel, and whenever it gets updated
   useEffect(() => {
     if (task?.id) {
       markAsRead(task.id);
     }
-  }, [task?.id, markAsRead]);
+  }, [task?.id, task?.updated_at, markAsRead]);
 
   if (!task || !attempt) {
     return children({
