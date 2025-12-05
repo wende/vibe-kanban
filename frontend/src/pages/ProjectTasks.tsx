@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -192,6 +192,18 @@ export function ProjectTasks() {
     [taskId, tasksById]
   );
 
+  // Keep track of last valid task to prevent flickering during transitions
+  const lastValidTaskRef = useRef<Task | null>(null);
+  if (selectedTask) {
+    lastValidTaskRef.current = selectedTask;
+  } else if (!taskId) {
+    // Clear when explicitly closing the panel
+    lastValidTaskRef.current = null;
+  }
+
+  // Use last valid task for rendering to prevent flicker when task data is temporarily null
+  const displayTask = selectedTask ?? (taskId ? lastValidTaskRef.current : null);
+
   const selectedSharedTask = useMemo(() => {
     if (!selectedSharedTaskId) return null;
     return sharedTasksById[selectedSharedTaskId] ?? null;
@@ -232,7 +244,8 @@ export function ProjectTasks() {
     }
   }, [isOrchestratorOpen, selectedSharedTaskId]);
 
-  const isTaskPanelOpen = Boolean(taskId && selectedTask);
+  // Panel is open if we have a taskId (even if task data is still loading) or shared task or orchestrator
+  const isTaskPanelOpen = Boolean(taskId);
   const isSharedPanelOpen = Boolean(selectedSharedTask);
   const isPanelOpen = isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
 
@@ -1015,14 +1028,14 @@ export function ProjectTasks() {
         </Breadcrumb>
       </div>
     </NewCardHeader>
-  ) : selectedTask ? (
+  ) : displayTask ? (
     <NewCardHeader
       className="shrink-0"
       actions={
         isTaskView ? (
           <TaskPanelHeaderActions
-            task={selectedTask}
-            sharedTask={getSharedTask(selectedTask)}
+            task={displayTask}
+            sharedTask={getSharedTask(displayTask)}
             onClose={() =>
               navigate(`/projects/${projectId}/tasks`, { replace: true })
             }
@@ -1031,8 +1044,8 @@ export function ProjectTasks() {
           <AttemptHeaderActions
             mode={mode}
             onModeChange={setMode}
-            task={selectedTask}
-            sharedTask={getSharedTask(selectedTask)}
+            task={displayTask}
+            sharedTask={getSharedTask(displayTask)}
             attempt={attempt ?? null}
             onClose={() =>
               navigate(`/projects/${projectId}/tasks`, { replace: true })
@@ -1047,7 +1060,7 @@ export function ProjectTasks() {
             <BreadcrumbItem>
               {isTaskView ? (
                 <BreadcrumbPage>
-                  {truncateTitle(selectedTask?.title)}
+                  {truncateTitle(displayTask?.title)}
                 </BreadcrumbPage>
               ) : (
                 <BreadcrumbLink
@@ -1056,7 +1069,7 @@ export function ProjectTasks() {
                     navigateWithSearch(paths.task(projectId!, taskId!))
                   }
                 >
-                  {truncateTitle(selectedTask?.title)}
+                  {truncateTitle(displayTask?.title)}
                 </BreadcrumbLink>
               )}
             </BreadcrumbItem>
@@ -1112,14 +1125,14 @@ export function ProjectTasks() {
     <NewCard className="h-full min-h-0 flex flex-col bg-diagonal-lines bg-muted border-0">
       <OrchestratorPanel projectId={projectId!} />
     </NewCard>
-  ) : selectedTask ? (
+  ) : displayTask ? (
     <NewCard className="h-full min-h-0 flex flex-col bg-diagonal-lines bg-muted border-0">
       {isTaskView ? (
-        <TaskPanel task={selectedTask} />
+        <TaskPanel task={displayTask} />
       ) : (
         <TaskAttemptPanel
           attempt={attempt}
-          task={selectedTask}
+          task={displayTask}
           attemptId={attemptPanelResetKey}
         >
           {({ logs, followUp }) => (
@@ -1152,13 +1165,13 @@ export function ProjectTasks() {
   ) : null;
 
   const auxContent =
-    selectedTask && attempt ? (
+    displayTask && attempt ? (
       <div className="relative h-full w-full">
         {mode === 'preview' && <PreviewPanel />}
         {mode === 'diffs' && (
           <DiffsPanelContainer
             attempt={attempt}
-            selectedTask={selectedTask}
+            selectedTask={displayTask}
             projectId={projectId!}
             branchStatus={branchStatus ?? null}
             branches={branches}
