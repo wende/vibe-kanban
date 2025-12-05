@@ -206,7 +206,7 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    font-size: 0.9rem;
+    font-size: 0.99rem;
   }
 
   *:focus {
