@@ -164,8 +164,8 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
           />
         </VirtuosoMessageListLicense>
         {debouncedLoading && (
-          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-            <div className="flex items-center gap-2 rounded-full bg-background/95 px-4 py-2 text-sm text-muted-foreground shadow-md">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Loading history...</span>
             </div>
