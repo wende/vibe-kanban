@@ -241,11 +241,25 @@ export type ImageResponse = { id: string, file_path: string, original_name: stri
 
 export type ImageMetadata = { exists: boolean, file_name: string | null, path: string | null, size_bytes: bigint | null, format: string | null, proxy_url: string | null, };
 
-export type CreateTaskAttemptBody = { task_id: string, 
+export type CreateTaskAttemptBody = { task_id: string,
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, base_branch: string, };
+executor_profile_id: ExecutorProfileId, base_branch: string,
+/**
+ * If true, use base_branch as the working branch instead of creating a new one
+ */
+use_existing_branch: boolean,
+/**
+ * Custom branch name to use instead of auto-generating one.
+ * Takes precedence over use_existing_branch when set.
+ */
+custom_branch: string | null,
+/**
+ * Conversation history from a previous attempt to prepend to the prompt.
+ * Used when continuing a task with a different agent.
+ */
+conversation_history: string | null, };
 
 export type RunAgentSetupRequest = { executor_profile_id: ExecutorProfileId, };
 
@@ -322,6 +336,20 @@ orig_path: string | null,
  * True if this is an untracked file
  */
 is_untracked: boolean, };
+
+export type ExportResult = { 
+/**
+ * The exported markdown text.
+ */
+markdown: string, 
+/**
+ * Number of messages included in the export.
+ */
+message_count: number, 
+/**
+ * Whether the export was truncated due to length.
+ */
+truncated: boolean, };
 
 export type ConflictOp = "rebase" | "merge" | "cherry_pick" | "revert";
 

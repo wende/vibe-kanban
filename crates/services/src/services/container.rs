@@ -703,6 +703,19 @@ pub trait ContainerService {
         task_attempt: &TaskAttempt,
         executor_profile_id: ExecutorProfileId,
     ) -> Result<ExecutionProcess, ContainerError> {
+        self.start_attempt_with_prompt(task_attempt, executor_profile_id, None)
+            .await
+    }
+
+    /// Start a task attempt with an optional custom prompt prefix.
+    /// If `prompt_prefix` is provided, it will be prepended to the task prompt.
+    /// This is useful for passing conversation history when continuing with a different agent.
+    async fn start_attempt_with_prompt(
+        &self,
+        task_attempt: &TaskAttempt,
+        executor_profile_id: ExecutorProfileId,
+        prompt_prefix: Option<String>,
+    ) -> Result<ExecutionProcess, ContainerError> {
         // Create container
         self.create(task_attempt).await?;
 
@@ -723,7 +736,12 @@ pub trait ContainerService {
             .await?
             .ok_or(SqlxError::RowNotFound)?;
 
-        let prompt = task.to_prompt();
+        // Build prompt, optionally prepending conversation history
+        let base_prompt = task.to_prompt();
+        let prompt = match prompt_prefix {
+            Some(prefix) => format!("{}\n\n---\n\n{}", prefix, base_prompt),
+            None => base_prompt,
+        };
 
         let cleanup_action = self.cleanup_action(project.cleanup_script.clone());
 

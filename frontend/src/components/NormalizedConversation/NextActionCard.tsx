@@ -9,6 +9,7 @@ import {
   Check,
   GitBranch,
   Settings,
+  RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ViewProcessesDialog } from '@/components/dialogs/tasks/ViewProcessesDialog';
@@ -116,6 +117,14 @@ export function NextActionCard({
       taskId: attempt.task_id,
     });
   }, [attempt?.task_id]);
+
+  const handleTryDifferentAgent = useCallback(() => {
+    if (!attempt?.task_id || !attemptId) return;
+    CreateAttemptDialog.show({
+      taskId: attempt.task_id,
+      sourceAttemptId: attemptId,
+    });
+  }, [attempt?.task_id, attemptId]);
 
   const handleGitActions = useCallback(() => {
     if (!attemptId) return;
@@ -227,6 +236,26 @@ export function NextActionCard({
                 </Button>
               )
             ))}
+
+          {/* Try Different Agent button - shows on all completions */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTryDifferentAgent}
+                disabled={!attempt?.task_id || !attemptId}
+                className="text-sm w-full sm:w-auto"
+                aria-label={t('attempt.tryDifferentAgent')}
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                {t('attempt.tryDifferentAgent')}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t('attempt.tryDifferentAgentTooltip')}
+            </TooltipContent>
+          </Tooltip>
 
           {/* Right: Icon buttons */}
           {fileCount > 0 && (
