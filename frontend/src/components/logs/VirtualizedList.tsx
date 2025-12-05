@@ -117,13 +117,13 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
 
   return (
     <ApprovalFormProvider>
-      <div className="relative flex-1 min-h-0">
+      <div className="relative h-full min-h-0">
         <VirtuosoMessageListLicense
           licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
         >
           <VirtuosoMessageList<PatchTypeWithKey, MessageListContext>
             ref={messageListRef}
-            className="flex-1"
+            className="h-full"
             data={channelData}
             initialLocation={INITIAL_TOP_ITEM}
             context={messageListContext}
@@ -134,9 +134,11 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
           />
         </VirtuosoMessageListLicense>
         {loading && (
-          <div className="absolute inset-0 z-10 w-full h-full bg-background/95 backdrop-blur-sm flex flex-col gap-2 justify-center items-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p>Loading History</p>
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+            <div className="flex items-center gap-2 rounded-full bg-background/95 px-4 py-2 text-sm text-muted-foreground shadow-md">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Loading history...</span>
+            </div>
           </div>
         )}
       </div>
