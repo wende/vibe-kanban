@@ -185,6 +185,7 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
               <TaskAttemptPanel
                 attempt={displayOrchestrator.attempt}
                 task={taskWithStatus}
+                disableLoadingOverlay={true}
               >
                 {({ logs, followUp }) => (
                   <div className="h-full min-h-0 flex flex-col">
