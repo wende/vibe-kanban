@@ -59,65 +59,66 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
       }
     : null;
 
-  if (error && !displayOrchestrator) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4 text-center p-6">
-        <p className="text-destructive">Failed to load orchestrator</p>
-        <p className="text-sm text-muted-foreground">{String(error)}</p>
-      </div>
-    );
-  }
+  // Determine if we need to show loading overlay
+  const showLoading = !displayOrchestrator?.latest_process;
+  const hasError = error || startMutation.isError;
+  const errorMessage = error ? String(error) : startMutation.error ? String(startMutation.error) : null;
 
-  // If no orchestrator process yet and no cached data, show starting state
-  // Use same small loading indicator as VirtualizedList for consistency
-  if (!displayOrchestrator?.latest_process) {
-    const hasError = startMutation.isError;
-
-    return (
-      <div className="h-full flex flex-col relative">
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
-            {hasError ? (
-              <span className="text-destructive">{String(startMutation.error)}</span>
-            ) : (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-                <span>Loading...</span>
-              </>
-            )}
-          </div>
+  // Always render the same structure - loading overlay + content
+  // This prevents layout jumps when switching between loading and loaded states
+  return (
+    <div className="h-full flex flex-col relative">
+      {/* Loading overlay - same style as VirtualizedList */}
+      <div
+        className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
+          showLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
+          {hasError && errorMessage ? (
+            <span className="text-destructive">{errorMessage}</span>
+          ) : (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+              <span>Loading...</span>
+            </>
+          )}
         </div>
       </div>
-    );
-  }
 
-  // Show the orchestrator session with logs
-  return (
-    <div className="h-full flex flex-col">
-      <ClickedElementsProvider attempt={displayOrchestrator.attempt}>
-        <ReviewProvider key={displayOrchestrator.attempt.id}>
-          <ExecutionProcessesProvider
-            key={displayOrchestrator.attempt.id}
-            attemptId={displayOrchestrator.attempt.id}
-          >
-            <TaskAttemptPanel
-              attempt={displayOrchestrator.attempt}
-              task={taskWithStatus}
-            >
-                {({ logs, followUp }) => (
-                  <div className="h-full min-h-0 flex flex-col">
-                    <div className="flex-1 min-h-0 flex flex-col">{logs}</div>
-                    <div className="min-h-0 max-h-[50%] border-t overflow-hidden bg-background">
-                      <div className="mx-auto w-full max-w-[50rem] h-full min-h-0">
-                        {followUp}
+      {/* Content - always rendered but hidden when loading */}
+      <div
+        className={`h-full flex flex-col transition-opacity duration-200 ${
+          showLoading ? 'opacity-0 invisible' : 'opacity-100 visible'
+        }`}
+      >
+        {displayOrchestrator?.latest_process && (
+          <ClickedElementsProvider attempt={displayOrchestrator.attempt}>
+            <ReviewProvider key={displayOrchestrator.attempt.id}>
+              <ExecutionProcessesProvider
+                key={displayOrchestrator.attempt.id}
+                attemptId={displayOrchestrator.attempt.id}
+              >
+                <TaskAttemptPanel
+                  attempt={displayOrchestrator.attempt}
+                  task={taskWithStatus}
+                >
+                  {({ logs, followUp }) => (
+                    <div className="h-full min-h-0 flex flex-col">
+                      <div className="flex-1 min-h-0 flex flex-col">{logs}</div>
+                      <div className="min-h-0 max-h-[50%] border-t overflow-hidden bg-background">
+                        <div className="mx-auto w-full max-w-[50rem] h-full min-h-0">
+                          {followUp}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-            </TaskAttemptPanel>
-          </ExecutionProcessesProvider>
-        </ReviewProvider>
-      </ClickedElementsProvider>
+                  )}
+                </TaskAttemptPanel>
+              </ExecutionProcessesProvider>
+            </ReviewProvider>
+          </ClickedElementsProvider>
+        )}
+      </div>
     </div>
   );
 }
