@@ -703,20 +703,20 @@ export function ProjectTasks() {
   }, [projectId, navigate, searchParams]);
 
   const handleViewTaskDetails = useCallback(
-    (task: Task, attemptIdToShow?: string) => {
+    (task: Task) => {
       if (!projectId) return;
       setSelectedSharedTaskId(null);
 
-      // Clear orchestrator param when opening a task
       const params = new URLSearchParams(searchParams);
       params.delete('orchestrator');
       const search = params.toString();
 
-      if (attemptIdToShow) {
-        navigate({ pathname: paths.attempt(projectId, task.id, attemptIdToShow), search: search ? `?${search}` : '' });
-      } else {
-        navigate({ pathname: `${paths.task(projectId, task.id)}/attempts/latest`, search: search ? `?${search}` : '' });
-      }
+      const latestAttemptId = task.latest_task_attempt_id ?? undefined;
+      const target = latestAttemptId
+        ? paths.attempt(projectId, task.id, latestAttemptId)
+        : `${paths.task(projectId, task.id)}/attempts/latest`;
+
+      navigate({ pathname: target, search: search ? `?${search}` : '' });
     },
     [projectId, navigate, searchParams]
   );
