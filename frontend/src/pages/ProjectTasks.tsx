@@ -176,7 +176,7 @@ export function ProjectTasks() {
       openTaskForm({ mode: 'create', projectId });
     }
   }, [projectId]);
-  const { query: searchQuery, focusInput } = useSearch();
+  const { debouncedQuery: searchQuery, focusInput } = useSearch();
 
   const {
     tasks,
