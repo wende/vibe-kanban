@@ -61,6 +61,7 @@ use tokio_util::io::ReaderStream;
 use utils::{
     log_msg::LogMsg,
     msg_store::MsgStore,
+    path::get_vibe_kanban_temp_dir,
     text::{git_branch_id, short_uuid, truncate_to_char_boundary},
 };
 use uuid::Uuid;
@@ -193,7 +194,7 @@ impl LocalContainerService {
     }
 
     /// Find and delete orphaned worktrees that don't correspond to any task attempts
-    async fn cleanup_orphaned_worktrees(&self) {
+    async fn cleanup_orphaned_worktrees(db: &DBService) {
         // Check if orphan cleanup is disabled via environment variable
         if std::env::var("DISABLE_WORKTREE_ORPHAN_CLEANUP").is_ok() {
             tracing::debug!(
@@ -202,6 +203,19 @@ impl LocalContainerService {
             return;
         }
         let worktree_base_dir = WorktreeManager::get_worktree_base_dir();
+
+        // CRITICAL SAFETY CHECK: Ensure worktree base is in a temp directory
+        // This prevents accidental deletion of user directories
+        let temp_dir = get_vibe_kanban_temp_dir();
+        if !worktree_base_dir.starts_with(&temp_dir) {
+            tracing::error!(
+                "SAFETY: Worktree base directory {} is not inside temp directory {}, refusing to clean up",
+                worktree_base_dir.display(),
+                temp_dir.display()
+            );
+            return;
+        }
+
         if !worktree_base_dir.exists() {
             tracing::debug!(
                 "Worktree base directory {} does not exist, skipping orphan cleanup",
@@ -247,7 +261,7 @@ impl LocalContainerService {
 
             let worktree_path_str = path.to_string_lossy().to_string();
             if let Ok(false) =
-                TaskAttempt::container_ref_exists(&self.db().pool, &worktree_path_str).await
+                TaskAttempt::container_ref_exists(&db.pool, &worktree_path_str).await
             {
                 // This is an orphaned worktree - delete it
                 tracing::info!("Found orphaned worktree: {}", worktree_path_str);
@@ -337,7 +351,7 @@ impl LocalContainerService {
     ) {
         let db = self.db.clone();
         let mut cleanup_interval = tokio::time::interval(tokio::time::Duration::from_secs(1800)); // 30 minutes
-        self.cleanup_orphaned_worktrees().await;
+        Self::cleanup_orphaned_worktrees(self.db()).await;
         tokio::spawn(async move {
             loop {
                 tokio::select! {

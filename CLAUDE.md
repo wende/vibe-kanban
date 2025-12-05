@@ -126,3 +126,7 @@ Runtime:
 - `FRONTEND_PORT`: Frontend dev port (default: 3000)
 - `HOST`: Backend host (default: 127.0.0.1)
 - `DISABLE_WORKTREE_ORPHAN_CLEANUP`: Debug flag for worktrees
+
+## Known Issues & Gotchas
+
+- [Shared Cargo Target Directory Pitfall](docs/shared-target-directory-pitfall.md) - Why multiple project clones can unexpectedly share databases and cause build conflicts
