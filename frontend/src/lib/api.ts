@@ -82,6 +82,8 @@ import {
   SharedTaskDetails,
   QueueStatus,
   PrCommentsResponse,
+  CommitChangesRequest,
+  WorktreeStatusResponse,
 } from 'shared/types';
 
 export class ApiError<E = unknown> extends Error {
@@ -653,6 +655,29 @@ export const attemptsApi = {
       `/api/task-attempts/${attemptId}/pr/comments`
     );
     return handleApiResponse<PrCommentsResponse>(response);
+  },
+
+  getWorktreeStatus: async (
+    attemptId: string
+  ): Promise<WorktreeStatusResponse> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/worktree-status`
+    );
+    return handleApiResponse<WorktreeStatusResponse>(response);
+  },
+
+  commit: async (
+    attemptId: string,
+    data: CommitChangesRequest
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/commit`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+    return handleApiResponse<void>(response);
   },
 };
 

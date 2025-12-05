@@ -235,7 +235,8 @@
       "forcePush": "Force Push",
       "forcePushing": "Force Pushing...",
       "creating": "Creating...",
-      "createPr": "Create PR"
+      "createPr": "Create PR",
+      "commit": "Commit"
     },
     "errors": {
       "changeTargetBranch": "Failed to change target branch",
@@ -254,6 +255,25 @@
         "title": "Sign in to manage git actions",
         "description": "Sign in to Vibe Kanban so you can push branches, merge changes, or open pull requests for this task.",
         "action": "Sign in"
+      }
+    }
+  },
+  "commit": {
+    "dialog": {
+      "title": "Commit Changes",
+      "description": "Stage and commit your changes with a custom message.",
+      "messageLabel": "Commit message",
+      "messagePlaceholder": "Enter your commit message...",
+      "filesLabel": "Files to commit",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "selectedCount": "{{count}} of {{total}} files selected",
+      "noChanges": "No uncommitted changes",
+      "commitButton": "Commit",
+      "committing": "Committing...",
+      "errors": {
+        "loadFailed": "Failed to load file status",
+        "commitFailed": "Failed to commit changes"
       }
     }
   },

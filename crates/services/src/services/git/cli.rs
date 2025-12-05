@@ -246,6 +246,19 @@ impl GitCli {
         self.git(worktree_path, ["add", "-A"])?;
         Ok(())
     }
+
+    /// Stage specific files in the working tree.
+    pub fn add_files(&self, worktree_path: &Path, files: &[String]) -> Result<(), GitCliError> {
+        if files.is_empty() {
+            return Ok(());
+        }
+        let mut args = vec!["add".to_string(), "--".to_string()];
+        args.extend(files.iter().cloned());
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        self.git(worktree_path, args_refs)?;
+        Ok(())
+    }
+
     pub fn list_worktrees(&self, repo_path: &Path) -> Result<Vec<WorktreeEntry>, GitCliError> {
         let out = self.git(repo_path, ["worktree", "list", "--porcelain"])?;
         let mut entries = Vec::new();

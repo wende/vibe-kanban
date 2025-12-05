@@ -289,45 +289,39 @@ export type DirectoryEntry = { name: string, path: string, is_directory: boolean
 
 export type DirectoryListResponse = { entries: Array<DirectoryEntry>, current_path: string, };
 
-export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, auto_commit_enabled: boolean, };
-
-export type NotificationConfig = { sound_enabled: boolean, push_enabled: boolean, sound_file: SoundFile, };
-
-export enum ThemeMode { LIGHT = "LIGHT", DARK = "DARK", SYSTEM = "SYSTEM" }
-
-export type EditorConfig = { editor_type: EditorType, custom_command: string | null, remote_ssh_host: string | null, remote_ssh_user: string | null, };
-
-export enum EditorType { VS_CODE = "VS_CODE", CURSOR = "CURSOR", WINDSURF = "WINDSURF", INTELLI_J = "INTELLI_J", ZED = "ZED", XCODE = "XCODE", CUSTOM = "CUSTOM" }
-
-export type EditorOpenError = { "type": "executable_not_found", executable: string, editor_type: EditorType, } | { "type": "invalid_command", details: string, editor_type: EditorType, } | { "type": "launch_failed", executable: string, details: string, editor_type: EditorType, };
-
-export type GitHubConfig = { pat: string | null, oauth_token: string | null, username: string | null, primary_email: string | null, default_pr_base: string | null, };
-
-export enum SoundFile { ABSTRACT_SOUND1 = "ABSTRACT_SOUND1", ABSTRACT_SOUND2 = "ABSTRACT_SOUND2", ABSTRACT_SOUND3 = "ABSTRACT_SOUND3", ABSTRACT_SOUND4 = "ABSTRACT_SOUND4", COW_MOOING = "COW_MOOING", PHONE_VIBRATION = "PHONE_VIBRATION", ROOSTER = "ROOSTER" }
-
-export type UiLanguage = "BROWSER" | "EN" | "JA" | "ES" | "KO" | "ZH_HANS";
-
-export type ShowcaseState = { seen_features: Array<string>, };
-
-export type GitBranch = { name: string, is_current: boolean, is_remote: boolean, last_commit_date: Date, };
-
-export type SharedTaskDetails = { id: string, project_id: string, title: string, description: string | null, status: TaskStatus, };
-
-export type QueuedMessage = { 
+export type CommitChangesRequest = {
 /**
- * The task attempt this message is queued for
+ * Files to stage before committing. If empty, stages all changes.
  */
-task_attempt_id: string, 
+files: Array<string>,
 /**
- * The follow-up data (message + variant)
+ * Commit message.
  */
-data: DraftFollowUpData, 
-/**
- * Timestamp when the message was queued
- */
-queued_at: string, };
+message: string, };
 
-export type QueueStatus = { "status": "empty" } | { "status": "queued", message: QueuedMessage, };
+export type WorktreeStatusResponse = { entries: Array<FileStatusEntry>, };
+
+export type FileStatusEntry = {
+/**
+ * Single-letter staged status (X column) - ' ' means unchanged, 'M' modified, 'A' added, etc.
+ */
+staged: string,
+/**
+ * Single-letter unstaged status (Y column)
+ */
+unstaged: string,
+/**
+ * File path
+ */
+path: string,
+/**
+ * Original path for renames
+ */
+orig_path: string | null,
+/**
+ * True if this is an untracked file
+ */
+is_untracked: boolean, };
 
 export type ConflictOp = "rebase" | "merge" | "cherry_pick" | "revert";
 
