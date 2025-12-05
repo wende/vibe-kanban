@@ -76,6 +76,33 @@ pub struct CreateGitHubPrRequest {
     pub target_branch: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Serialize, TS)]
+pub struct CommitChangesRequest {
+    /// Files to stage before committing. If empty, stages all changes.
+    pub files: Vec<String>,
+    /// Commit message.
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+pub struct WorktreeStatusResponse {
+    pub entries: Vec<FileStatusEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct FileStatusEntry {
+    /// Single-letter staged status (X column) - ' ' means unchanged, 'M' modified, 'A' added, etc.
+    pub staged: String,
+    /// Single-letter unstaged status (Y column)
+    pub unstaged: String,
+    /// File path
+    pub path: String,
+    /// Original path for renames
+    pub orig_path: Option<String>,
+    /// True if this is an untracked file
+    pub is_untracked: bool,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct TaskAttemptQuery {
     pub task_id: Option<Uuid>,
@@ -638,6 +665,53 @@ pub async fn force_push_task_attempt_branch(
     deployment
         .git()
         .push_to_github(&ws_path, &task_attempt.branch, true)?;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+pub async fn get_worktree_status(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<WorktreeStatusResponse>>, ApiError> {
+    let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
+    let status = deployment.git().get_worktree_status(&ws_path)?;
+
+    let entries: Vec<FileStatusEntry> = status
+        .entries
+        .into_iter()
+        .map(|e| FileStatusEntry {
+            staged: e.staged.to_string(),
+            unstaged: e.unstaged.to_string(),
+            path: e.path,
+            orig_path: e.orig_path,
+            is_untracked: e.is_untracked,
+        })
+        .collect();
+
+    Ok(ResponseJson(ApiResponse::success(WorktreeStatusResponse {
+        entries,
+    })))
+}
+
+pub async fn commit_changes(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+    Json(request): Json<CommitChangesRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
+    // Stage files
+    if request.files.is_empty() {
+        // Stage all changes
+        deployment.git().add_all(&ws_path)?;
+    } else {
+        // Stage specific files
+        deployment.git().add_files(&ws_path, &request.files)?;
+    }
+
+    // Commit
+    deployment.git().commit_staged(&ws_path, &request.message)?;
+
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
@@ -1590,6 +1664,8 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/merge", post(merge_task_attempt))
         .route("/push", post(push_task_attempt_branch))
         .route("/push/force", post(force_push_task_attempt_branch))
+        .route("/worktree-status", get(get_worktree_status))
+        .route("/commit", post(commit_changes))
         .route("/rebase", post(rebase_task_attempt))
         .route("/conflicts/abort", post(abort_conflicts_task_attempt))
         .route("/pr", post(create_github_pr))

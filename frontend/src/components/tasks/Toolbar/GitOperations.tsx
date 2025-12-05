@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   GitBranch as GitBranchIcon,
+  GitCommit,
   GitPullRequest,
   RefreshCw,
   Settings,
@@ -26,6 +27,7 @@ import type {
 import { ChangeTargetBranchDialog } from '@/components/dialogs/tasks/ChangeTargetBranchDialog';
 import { RebaseDialog } from '@/components/dialogs/tasks/RebaseDialog';
 import { CreatePRDialog } from '@/components/dialogs/tasks/CreatePRDialog';
+import { CommitDialog } from '@/components/dialogs/tasks/CommitDialog';
 import { useTranslation } from 'react-i18next';
 import { useGitOperations } from '@/hooks/useGitOperations';
 
@@ -147,6 +149,12 @@ function GitOperations({
     }
     return t('git.states.createPr');
   }, [mergeInfo.hasOpenPR, pushSuccess, pushing, t]);
+
+  const commitButtonLabel = t('git.states.commit');
+
+  const handleCommitClick = () => {
+    CommitDialog.show({ attemptId: selectedAttempt.id });
+  };
 
   const handleMergeClick = async () => {
     // Directly perform merge without checking branch status
@@ -398,6 +406,25 @@ function GitOperations({
         {/* Right: Actions */}
         {branchStatus && (
           <div className={actionsClasses}>
+            <Button
+              onClick={handleCommitClick}
+              disabled={
+                mergeInfo.hasMergedPR ||
+                isAttemptRunning ||
+                hasConflictsCalculated ||
+                (!branchStatus.has_uncommitted_changes &&
+                  (branchStatus.uncommitted_count ?? 0) === 0 &&
+                  (branchStatus.untracked_count ?? 0) === 0)
+              }
+              variant="outline"
+              size="xs"
+              className="border-muted-foreground text-muted-foreground hover:bg-muted gap-1 shrink-0"
+              aria-label={commitButtonLabel}
+            >
+              <GitCommit className="h-3.5 w-3.5" />
+              <span className="truncate max-w-[10ch]">{commitButtonLabel}</span>
+            </Button>
+
             <Button
               onClick={handleMergeClick}
               disabled={

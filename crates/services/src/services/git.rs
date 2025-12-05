@@ -1077,6 +1077,39 @@ impl GitService {
         Ok((st.uncommitted_tracked, st.untracked))
     }
 
+    /// Return full worktree status including file entries
+    pub fn get_worktree_status(
+        &self,
+        worktree_path: &Path,
+    ) -> Result<cli::WorktreeStatus, GitServiceError> {
+        let cli = GitCli::new();
+        cli.get_worktree_status(worktree_path)
+            .map_err(|e| GitServiceError::InvalidRepository(format!("git status failed: {e}")))
+    }
+
+    /// Stage all changes in the working tree
+    pub fn add_all(&self, worktree_path: &Path) -> Result<(), GitServiceError> {
+        let cli = GitCli::new();
+        cli.add_all(worktree_path)?;
+        Ok(())
+    }
+
+    /// Stage specific files in the working tree
+    pub fn add_files(&self, worktree_path: &Path, files: &[String]) -> Result<(), GitServiceError> {
+        let cli = GitCli::new();
+        cli.add_files(worktree_path, files)?;
+        Ok(())
+    }
+
+    /// Commit already staged changes with a message (does not stage automatically)
+    pub fn commit_staged(&self, worktree_path: &Path, message: &str) -> Result<(), GitServiceError> {
+        let cli = GitCli::new();
+        self.ensure_cli_commit_identity(worktree_path)?;
+        cli.commit(worktree_path, message)
+            .map_err(|e| GitServiceError::InvalidRepository(format!("git commit failed: {e}")))?;
+        Ok(())
+    }
+
     /// Evaluate whether any action is needed to reset to `target_commit_oid` and
     /// optionally perform the actions.
     pub fn reconcile_worktree_to_commit(

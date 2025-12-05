@@ -77,6 +77,8 @@ import {
   UpdateScratch,
   PushError,
   QueueStatus,
+  CommitChangesRequest,
+  WorktreeStatusResponse,
 } from 'shared/types';
 
 class ApiError<E = unknown> extends Error {
@@ -604,6 +606,29 @@ export const attemptsApi = {
       }
     );
     return handleApiResponse<ExecutionProcess, GhCliSetupError>(response);
+  },
+
+  getWorktreeStatus: async (
+    attemptId: string
+  ): Promise<WorktreeStatusResponse> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/worktree-status`
+    );
+    return handleApiResponse<WorktreeStatusResponse>(response);
+  },
+
+  commit: async (
+    attemptId: string,
+    data: CommitChangesRequest
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/commit`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+    return handleApiResponse<void>(response);
   },
 };
 

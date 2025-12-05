@@ -321,13 +321,21 @@ export type CodingAgentInitialRequest = { prompt: string,
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, };
+executor_profile_id: ExecutorProfileId, 
+/**
+ * Whether this is an orchestrator execution (enables orchestrator-specific MCP servers)
+ */
+is_orchestrator: boolean, };
 
 export type CodingAgentFollowUpRequest = { prompt: string, session_id: string, 
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, };
+executor_profile_id: ExecutorProfileId, 
+/**
+ * Whether this is an orchestrator execution (enables orchestrator-specific MCP servers)
+ */
+is_orchestrator: boolean, };
 
 export type CreateTaskAttemptBody = { task_id: string, 
 /**
@@ -371,6 +379,40 @@ conflict_op: ConflictOp | null,
  * List of files currently in conflicted (unmerged) state
  */
 conflicted_files: Array<string>, };
+
+export type CommitChangesRequest = { 
+/**
+ * Files to stage before committing. If empty, stages all changes.
+ */
+files: Array<string>, 
+/**
+ * Commit message.
+ */
+message: string, };
+
+export type WorktreeStatusResponse = { entries: Array<FileStatusEntry>, };
+
+export type FileStatusEntry = { 
+/**
+ * Single-letter staged status (X column) - ' ' means unchanged, 'M' modified, 'A' added, etc.
+ */
+staged: string, 
+/**
+ * Single-letter unstaged status (Y column)
+ */
+unstaged: string, 
+/**
+ * File path
+ */
+path: string, 
+/**
+ * Original path for renames
+ */
+orig_path: string | null, 
+/**
+ * True if this is an untracked file
+ */
+is_untracked: boolean, };
 
 export type ConflictOp = "rebase" | "merge" | "cherry_pick" | "revert";
 
