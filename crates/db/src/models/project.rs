@@ -128,13 +128,17 @@ impl Project {
                 p.created_at as "created_at!: DateTime<Utc>",
                 p.updated_at as "updated_at!: DateTime<Utc>",
                 COALESCE(SUM(CASE WHEN t.status = 'inprogress' THEN 1 ELSE 0 END), 0) as "inprogress_count!: i64",
-                COALESCE(SUM(CASE WHEN t.status = 'inreview' THEN 1 ELSE 0 END), 0) as "inreview_count!: i64"
+                COALESCE(SUM(CASE WHEN t.status = 'inreview' THEN 1 ELSE 0 END), 0) as "inreview_count!: i64",
+                COALESCE(SUM(CASE WHEN t.status = 'inprogress' AND COALESCE(ot.is_orchestrator, 0) = 1 THEN 1 ELSE 0 END), 0) as "inprogress_orchestrator_count!: i64",
+                COALESCE(SUM(CASE WHEN t.status = 'inreview' AND COALESCE(ot.is_orchestrator, 0) = 1 THEN 1 ELSE 0 END), 0) as "inreview_orchestrator_count!: i64"
             FROM projects p
             LEFT JOIN tasks t ON t.project_id = p.id
-                AND NOT EXISTS (
-                    SELECT 1 FROM task_attempts ta
-                    WHERE ta.task_id = t.id AND ta.is_orchestrator = TRUE
-                )
+            LEFT JOIN (
+                SELECT task_id,
+                       MAX(CASE WHEN is_orchestrator THEN 1 ELSE 0 END) as is_orchestrator
+                FROM task_attempts
+                GROUP BY task_id
+            ) ot ON ot.task_id = t.id
             GROUP BY p.id
             ORDER BY p.created_at DESC"#
         )
@@ -156,8 +160,12 @@ impl Project {
                     created_at: r.created_at,
                     updated_at: r.updated_at,
                 },
-                inprogress_count: r.inprogress_count,
-                inreview_count: r.inreview_count,
+                inprogress_count: r
+                    .inprogress_count
+                    .saturating_sub(r.inprogress_orchestrator_count),
+                inreview_count: r
+                    .inreview_count
+                    .saturating_sub(r.inreview_orchestrator_count),
             })
             .collect())
     }
