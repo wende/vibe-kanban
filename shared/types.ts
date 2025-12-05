@@ -419,6 +419,10 @@ orig_path: string | null,
  */
 is_untracked: boolean, };
 
+export type GenerateCommitMessageResponse = { message: string, };
+
+export type GenerateCommitMessageError = { "type": "no_changes" } | { "type": "claude_code_failed", message: string, };
+
 export type ExportResult = { 
 /**
  * The exported markdown text.

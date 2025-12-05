@@ -80,6 +80,8 @@ import {
   CommitChangesRequest,
   WorktreeStatusResponse,
   ExportResult,
+  GenerateCommitMessageResponse,
+  GenerateCommitMessageError,
 } from 'shared/types';
 
 class ApiError<E = unknown> extends Error {
@@ -640,6 +642,21 @@ export const attemptsApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  generateCommitMessage: async (
+    attemptId: string
+  ): Promise<Result<GenerateCommitMessageResponse, GenerateCommitMessageError>> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/generate-commit-message`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponseAsResult<
+      GenerateCommitMessageResponse,
+      GenerateCommitMessageError
+    >(response);
   },
 
   exportConversation: async (attemptId: string): Promise<ExportResult> => {
