@@ -9,6 +9,7 @@ import type { ExecutionProcess } from 'shared/types';
 export function useAttemptExecution(attemptId?: string, taskId?: string) {
   const { isStopping, setIsStopping } = useTaskStopping(taskId || '');
   const [isCompacting, setIsCompacting] = useState(false);
+  const [contextUsageResetVersion, setContextUsageResetVersion] = useState(0);
 
   const {
     executionProcessesVisible: executionProcesses,

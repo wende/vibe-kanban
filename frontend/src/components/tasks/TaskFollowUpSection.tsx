@@ -770,7 +770,10 @@ export function TaskFollowUpSection({
               disabled={!isEditable}
             />
             {/* Context usage indicator */}
-            <ContextUsageIndicator className="ml-auto" />
+            <ContextUsageIndicator
+              className="ml-auto"
+              resetVersion={contextUsageResetVersion}
+            />
           </div>
 
           {/* Hidden file input for attachment - always present */}
