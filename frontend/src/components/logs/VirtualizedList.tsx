@@ -80,8 +80,8 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
     DataWithScrollModifier<PatchTypeWithKey>
   >({ data: [], scrollModifier: InitialDataScrollModifier });
   const [loading, setLoading] = useState(true);
-  // Debounced loading state - stays true for 50ms after loading becomes false to mask flicker
-  const [debouncedLoading, setDebouncedLoading] = useState(true);
+  // Track if we're ready to show content (data loaded + paint delay passed)
+  const [readyToShow, setReadyToShow] = useState(false);
   const { setEntries, reset } = useEntries();
   const prevAttemptIdRef = useRef<string | null>(null);
 
@@ -95,28 +95,37 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
       // Just set loading to show indicator - DON'T clear channelData
       // The old content stays visible until onEntriesUpdated brings new data
       setLoading(true);
+      setReadyToShow(false);
       // Reset entries context for the new attempt
       reset();
     } else if (prevAttemptId === null) {
       // Initial mount - set loading
       setLoading(true);
+      setReadyToShow(false);
       reset();
     }
   }, [attempt.id, reset]);
 
-  // Debounce the loading state - keep overlay visible 50ms longer to mask flicker
+  // Show content only after loading is done AND we have data
+  // Use requestAnimationFrame to wait for paint before hiding overlay
   useEffect(() => {
-    if (loading) {
-      // When loading starts, immediately show the overlay
-      setDebouncedLoading(true);
-    } else {
-      // When loading ends, delay hiding the overlay by 1s (testing)
-      const timer = setTimeout(() => {
-        setDebouncedLoading(false);
-      }, 1000);
-      return () => clearTimeout(timer);
+    if (loading || channelData.data.length === 0) {
+      setReadyToShow(false);
+      return;
     }
-  }, [loading]);
+
+    // Data is loaded - wait for next frame to ensure paint is complete
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      if (!cancelled) {
+        setReadyToShow(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, channelData.data.length]);
 
   const onEntriesUpdated = (
     newEntries: PatchTypeWithKey[],
@@ -148,7 +157,7 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
   return (
     <ApprovalFormProvider>
       <div className="relative h-full min-h-0">
-        {debouncedLoading && (
+        {!readyToShow && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -156,7 +165,7 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
             </div>
           </div>
         )}
-        <div className={debouncedLoading ? 'invisible' : 'visible'}>
+        <div className={readyToShow ? 'visible' : 'invisible'}>
           <VirtuosoMessageListLicense
             licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
           >
