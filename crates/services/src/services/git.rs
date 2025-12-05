@@ -1,4 +1,9 @@
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{LazyLock, Mutex},
+    time::{Duration, Instant},
+};
 
 use chrono::{DateTime, Utc};
 use git2::{
@@ -46,6 +51,13 @@ pub struct GitService {}
 // Max inline diff size for UI (in bytes). Files larger than this will have
 // their contents omitted from the diff stream to avoid UI crashes.
 const MAX_INLINE_DIFF_BYTES: usize = 2 * 1024 * 1024; // ~2MB
+
+// Cache for remote fetch timestamps to avoid spamming git fetch.
+// Key: (repo_path, remote_name), Value: last fetch timestamp
+// Fetches are rate-limited to once per REMOTE_FETCH_CACHE_TTL.
+const REMOTE_FETCH_CACHE_TTL: Duration = Duration::from_secs(30);
+static REMOTE_FETCH_CACHE: LazyLock<Mutex<HashMap<String, Instant>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -1739,7 +1751,9 @@ impl GitService {
         self.fetch_from_remote(repo, &remote, &refspec)
     }
 
-    /// Fetch from remote repository using native git authentication
+    /// Fetch from remote repository using native git authentication.
+    /// This function is rate-limited using a cache to avoid spamming git fetch
+    /// on frequent polling operations (e.g., branch status checks).
     fn fetch_all_from_remote(
         &self,
         repo: &Repository,
@@ -1747,8 +1761,41 @@ impl GitService {
     ) -> Result<(), GitServiceError> {
         let default_remote_name = self.default_remote_name(repo);
         let remote_name = remote.name().unwrap_or(&default_remote_name);
+
+        // Create a cache key from repo path and remote name
+        let repo_path = repo
+            .workdir()
+            .or_else(|| repo.path().parent())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let cache_key = format!("{}:{}", repo_path, remote_name);
+
+        // Check if we've fetched recently (within TTL)
+        {
+            let cache = REMOTE_FETCH_CACHE.lock().unwrap();
+            if let Some(&last_fetch) = cache.get(&cache_key) {
+                if last_fetch.elapsed() < REMOTE_FETCH_CACHE_TTL {
+                    tracing::trace!(
+                        "Skipping remote fetch for {} (cached, {}s ago)",
+                        cache_key,
+                        last_fetch.elapsed().as_secs()
+                    );
+                    return Ok(());
+                }
+            }
+        }
+
+        // Perform the fetch
         let refspec = format!("+refs/heads/*:refs/remotes/{remote_name}/*");
-        self.fetch_from_remote(repo, remote, &refspec)
+        self.fetch_from_remote(repo, remote, &refspec)?;
+
+        // Update the cache with the current timestamp
+        {
+            let mut cache = REMOTE_FETCH_CACHE.lock().unwrap();
+            cache.insert(cache_key, Instant::now());
+        }
+
+        Ok(())
     }
 
     /// Clone a repository to the specified directory
