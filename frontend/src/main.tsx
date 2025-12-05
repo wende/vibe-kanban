@@ -19,38 +19,41 @@ import {
   matchRoutes,
 } from 'react-router-dom';
 
-Sentry.init({
-  dsn: 'https://1065a1d276a581316999a07d5dffee26@o4509603705192449.ingest.de.sentry.io/4509605576441937',
-  tracesSampleRate: 1.0,
-  environment: import.meta.env.MODE === 'development' ? 'dev' : 'production',
-  integrations: [
-    Sentry.reactRouterV6BrowserTracingIntegration({
-      useEffect: React.useEffect,
-      useLocation,
-      useNavigationType,
-      createRoutesFromChildren,
-      matchRoutes,
-    }),
-  ],
-});
-Sentry.setTag('source', 'frontend');
+// Telemetry is disabled by default. Set VITE_ENABLE_TELEMETRY=true to enable.
+const isTelemetryEnabled = import.meta.env.VITE_ENABLE_TELEMETRY === 'true';
 
-if (
-  import.meta.env.VITE_POSTHOG_API_KEY &&
-  import.meta.env.VITE_POSTHOG_API_ENDPOINT
-) {
-  posthog.init(import.meta.env.VITE_POSTHOG_API_KEY, {
-    api_host: import.meta.env.VITE_POSTHOG_API_ENDPOINT,
-    capture_pageview: false,
-    capture_pageleave: true,
-    capture_performance: true,
-    autocapture: false,
-    opt_out_capturing_by_default: true,
+if (isTelemetryEnabled) {
+  Sentry.init({
+    dsn: 'https://1065a1d276a581316999a07d5dffee26@o4509603705192449.ingest.de.sentry.io/4509605576441937',
+    tracesSampleRate: 1.0,
+    environment: import.meta.env.MODE === 'development' ? 'dev' : 'production',
+    integrations: [
+      Sentry.reactRouterV6BrowserTracingIntegration({
+        useEffect: React.useEffect,
+        useLocation,
+        useNavigationType,
+        createRoutesFromChildren,
+        matchRoutes,
+      }),
+    ],
   });
+  Sentry.setTag('source', 'frontend');
+
+  if (
+    import.meta.env.VITE_POSTHOG_API_KEY &&
+    import.meta.env.VITE_POSTHOG_API_ENDPOINT
+  ) {
+    posthog.init(import.meta.env.VITE_POSTHOG_API_KEY, {
+      api_host: import.meta.env.VITE_POSTHOG_API_ENDPOINT,
+      capture_pageview: false,
+      capture_pageleave: true,
+      capture_performance: true,
+      autocapture: false,
+      opt_out_capturing_by_default: true,
+    });
+  }
 } else {
-  console.warn(
-    'PostHog API key or endpoint not set. Analytics will be disabled.'
-  );
+  console.info('Telemetry disabled. Set VITE_ENABLE_TELEMETRY=true to enable.');
 }
 
 const queryClient = new QueryClient({

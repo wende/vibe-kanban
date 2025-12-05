@@ -12,7 +12,8 @@ use crate::{
     },
     config::RemoteServerConfig,
     db,
-    mail::LoopsMailer,
+    is_telemetry_enabled,
+    mail::{LoopsMailer, Mailer, NoopMailer},
     routes,
 };
 
@@ -74,9 +75,14 @@ impl Server {
         let oauth_token_validator =
             Arc::new(OAuthTokenValidator::new(pool.clone(), registry.clone()));
 
-        let api_key = std::env::var("LOOPS_EMAIL_API_KEY")
-            .context("LOOPS_EMAIL_API_KEY environment variable is required")?;
-        let mailer = Arc::new(LoopsMailer::new(api_key));
+        let mailer: Arc<dyn Mailer> = if is_telemetry_enabled() {
+            let api_key = std::env::var("LOOPS_EMAIL_API_KEY")
+                .context("LOOPS_EMAIL_API_KEY environment variable is required when telemetry is enabled")?;
+            Arc::new(LoopsMailer::new(api_key))
+        } else {
+            tracing::info!("Telemetry disabled, using no-op mailer");
+            Arc::new(NoopMailer)
+        };
 
         let server_public_base_url = config.server_public_base_url.clone().ok_or_else(|| {
             anyhow::anyhow!(

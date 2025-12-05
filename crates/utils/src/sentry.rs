@@ -7,6 +7,14 @@ const SENTRY_DSN: &str = "https://1065a1d276a581316999a07d5dffee26@o450960370519
 
 static INIT_GUARD: OnceLock<sentry::ClientInitGuard> = OnceLock::new();
 
+/// Returns true if telemetry is enabled via the ENABLE_TELEMETRY environment variable.
+/// Telemetry is disabled by default.
+pub fn is_telemetry_enabled() -> bool {
+    std::env::var("ENABLE_TELEMETRY")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum SentrySource {
     Backend,
@@ -31,6 +39,11 @@ fn environment() -> &'static str {
 }
 
 pub fn init_once(source: SentrySource) {
+    if !is_telemetry_enabled() {
+        tracing::debug!("Telemetry disabled, skipping Sentry initialization");
+        return;
+    }
+
     INIT_GUARD.get_or_init(|| {
         sentry::init((
             SENTRY_DSN,
