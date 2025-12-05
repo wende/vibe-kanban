@@ -1,10 +1,6 @@
 <p align="center">
   <a href="https://vibekanban.com">
-    <picture>
-      <source srcset="frontend/public/vibe-kanban-logo-dark.svg" media="(prefers-color-scheme: dark)">
-      <source srcset="frontend/public/vibe-kanban-logo.svg" media="(prefers-color-scheme: light)">
-      <img src="frontend/public/vibe-kanban-logo.svg" alt="Vibe Kanban Logo">
-    </picture>
+    <img src="frontend/public/hivemind.png" alt="Hivemind Logo" height="64">
   </a>
 </p>
 
