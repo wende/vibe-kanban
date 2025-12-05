@@ -6,7 +6,7 @@ import {
   VirtuosoMessageListMethods,
   VirtuosoMessageListProps,
 } from '@virtuoso.dev/message-list';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import DisplayConversationEntry from '../NormalizedConversation/DisplayConversationEntry';
 import { useEntries } from '@/contexts/EntriesContext';
@@ -80,25 +80,23 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
     DataWithScrollModifier<PatchTypeWithKey>
   >({ data: [], scrollModifier: InitialDataScrollModifier });
   const [loading, setLoading] = useState(true);
-  const [isPending, startTransition] = useTransition();
   const { setEntries, reset } = useEntries();
   const prevAttemptIdRef = useRef<string | null>(null);
 
-  // Track attempt changes and reset state, but use transition for smoother UX
+  // Track attempt changes - don't clear data until new data arrives to prevent flicker
   useEffect(() => {
     const prevAttemptId = prevAttemptIdRef.current;
     prevAttemptIdRef.current = attempt.id;
 
-    // Only reset if this is an actual attempt change (not initial mount)
+    // Only act if this is an actual attempt change (not initial mount)
     if (prevAttemptId !== null && prevAttemptId !== attempt.id) {
-      // Use startTransition to keep showing old content while new data loads
-      startTransition(() => {
-        setLoading(true);
-        reset();
-        setChannelData({ data: [], scrollModifier: InitialDataScrollModifier });
-      });
+      // Just set loading to show indicator - DON'T clear channelData
+      // The old content stays visible until onEntriesUpdated brings new data
+      setLoading(true);
+      // Reset entries context for the new attempt
+      reset();
     } else if (prevAttemptId === null) {
-      // Initial mount - set loading without transition
+      // Initial mount - set loading
       setLoading(true);
       reset();
     }
@@ -149,11 +147,11 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
             Footer={() => <div className="h-2"></div>}
           />
         </VirtuosoMessageListLicense>
-        {(loading || isPending) && (
+        {loading && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
             <div className="flex items-center gap-2 rounded-full bg-background/95 px-4 py-2 text-sm text-muted-foreground shadow-md">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{isPending ? 'Switching...' : 'Loading history...'}</span>
+              <span>Loading history...</span>
             </div>
           </div>
         )}

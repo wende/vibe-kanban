@@ -669,13 +669,20 @@ export const useConversationHistory = ({
     }
   }, [attempt.id, idListKey, executionProcessesRaw]);
 
-  // Reset state when attempt changes
+  // Reset state when attempt changes - but don't emit immediately to avoid flicker
+  // The initial load effect will emit once data is ready
+  const prevAttemptIdForResetRef = useRef<string | null>(null);
   useEffect(() => {
-    displayedExecutionProcesses.current = {};
-    loadedInitialEntries.current = false;
-    lastActiveProcessId.current = null;
-    emitEntries(displayedExecutionProcesses.current, 'initial', true);
-  }, [attempt.id, emitEntries]);
+    // Only reset if this is an actual attempt change (not initial mount)
+    if (prevAttemptIdForResetRef.current !== null && prevAttemptIdForResetRef.current !== attempt.id) {
+      displayedExecutionProcesses.current = {};
+      loadedInitialEntries.current = false;
+      lastActiveProcessId.current = null;
+      // Don't emit here - let the initial load effect handle it to avoid flicker
+      // The old content stays visible until new content is ready
+    }
+    prevAttemptIdForResetRef.current = attempt.id;
+  }, [attempt.id]);
 
   return {};
 };
