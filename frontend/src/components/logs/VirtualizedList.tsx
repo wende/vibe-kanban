@@ -176,10 +176,10 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
             <span>Loading history...</span>
           </div>
         </div>
-        {/* Content with fade in animation */}
+        {/* Content with fade in animation - hidden with visibility to prevent overflow */}
         <div
-          className={`transition-opacity duration-200 ${
-            readyToShow ? 'opacity-100' : 'opacity-0'
+          className={`h-full transition-opacity duration-200 ${
+            readyToShow ? 'opacity-100 visible' : 'opacity-0 invisible'
           }`}
         >
           <VirtuosoMessageListLicense
