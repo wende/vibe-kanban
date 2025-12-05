@@ -9,4 +9,4 @@ echo "🔨 Building Rust server (release)..."
 cargo build --release
 
 echo "🚀 Starting production server..."
-./target/release/server
+exec ./target/release/server

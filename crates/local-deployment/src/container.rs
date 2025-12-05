@@ -823,11 +823,13 @@ impl LocalContainerService {
                 prompt: queued_data.message.clone(),
                 session_id,
                 executor_profile_id: executor_profile_id.clone(),
+                is_orchestrator: ctx.task_attempt.is_orchestrator,
             })
         } else {
             ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
                 prompt: queued_data.message.clone(),
                 executor_profile_id: executor_profile_id.clone(),
+                is_orchestrator: ctx.task_attempt.is_orchestrator,
             })
         };
 

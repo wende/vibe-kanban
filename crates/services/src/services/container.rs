@@ -679,6 +679,7 @@ pub trait ContainerService {
                     ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
                         prompt,
                         executor_profile_id: executor_profile_id.clone(),
+                        is_orchestrator: task_attempt.is_orchestrator,
                     }),
                     cleanup_action,
                 ))),
@@ -695,6 +696,7 @@ pub trait ContainerService {
                 ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
                     prompt,
                     executor_profile_id: executor_profile_id.clone(),
+                    is_orchestrator: task_attempt.is_orchestrator,
                 }),
                 cleanup_action,
             );

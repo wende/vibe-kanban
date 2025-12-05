@@ -44,6 +44,42 @@ fn base_command(claude_code_router: bool) -> &'static str {
     }
 }
 
+/// Returns the path to the orchestrator MCP config file, creating it if necessary.
+/// This file contains MCP server configuration specific to orchestrator sessions.
+fn orchestrator_mcp_config_path() -> Option<String> {
+    let home = dirs::home_dir()?;
+    let config_dir = home.join(".vibe-kanban");
+    let config_path = config_dir.join("orchestrator-mcp.json");
+
+    // Create directory if it doesn't exist
+    if !config_dir.exists() {
+        if let Err(e) = std::fs::create_dir_all(&config_dir) {
+            tracing::warn!("Failed to create orchestrator MCP config directory: {}", e);
+            return None;
+        }
+    }
+
+    // Write config file if it doesn't exist
+    if !config_path.exists() {
+        let mcp_config = serde_json::json!({
+            "mcpServers": {
+                "vibe_kanban": {
+                    "command": "npx",
+                    "args": ["-y", "vibe-kanban@latest", "--mcp"]
+                }
+            }
+        });
+
+        if let Err(e) = std::fs::write(&config_path, serde_json::to_string_pretty(&mcp_config).unwrap_or_default()) {
+            tracing::warn!("Failed to write orchestrator MCP config: {}", e);
+            return None;
+        }
+        tracing::info!("Created orchestrator MCP config at {:?}", config_path);
+    }
+
+    Some(config_path.to_string_lossy().into_owned())
+}
+
 use derivative::Derivative;
 
 #[derive(Derivative, Clone, Serialize, Deserialize, TS, JsonSchema)]
@@ -70,6 +106,12 @@ pub struct ClaudeCode {
     #[ts(skip)]
     #[derivative(Debug = "ignore", PartialEq = "ignore")]
     approvals_service: Option<Arc<dyn ExecutorApprovalService>>,
+
+    /// Whether this executor is running as an orchestrator (enables vibe_kanban MCP)
+    #[serde(skip)]
+    #[ts(skip)]
+    #[schemars(skip)]
+    is_orchestrator: bool,
 }
 
 impl ClaudeCode {
@@ -110,6 +152,13 @@ impl ClaudeCode {
             "--input-format=stream-json",
             "--include-partial-messages",
         ]);
+
+        // Add orchestrator MCP config if this is an orchestrator execution
+        if self.is_orchestrator {
+            if let Some(mcp_config_path) = orchestrator_mcp_config_path() {
+                builder = builder.extend_params(["--mcp-config", &mcp_config_path]);
+            }
+        }
 
         apply_overrides(builder, &self.cmd)
     }
@@ -153,6 +202,10 @@ impl ClaudeCode {
 impl StandardCodingAgentExecutor for ClaudeCode {
     fn use_approvals(&mut self, approvals: Arc<dyn ExecutorApprovalService>) {
         self.approvals_service = Some(approvals);
+    }
+
+    fn set_orchestrator_mode(&mut self, is_orchestrator: bool) {
+        self.is_orchestrator = is_orchestrator;
     }
 
     async fn spawn(&self, current_dir: &Path, prompt: &str) -> Result<SpawnedChild, ExecutorError> {

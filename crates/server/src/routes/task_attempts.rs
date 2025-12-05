@@ -358,12 +358,14 @@ pub async fn follow_up(
             prompt: prompt.clone(),
             session_id,
             executor_profile_id: executor_profile_id.clone(),
+            is_orchestrator: task_attempt.is_orchestrator,
         })
     } else {
         ExecutorActionType::CodingAgentInitialRequest(
             executors::actions::coding_agent_initial::CodingAgentInitialRequest {
                 prompt,
                 executor_profile_id: executor_profile_id.clone(),
+                is_orchestrator: task_attempt.is_orchestrator,
             },
         )
     };
