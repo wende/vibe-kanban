@@ -109,8 +109,9 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
 
   // Show content only after loading is done AND we have data
   // Use double RAF + small delay to ensure Virtuoso has fully painted
+  const dataLength = channelData.data?.length ?? 0;
   useEffect(() => {
-    if (loading || channelData.data.length === 0) {
+    if (loading || dataLength === 0) {
       setReadyToShow(false);
       return;
     }
@@ -134,7 +135,7 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
     return () => {
       cancelled = true;
     };
-  }, [loading, channelData.data.length]);
+  }, [loading, dataLength]);
 
   const onEntriesUpdated = (
     newEntries: PatchTypeWithKey[],
