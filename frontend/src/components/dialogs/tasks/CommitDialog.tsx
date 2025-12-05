@@ -213,14 +213,17 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
 
               <div className="border rounded-md overflow-y-auto flex-1 min-h-[100px] max-h-[200px] min-w-0">
                 {files.map((file) => (
-                  <label
+                  <div
                     key={file.path}
                     className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 min-w-0"
+                    onClick={() => toggleFile(file.path)}
                   >
-                    <Checkbox
-                      checked={selectedFiles.has(file.path)}
-                      onCheckedChange={() => toggleFile(file.path)}
-                    />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedFiles.has(file.path)}
+                        onCheckedChange={() => toggleFile(file.path)}
+                      />
+                    </div>
                     <span className="shrink-0">{getFileIcon(file)}</span>
                     <span className="flex-1 truncate text-sm font-mono min-w-0">
                       {file.path}
@@ -228,7 +231,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
                     <span className="text-xs text-muted-foreground shrink-0">
                       {getStatusLabel(file)}
                     </span>
-                  </label>
+                  </div>
                 ))}
               </div>
 
