@@ -230,6 +230,18 @@ export const handleApiResponse = async <T, E = T>(
   return result.data as T;
 };
 
+// Health Check API
+export const healthApi = {
+  check: async (): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/health');
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
+};
+
 // Project Management APIs
 export const projectsApi = {
   getAll: async (): Promise<ProjectWithTaskCounts[]> => {
