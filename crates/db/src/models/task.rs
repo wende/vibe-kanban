@@ -200,35 +200,44 @@ impl Task {
 
 FROM tasks t
 WHERE t.project_id = $1
-  AND NOT EXISTS (
-    SELECT 1 FROM task_attempts ta
-    WHERE ta.task_id = t.id AND ta.is_orchestrator = TRUE
-  )
 ORDER BY t.created_at DESC"#,
             project_id
         )
         .fetch_all(pool)
         .await?;
 
+        let orchestrator_task_id = TaskAttempt::find_orchestrator_by_project_id(pool, project_id)
+            .await?
+            .map(|attempt| attempt.task_id);
+
         let tasks = records
             .into_iter()
-            .map(|rec| TaskWithAttemptStatus {
-                task: Task {
-                    id: rec.id,
-                    project_id: rec.project_id,
-                    title: rec.title,
-                    description: rec.description,
-                    status: rec.status,
-                    parent_task_attempt: rec.parent_task_attempt,
-                    shared_task_id: rec.shared_task_id,
-                    created_at: rec.created_at,
-                    updated_at: rec.updated_at,
-                },
-                has_in_progress_attempt: rec.has_in_progress_attempt != 0,
-                has_merged_attempt: false, // TODO use merges table
-                last_attempt_failed: rec.last_attempt_failed != 0,
-                executor: rec.executor,
-                latest_task_attempt_id: rec.latest_task_attempt_id,
+            .filter_map(|rec| {
+                if orchestrator_task_id
+                    .as_ref()
+                    .map_or(false, |id| id == &rec.id)
+                {
+                    return None;
+                }
+
+                Some(TaskWithAttemptStatus {
+                    task: Task {
+                        id: rec.id,
+                        project_id: rec.project_id,
+                        title: rec.title,
+                        description: rec.description,
+                        status: rec.status,
+                        parent_task_attempt: rec.parent_task_attempt,
+                        shared_task_id: rec.shared_task_id,
+                        created_at: rec.created_at,
+                        updated_at: rec.updated_at,
+                    },
+                    has_in_progress_attempt: rec.has_in_progress_attempt != 0,
+                    has_merged_attempt: false, // TODO use merges table
+                    last_attempt_failed: rec.last_attempt_failed != 0,
+                    executor: rec.executor,
+                    latest_task_attempt_id: rec.latest_task_attempt_id,
+                })
             })
             .collect();
 

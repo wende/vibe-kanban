@@ -77,6 +77,9 @@ import {
   UpdateScratch,
   PushError,
   QueueStatus,
+  CommitChangesRequest,
+  WorktreeStatusResponse,
+  ExportResult,
 } from 'shared/types';
 
 class ApiError<E = unknown> extends Error {
@@ -493,6 +496,16 @@ export const attemptsApi = {
     return handleApiResponse<BranchStatus>(response);
   },
 
+  getBatchBranchStatus: async (
+    attemptIds: string[]
+  ): Promise<Record<string, BranchStatus>> => {
+    const response = await makeRequest('/api/task-attempts/batch-status', {
+      method: 'POST',
+      body: JSON.stringify({ attempt_ids: attemptIds }),
+    });
+    return handleApiResponse<Record<string, BranchStatus>>(response);
+  },
+
   merge: async (attemptId: string): Promise<void> => {
     const response = await makeRequest(
       `/api/task-attempts/${attemptId}/merge`,
@@ -604,6 +617,36 @@ export const attemptsApi = {
       }
     );
     return handleApiResponse<ExecutionProcess, GhCliSetupError>(response);
+  },
+
+  getWorktreeStatus: async (
+    attemptId: string
+  ): Promise<WorktreeStatusResponse> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/worktree-status`
+    );
+    return handleApiResponse<WorktreeStatusResponse>(response);
+  },
+
+  commit: async (
+    attemptId: string,
+    data: CommitChangesRequest
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/commit`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  exportConversation: async (attemptId: string): Promise<ExportResult> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/export-conversation`
+    );
+    return handleApiResponse<ExportResult>(response);
   },
 };
 

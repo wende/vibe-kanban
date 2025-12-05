@@ -34,6 +34,7 @@ function supportsCompact(process: ExecutionProcess): boolean {
 export function useAttemptExecution(attemptId?: string, taskId?: string) {
   const { isStopping, setIsStopping } = useTaskStopping(taskId || '');
   const [isCompacting, setIsCompacting] = useState(false);
+  const [contextUsageResetVersion, setContextUsageResetVersion] = useState(0);
 
   const {
     executionProcessesVisible: executionProcesses,
@@ -137,9 +138,12 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
 
       if (runningCompactableAgent) {
         // If there's a running process that supports compact, send /compact directly to it
-        await executionProcessesApi.compactExecutionProcess(
+        const compacted = await executionProcessesApi.compactExecutionProcess(
           runningCompactableAgent.id
         );
+        if (compacted) {
+          setContextUsageResetVersion((version) => version + 1);
+        }
       } else {
         // If no running process, start a new follow-up with /compact as the prompt
         await attemptsApi.followUp(attemptId, {
@@ -149,6 +153,7 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
           force_when_dirty: null,
           perform_git_reset: null,
         });
+        setContextUsageResetVersion((version) => version + 1);
       }
     } catch (error) {
       console.error('Failed to compact execution:', error);
@@ -180,5 +185,6 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     compactExecution,
     isCompacting,
     canCompact,
+    contextUsageResetVersion,
   };
 }

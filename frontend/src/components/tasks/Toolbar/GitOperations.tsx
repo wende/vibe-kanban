@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   GitBranch as GitBranchIcon,
+  GitCommit,
   GitPullRequest,
   RefreshCw,
   Settings,
@@ -26,6 +27,7 @@ import type {
 import { ChangeTargetBranchDialog } from '@/components/dialogs/tasks/ChangeTargetBranchDialog';
 import { RebaseDialog } from '@/components/dialogs/tasks/RebaseDialog';
 import { CreatePRDialog } from '@/components/dialogs/tasks/CreatePRDialog';
+import { CommitDialog } from '@/components/dialogs/tasks/CommitDialog';
 import { useTranslation } from 'react-i18next';
 import { useGitOperations } from '@/hooks/useGitOperations';
 
@@ -126,6 +128,9 @@ function GitOperations({
     };
   }, [branchStatus?.merges]);
 
+  const isActionDisabled =
+    mergeInfo.hasMergedPR || isAttemptRunning || hasConflictsCalculated;
+
   const mergeButtonLabel = useMemo(() => {
     if (mergeSuccess) return t('git.states.merged');
     if (merging) return t('git.states.merging');
@@ -135,6 +140,10 @@ function GitOperations({
   const rebaseButtonLabel = useMemo(() => {
     if (rebasing) return t('git.states.rebasing');
     return t('git.states.rebase');
+  }, [rebasing, t]);
+  const rebaseAdvancedButtonLabel = useMemo(() => {
+    if (rebasing) return t('git.states.rebasing');
+    return `${t('git.states.rebase')}*`;
   }, [rebasing, t]);
 
   const prButtonLabel = useMemo(() => {
@@ -147,6 +156,12 @@ function GitOperations({
     }
     return t('git.states.createPr');
   }, [mergeInfo.hasOpenPR, pushSuccess, pushing, t]);
+
+  const commitButtonLabel = t('git.states.commit');
+
+  const handleCommitClick = () => {
+    CommitDialog.show({ attemptId: selectedAttempt.id });
+  };
 
   const handleMergeClick = async () => {
     // Directly perform merge without checking branch status
@@ -188,6 +203,20 @@ function GitOperations({
     } finally {
       setRebasing(false);
     }
+  };
+
+  const handleRebaseWithDefaults = async () => {
+    const defaultTargetBranch =
+      selectedAttempt.target_branch || branchStatus?.target_branch_name;
+
+    if (!defaultTargetBranch) {
+      return;
+    }
+
+    await handleRebaseWithNewBranchAndUpstream(
+      defaultTargetBranch,
+      defaultTargetBranch
+    );
   };
 
   const handleRebaseDialogOpen = async () => {
@@ -399,13 +428,28 @@ function GitOperations({
         {branchStatus && (
           <div className={actionsClasses}>
             <Button
+              onClick={handleCommitClick}
+              disabled={
+                isActionDisabled ||
+                (!branchStatus.has_uncommitted_changes &&
+                  (branchStatus.uncommitted_count ?? 0) === 0 &&
+                  (branchStatus.untracked_count ?? 0) === 0)
+              }
+              variant="outline"
+              size="xs"
+              className="border-muted-foreground text-muted-foreground hover:bg-muted gap-1 shrink-0"
+              aria-label={commitButtonLabel}
+            >
+              <GitCommit className="h-3.5 w-3.5" />
+              <span className="truncate max-w-[10ch]">{commitButtonLabel}</span>
+            </Button>
+
+            <Button
               onClick={handleMergeClick}
               disabled={
-                mergeInfo.hasMergedPR ||
+                isActionDisabled ||
                 mergeInfo.hasOpenPR ||
                 merging ||
-                hasConflictsCalculated ||
-                isAttemptRunning ||
                 ((branchStatus.commits_ahead ?? 0) === 0 &&
                   !pushSuccess &&
                   !mergeSuccess)
@@ -422,10 +466,8 @@ function GitOperations({
             <Button
               onClick={handlePRButtonClick}
               disabled={
-                mergeInfo.hasMergedPR ||
+                isActionDisabled ||
                 pushing ||
-                isAttemptRunning ||
-                hasConflictsCalculated ||
                 (mergeInfo.hasOpenPR &&
                   branchStatus.remote_commits_ahead === 0) ||
                 ((branchStatus.commits_ahead ?? 0) === 0 &&
@@ -442,24 +484,53 @@ function GitOperations({
               <span className="truncate max-w-[10ch]">{prButtonLabel}</span>
             </Button>
 
-            <Button
-              onClick={handleRebaseDialogOpen}
-              disabled={
-                mergeInfo.hasMergedPR ||
-                rebasing ||
-                isAttemptRunning ||
-                hasConflictsCalculated
-              }
-              variant="outline"
-              size="xs"
-              className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
-              aria-label={rebaseButtonLabel}
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${rebasing ? 'animate-spin' : ''}`}
-              />
-              <span className="truncate max-w-[10ch]">{rebaseButtonLabel}</span>
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleRebaseWithDefaults}
+                    disabled={isActionDisabled || rebasing}
+                    variant="outline"
+                    size="xs"
+                    className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
+                    aria-label={rebaseButtonLabel}
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${rebasing ? 'animate-spin' : ''}`}
+                    />
+                    <span className="truncate max-w-[10ch]">
+                      {rebaseButtonLabel}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t('git.tooltips.quickRebase')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleRebaseDialogOpen}
+                    disabled={isActionDisabled || rebasing}
+                    variant="outline"
+                    size="xs"
+                    className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
+                    aria-label={t('rebase.dialog.title')}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span className="truncate max-w-[10ch]">
+                      {rebaseAdvancedButtonLabel}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t('git.tooltips.advancedRebase')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
       </div>

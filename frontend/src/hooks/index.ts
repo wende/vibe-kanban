@@ -1,4 +1,5 @@
 export { useBranchStatus } from './useBranchStatus';
+export { useBatchBranchStatus, type BranchStatusMap } from './useBatchBranchStatus';
 export { useAttemptExecution } from './useAttemptExecution';
 export { useOpenInEditor } from './useOpenInEditor';
 export { useProjectBranches } from './useProjectBranches';
@@ -29,3 +30,4 @@ export { useOrganizationInvitations } from './useOrganizationInvitations';
 export { useOrganizationMutations } from './useOrganizationMutations';
 export { useVariant } from './useVariant';
 export { useRetryProcess } from './useRetryProcess';
+export { usePreviousDataQuery } from './usePreviousDataQuery';

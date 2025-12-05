@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                p.id as \"id!: Uuid\",\n                p.name,\n                p.git_repo_path,\n                p.setup_script,\n                p.dev_script,\n                p.cleanup_script,\n                p.copy_files,\n                p.remote_project_id as \"remote_project_id: Uuid\",\n                p.created_at as \"created_at!: DateTime<Utc>\",\n                p.updated_at as \"updated_at!: DateTime<Utc>\",\n                COALESCE(SUM(CASE WHEN t.status = 'inprogress' THEN 1 ELSE 0 END), 0) as \"inprogress_count!: i64\",\n                COALESCE(SUM(CASE WHEN t.status = 'inreview' THEN 1 ELSE 0 END), 0) as \"inreview_count!: i64\",\n                COALESCE(SUM(CASE WHEN t.status = 'inprogress' AND COALESCE(ot.is_orchestrator, 0) = 1 THEN 1 ELSE 0 END), 0) as \"inprogress_orchestrator_count!: i64\",\n                COALESCE(SUM(CASE WHEN t.status = 'inreview' AND COALESCE(ot.is_orchestrator, 0) = 1 THEN 1 ELSE 0 END), 0) as \"inreview_orchestrator_count!: i64\"\n            FROM projects p\n            LEFT JOIN tasks t ON t.project_id = p.id\n            LEFT JOIN (\n                SELECT task_id,\n                       MAX(CASE WHEN is_orchestrator THEN 1 ELSE 0 END) as is_orchestrator\n                FROM task_attempts\n                GROUP BY task_id\n            ) ot ON ot.task_id = t.id\n            GROUP BY p.id\n            ORDER BY p.created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!: Uuid",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "git_repo_path",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "setup_script",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "dev_script",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "cleanup_script",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "copy_files",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "remote_project_id: Uuid",
+        "ordinal": 7,
+        "type_info": "Blob"
+      },
+      {
+        "name": "created_at!: DateTime<Utc>",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at!: DateTime<Utc>",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "inprogress_count!: i64",
+        "ordinal": 10,
+        "type_info": "Integer"
+      },
+      {
+        "name": "inreview_count!: i64",
+        "ordinal": 11,
+        "type_info": "Integer"
+      },
+      {
+        "name": "inprogress_orchestrator_count!: i64",
+        "ordinal": 12,
+        "type_info": "Integer"
+      },
+      {
+        "name": "inreview_orchestrator_count!: i64",
+        "ordinal": 13,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f9cd0c01affbda9d6d2d38005bc35387dfb878bbb905112f4910fac14372d7d2"
+}

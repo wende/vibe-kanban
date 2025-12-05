@@ -61,7 +61,7 @@ interface Task {
 }
 
 export type TaskFormDialogProps =
-  | { mode: 'create'; projectId: string }
+  | { mode: 'create'; projectId: string; defaultAutoStart?: boolean }
   | { mode: 'edit'; projectId: string; task: Task }
   | { mode: 'duplicate'; projectId: string; initialTask: Task }
   | {
@@ -154,8 +154,6 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
         };
 
       case 'subtask':
-      case 'create':
-      default:
         return {
           title: '',
           description: '',
@@ -166,6 +164,25 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           createNewBranch: true,
           customBranch: '',
         };
+
+      case 'create':
+      default: {
+        // Use defaultAutoStart if provided, otherwise default to true
+        const autoStartDefault =
+          'defaultAutoStart' in props && props.defaultAutoStart !== undefined
+            ? props.defaultAutoStart
+            : true;
+        return {
+          title: '',
+          description: '',
+          status: 'todo',
+          executorProfileId: baseProfile,
+          branch: defaultBranch || '',
+          autoStart: autoStartDefault,
+          createNewBranch: true,
+          customBranch: '',
+        };
+      }
     }
   }, [mode, props, system.config?.executor_profile, branches]);
 

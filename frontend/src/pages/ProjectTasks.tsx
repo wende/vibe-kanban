@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,7 +7,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Plus, X, Loader2, RotateCcw } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { tasksApi } from '@/lib/api';
-import type { GitBranch, TaskAttempt, BranchStatus } from 'shared/types';
+import type {
+  GitBranch,
+  TaskAttempt,
+  BranchStatus,
+  TaskStatus,
+} from 'shared/types';
 import { openTaskForm } from '@/lib/openTaskForm';
 import { FeatureShowcaseDialog } from '@/components/dialogs/global/FeatureShowcaseDialog';
 import { showcases } from '@/config/showcases';
@@ -19,7 +24,11 @@ import { useProject } from '@/contexts/ProjectContext';
 import { useTaskAttempts } from '@/hooks/useTaskAttempts';
 import { useTaskAttempt } from '@/hooks/useTaskAttempt';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useBranchStatus, useAttemptExecution } from '@/hooks';
+import {
+  useBranchStatus,
+  useAttemptExecution,
+  useTaskMutations,
+} from '@/hooks';
 import { projectsApi } from '@/lib/api';
 import { paths } from '@/lib/paths';
 import { ExecutionProcessesProvider } from '@/contexts/ExecutionProcessesContext';
@@ -78,7 +87,7 @@ import {
 import { AttemptHeaderActions } from '@/components/panels/AttemptHeaderActions';
 import { TaskPanelHeaderActions } from '@/components/panels/TaskPanelHeaderActions';
 
-import type { TaskWithAttemptStatus, TaskStatus } from 'shared/types';
+import type { TaskWithAttemptStatus } from 'shared/types';
 
 type Task = TaskWithAttemptStatus;
 
@@ -171,12 +180,31 @@ export function ProjectTasks() {
     };
   }, [enableScope, disableScope]);
 
-  const handleCreateTask = useCallback(() => {
-    if (projectId) {
-      openTaskForm({ mode: 'create', projectId });
-    }
-  }, [projectId]);
-  const { query: searchQuery, focusInput } = useSearch();
+  const handleCreateTask = useCallback(
+    (defaultAutoStart?: boolean) => {
+      if (projectId) {
+        openTaskForm({ mode: 'create', projectId, defaultAutoStart });
+      }
+    },
+    [projectId]
+  );
+
+  const { debouncedQuery: searchQuery, focusInput } = useSearch();
+  const { deleteTask } = useTaskMutations(projectId);
+
+  const handleClearColumn = useCallback(
+    async (_status: TaskStatus, taskIds: string[]) => {
+      // Delete all tasks in the column sequentially
+      for (const taskId of taskIds) {
+        try {
+          await deleteTask.mutateAsync(taskId);
+        } catch (error) {
+          console.error(`Failed to delete task ${taskId}:`, error);
+        }
+      }
+    },
+    [deleteTask]
+  );
 
   const {
     tasks,
@@ -191,6 +219,19 @@ export function ProjectTasks() {
     () => (taskId ? (tasksById[taskId] ?? null) : null),
     [taskId, tasksById]
   );
+
+  // Keep track of last valid task to prevent flickering during transitions
+  const lastValidTaskRef = useRef<Task | null>(null);
+  if (selectedTask) {
+    lastValidTaskRef.current = selectedTask;
+  } else if (!taskId) {
+    // Clear when explicitly closing the panel
+    lastValidTaskRef.current = null;
+  }
+
+  // Use last valid task for rendering to prevent flicker when task data is temporarily null
+  const displayTask =
+    selectedTask ?? (taskId ? lastValidTaskRef.current : null);
 
   const selectedSharedTask = useMemo(() => {
     if (!selectedSharedTaskId) return null;
@@ -217,7 +258,8 @@ export function ProjectTasks() {
   const queryClient = useQueryClient();
   const orchestratorStopMutation = useOrchestratorStop(projectId || '');
   const orchestratorRestartMutation = useMutation({
-    mutationFn: () => orchestratorApi.send(projectId!, undefined, undefined, true),
+    mutationFn: () =>
+      orchestratorApi.send(projectId!, undefined, undefined, true),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orchestrator', projectId] });
     },
@@ -232,9 +274,11 @@ export function ProjectTasks() {
     }
   }, [isOrchestratorOpen, selectedSharedTaskId]);
 
-  const isTaskPanelOpen = Boolean(taskId && selectedTask);
+  // Panel is open if we have a taskId (even if task data is still loading) or shared task or orchestrator
+  const isTaskPanelOpen = Boolean(taskId);
   const isSharedPanelOpen = Boolean(selectedSharedTask);
-  const isPanelOpen = isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
+  const isPanelOpen =
+    isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
 
   const { config, updateAndSaveConfig, loading } = useUserSystem();
   const taskPanelShowcase = showcases.taskPanel;
@@ -337,6 +381,10 @@ export function ProjectTasks() {
   const effectiveAttemptId = attemptId === 'latest' ? undefined : attemptId;
   const isTaskView = !!taskId && !effectiveAttemptId;
   const { data: attempt } = useTaskAttempt(effectiveAttemptId);
+  const attemptPanelResetKey =
+    attempt?.id ??
+    effectiveAttemptId ??
+    (attemptId === 'latest' ? 'latest' : undefined);
 
   const { data: branchStatus } = useBranchStatus(attempt?.id);
   const [branches, setBranches] = useState<GitBranch[]>([]);
@@ -703,20 +751,20 @@ export function ProjectTasks() {
   }, [projectId, navigate, searchParams]);
 
   const handleViewTaskDetails = useCallback(
-    (task: Task, attemptIdToShow?: string) => {
+    (task: Task) => {
       if (!projectId) return;
       setSelectedSharedTaskId(null);
 
-      // Clear orchestrator param when opening a task
       const params = new URLSearchParams(searchParams);
       params.delete('orchestrator');
       const search = params.toString();
 
-      if (attemptIdToShow) {
-        navigate({ pathname: paths.attempt(projectId, task.id, attemptIdToShow), search: search ? `?${search}` : '' });
-      } else {
-        navigate({ pathname: `${paths.task(projectId, task.id)}/attempts/latest`, search: search ? `?${search}` : '' });
-      }
+      const latestAttemptId = task.latest_task_attempt_id ?? undefined;
+      const target = latestAttemptId
+        ? paths.attempt(projectId, task.id, latestAttemptId)
+        : `${paths.task(projectId, task.id)}/attempts/latest`;
+
+      navigate({ pathname: target, search: search ? `?${search}` : '' });
     },
     [projectId, navigate, searchParams]
   );
@@ -925,7 +973,7 @@ export function ProjectTasks() {
         </Card>
       </div>
     ) : (
-      <div className="w-full h-full overflow-x-auto overflow-y-auto overscroll-x-contain">
+      <div className="w-full h-full overflow-x-auto overflow-y-auto overscroll-x-contain isolate">
         <TaskKanbanBoard
           columns={kanbanColumns}
           onDragEnd={handleDragEnd}
@@ -933,7 +981,8 @@ export function ProjectTasks() {
           onViewSharedTask={handleViewSharedTask}
           selectedTaskId={selectedTask?.id}
           selectedSharedTaskId={selectedSharedTaskId}
-          onCreateTask={handleCreateNewTask}
+          onCreateTask={handleCreateTask}
+          onClearColumn={handleClearColumn}
           projectId={projectId!}
         />
       </div>
@@ -962,7 +1011,9 @@ export function ProjectTasks() {
             variant="outline"
             size="sm"
             onClick={() => orchestratorRestartMutation.mutate()}
-            disabled={orchestratorRestartMutation.isPending || isOrchestratorRunning}
+            disabled={
+              orchestratorRestartMutation.isPending || isOrchestratorRunning
+            }
             aria-label="Restart orchestrator session"
           >
             {orchestratorRestartMutation.isPending ? (
@@ -1011,14 +1062,14 @@ export function ProjectTasks() {
         </Breadcrumb>
       </div>
     </NewCardHeader>
-  ) : selectedTask ? (
+  ) : displayTask ? (
     <NewCardHeader
       className="shrink-0"
       actions={
         isTaskView ? (
           <TaskPanelHeaderActions
-            task={selectedTask}
-            sharedTask={getSharedTask(selectedTask)}
+            task={displayTask}
+            sharedTask={getSharedTask(displayTask)}
             onClose={() =>
               navigate(`/projects/${projectId}/tasks`, { replace: true })
             }
@@ -1027,8 +1078,8 @@ export function ProjectTasks() {
           <AttemptHeaderActions
             mode={mode}
             onModeChange={setMode}
-            task={selectedTask}
-            sharedTask={getSharedTask(selectedTask)}
+            task={displayTask}
+            sharedTask={getSharedTask(displayTask)}
             attempt={attempt ?? null}
             onClose={() =>
               navigate(`/projects/${projectId}/tasks`, { replace: true })
@@ -1043,7 +1094,7 @@ export function ProjectTasks() {
             <BreadcrumbItem>
               {isTaskView ? (
                 <BreadcrumbPage>
-                  {truncateTitle(selectedTask?.title)}
+                  {truncateTitle(displayTask?.title)}
                 </BreadcrumbPage>
               ) : (
                 <BreadcrumbLink
@@ -1052,7 +1103,7 @@ export function ProjectTasks() {
                     navigateWithSearch(paths.task(projectId!, taskId!))
                   }
                 >
-                  {truncateTitle(selectedTask?.title)}
+                  {truncateTitle(displayTask?.title)}
                 </BreadcrumbLink>
               )}
             </BreadcrumbItem>
@@ -1108,12 +1159,16 @@ export function ProjectTasks() {
     <NewCard className="h-full min-h-0 flex flex-col bg-diagonal-lines bg-muted border-0">
       <OrchestratorPanel projectId={projectId!} />
     </NewCard>
-  ) : selectedTask ? (
+  ) : displayTask ? (
     <NewCard className="h-full min-h-0 flex flex-col bg-diagonal-lines bg-muted border-0">
       {isTaskView ? (
-        <TaskPanel task={selectedTask} />
+        <TaskPanel task={displayTask} />
       ) : (
-        <TaskAttemptPanel attempt={attempt} task={selectedTask}>
+        <TaskAttemptPanel
+          attempt={attempt}
+          task={displayTask}
+          attemptId={attemptPanelResetKey}
+        >
           {({ logs, followUp }) => (
             <>
               <GitErrorBanner />
@@ -1144,13 +1199,13 @@ export function ProjectTasks() {
   ) : null;
 
   const auxContent =
-    selectedTask && attempt ? (
+    displayTask && attempt ? (
       <div className="relative h-full w-full">
         {mode === 'preview' && <PreviewPanel />}
         {mode === 'diffs' && (
           <DiffsPanelContainer
             attempt={attempt}
-            selectedTask={selectedTask}
+            selectedTask={displayTask}
             projectId={projectId!}
             branchStatus={branchStatus ?? null}
             branches={branches}

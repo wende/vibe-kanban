@@ -1,5 +1,10 @@
-import { ReactNode, useState } from 'react';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { ReactNode, useState, useRef, useEffect } from 'react';
+import {
+  PanelGroup,
+  Panel,
+  PanelResizeHandle,
+  type ImperativePanelGroupHandle,
+} from 'react-resizable-panels';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -176,17 +181,39 @@ function DesktopSimple({
   aux,
   mode,
   rightHeader,
+  showRightArea,
 }: {
   kanban: ReactNode;
   attempt: ReactNode;
   aux: ReactNode;
   mode: LayoutMode;
   rightHeader?: ReactNode;
+  showRightArea: boolean;
 }) {
-  const [outerSizes] = useState<SplitSizes>(() =>
+  const [outerSizes, setOuterSizes] = useState<SplitSizes>(() =>
     loadSizes(STORAGE_KEYS.KANBAN_ATTEMPT, DEFAULT_KANBAN_ATTEMPT)
   );
   const [isKanbanCollapsed, setIsKanbanCollapsed] = useState(false);
+  const panelGroupRef = useRef<ImperativePanelGroupHandle | null>(null);
+
+  // Track if we need to animate the panel opening
+  const prevShowRightAreaRef = useRef(showRightArea);
+
+  // Animate panel sizes when showRightArea changes
+  useEffect(() => {
+    const wasOpen = prevShowRightAreaRef.current;
+    prevShowRightAreaRef.current = showRightArea;
+
+    if (panelGroupRef.current && wasOpen !== showRightArea) {
+      if (showRightArea) {
+        // Panel is opening - animate from kanban-only to split view
+        panelGroupRef.current.setLayout([outerSizes[0], outerSizes[1]]);
+      } else {
+        // Panel is closing - animate to kanban-only
+        panelGroupRef.current.setLayout([100, 0]);
+      }
+    }
+  }, [showRightArea, outerSizes]);
 
   // When preview/diffs is open, hide Kanban entirely and render only RightWorkArea
   if (mode !== null) {
@@ -203,10 +230,13 @@ function DesktopSimple({
   // When only viewing attempt logs, show Kanban | Attempt (no aux)
   return (
     <PanelGroup
+      ref={panelGroupRef}
       direction="horizontal"
       className="h-full min-h-0"
       onLayout={(layout) => {
-        if (layout.length === 2) {
+        // Only save sizes when both panels are visible and have reasonable values
+        if (layout.length === 2 && showRightArea && layout[0] > 5 && layout[1] > 5) {
+          setOuterSizes([layout[0], layout[1]]);
           saveSizes(STORAGE_KEYS.KANBAN_ATTEMPT, [layout[0], layout[1]]);
         }
       }}
@@ -214,9 +244,9 @@ function DesktopSimple({
       <Panel
         id="kanban"
         order={1}
-        defaultSize={outerSizes[0]}
-        minSize={MIN_PANEL_SIZE}
-        collapsible
+        defaultSize={showRightArea ? outerSizes[0] : 100}
+        minSize={showRightArea ? MIN_PANEL_SIZE : 100}
+        collapsible={showRightArea}
         collapsedSize={0}
         onCollapse={() => setIsKanbanCollapsed(true)}
         onExpand={() => setIsKanbanCollapsed(false)}
@@ -234,6 +264,7 @@ function DesktopSimple({
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
           'focus-visible:ring-offset-1 focus-visible:ring-offset-background',
           'transition-all',
+          !showRightArea && 'hidden',
           isKanbanCollapsed ? 'w-6' : 'w-1'
         )}
         aria-label="Resize panels"
@@ -251,10 +282,13 @@ function DesktopSimple({
       <Panel
         id="right"
         order={2}
-        defaultSize={outerSizes[1]}
-        minSize={MIN_PANEL_SIZE}
+        defaultSize={showRightArea ? outerSizes[1] : 0}
+        minSize={showRightArea ? MIN_PANEL_SIZE : 0}
         collapsible={false}
-        className="min-w-0 min-h-0 overflow-hidden"
+        className={cn(
+          'min-w-0 min-h-0 overflow-hidden transition-opacity duration-200',
+          !showRightArea && 'opacity-0 pointer-events-none'
+        )}
       >
         <RightWorkArea
           attempt={attempt}
@@ -276,8 +310,6 @@ export function TasksLayout({
   isMobile = false,
   rightHeader,
 }: TasksLayoutProps) {
-  const desktopKey = isPanelOpen ? 'desktop-with-panel' : 'kanban-only';
-
   if (isMobile) {
     const columns = isPanelOpen ? ['0fr', '1fr', '0fr'] : ['1fr', '0fr', '0fr'];
     const gridTemplateColumns = `minmax(0, ${columns[0]}) minmax(0, ${columns[1]}) minmax(0, ${columns[2]})`;
@@ -331,42 +363,20 @@ export function TasksLayout({
     );
   }
 
-  let desktopNode: ReactNode;
-
-  if (!isPanelOpen) {
-    desktopNode = (
-      <div
-        className="h-full min-h-0 min-w-0 overflow-hidden"
-        role="region"
-        aria-label="Kanban board"
-      >
-        {kanban}
-      </div>
-    );
-  } else {
-    desktopNode = (
-      <DesktopSimple
-        kanban={kanban}
-        attempt={attempt}
-        aux={aux}
-        mode={mode}
-        rightHeader={rightHeader}
-      />
-    );
-  }
+  const desktopNode = (
+    <DesktopSimple
+      kanban={kanban}
+      attempt={attempt}
+      aux={aux}
+      mode={mode}
+      rightHeader={rightHeader}
+      showRightArea={isPanelOpen}
+    />
+  );
 
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      <motion.div
-        key={desktopKey}
-        className="h-full min-h-0"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
-      >
-        {desktopNode}
-      </motion.div>
-    </AnimatePresence>
+    <div className="h-full min-h-0" data-panel-open={isPanelOpen ? 'true' : 'false'}>
+      {desktopNode}
+    </div>
   );
 }

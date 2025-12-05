@@ -1,4 +1,4 @@
-import { memo, forwardRef, useEffect, useState } from 'react';
+import { memo, forwardRef, useEffect, useState, useRef } from 'react';
 import { ChevronDown, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,33 +20,46 @@ type Props = {
 
 const VariantSelectorInner = forwardRef<HTMLButtonElement, Props>(
   ({ currentProfile, selectedVariant, onChange, disabled, className }, ref) => {
-    // Bump-effect animation when cycling through variants
+    // Bump-effect animation when cycling through variants (but not on initial load)
     const [isAnimating, setIsAnimating] = useState(false);
+    const hasInitializedRef = useRef(false);
+    const prevVariantRef = useRef<string | null>(null);
+
     useEffect(() => {
-      if (!currentProfile) return;
-      setIsAnimating(true);
-      const t = setTimeout(() => setIsAnimating(false), 300);
-      return () => clearTimeout(t);
+      // Skip animation on initial mount and when profile first loads
+      if (!hasInitializedRef.current) {
+        if (currentProfile) {
+          hasInitializedRef.current = true;
+          prevVariantRef.current = selectedVariant;
+        }
+        return;
+      }
+
+      // Only animate on actual user-initiated variant changes
+      if (prevVariantRef.current !== selectedVariant) {
+        prevVariantRef.current = selectedVariant;
+        setIsAnimating(true);
+        const t = setTimeout(() => setIsAnimating(false), 300);
+        return () => clearTimeout(t);
+      }
     }, [selectedVariant, currentProfile]);
 
     const hasVariants =
       currentProfile && Object.keys(currentProfile).length > 0;
 
-    if (!currentProfile) return null;
-
-    if (!hasVariants) {
+    // Show placeholder with consistent styling while loading to prevent flicker
+    if (!currentProfile || !hasVariants) {
       return (
         <Button
           ref={ref}
-          variant="outline"
+          variant="secondary"
           size="sm"
-          className={cn(
-            'h-10 w-24 px-2 flex items-center justify-between',
-            className
-          )}
+          className={cn('px-2 flex items-center justify-between', className)}
           disabled
         >
-          <span className="text-xs truncate flex-1 text-left">Default</span>
+          <Settings2 className="h-3 w-3 mr-1 flex-shrink-0" />
+          <span className="text-xs truncate flex-1 text-left">DEFAULT</span>
+          <ChevronDown className="h-3 w-3 ml-1 flex-shrink-0" />
         </Button>
       );
     }
@@ -59,8 +72,8 @@ const VariantSelectorInner = forwardRef<HTMLButtonElement, Props>(
             variant="secondary"
             size="sm"
             className={cn(
-              'px-2 flex items-center justify-between transition-all',
-              isAnimating && 'scale-105 bg-accent',
+              'px-2 flex items-center justify-between',
+              isAnimating && 'scale-105 bg-accent transition-all',
               className
             )}
             disabled={disabled}

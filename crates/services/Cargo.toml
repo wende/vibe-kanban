@@ -43,6 +43,7 @@ base64 = "0.22"
 thiserror = { workspace = true }
 futures = "0.3.31"
 tokio-stream = "0.1.17"
+async-stream = "0.3"
 strum_macros = "0.27.2"
 strum = "0.27.2"
 notify = "8.2.0"

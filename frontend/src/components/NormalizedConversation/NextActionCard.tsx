@@ -9,6 +9,7 @@ import {
   Check,
   GitBranch,
   Settings,
+  RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ViewProcessesDialog } from '@/components/dialogs/tasks/ViewProcessesDialog';
@@ -22,12 +23,13 @@ import { IdeIcon } from '@/components/ide/IdeIcon';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { getIdeName } from '@/components/ide/IdeIcon';
 import { useProject } from '@/contexts/ProjectContext';
-import { useQuery } from '@tanstack/react-query';
+import { useTaskAttempt } from '@/hooks/useTaskAttempt';
 import { attemptsApi } from '@/lib/api';
 import {
   BaseAgentCapability,
   type BaseCodingAgent,
   type TaskWithAttemptStatus,
+  type TaskAttempt,
 } from 'shared/types';
 import {
   Tooltip,
@@ -38,6 +40,7 @@ import {
 
 type NextActionCardProps = {
   attemptId?: string;
+  attempt?: TaskAttempt;
   containerRef?: string | null;
   failed: boolean;
   execution_processes: number;
@@ -47,6 +50,7 @@ type NextActionCardProps = {
 
 export function NextActionCard({
   attemptId,
+  attempt: attemptProp,
   containerRef,
   failed,
   execution_processes,
@@ -59,11 +63,9 @@ export function NextActionCard({
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
-  const { data: attempt } = useQuery({
-    queryKey: ['attempt', attemptId],
-    queryFn: () => attemptsApi.get(attemptId!),
-    enabled: !!attemptId && failed,
-  });
+  // Use the passed attempt if available, otherwise fetch it
+  const { data: fetchedAttempt } = useTaskAttempt(attemptProp ? undefined : attemptId);
+  const attempt = attemptProp ?? fetchedAttempt;
   const { capabilities } = useUserSystem();
 
   const openInEditor = useOpenInEditor(attemptId);
@@ -116,6 +118,14 @@ export function NextActionCard({
       taskId: attempt.task_id,
     });
   }, [attempt?.task_id]);
+
+  const handleTryDifferentAgent = useCallback(() => {
+    if (!attempt?.task_id || !attemptId) return;
+    CreateAttemptDialog.show({
+      taskId: attempt.task_id,
+      sourceAttemptId: attemptId,
+    });
+  }, [attempt?.task_id, attemptId]);
 
   const handleGitActions = useCallback(() => {
     if (!attemptId) return;
@@ -227,6 +237,26 @@ export function NextActionCard({
                 </Button>
               )
             ))}
+
+          {/* Try Different Agent button - shows on all completions */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTryDifferentAgent}
+                disabled={!attempt?.task_id || !attemptId}
+                className="text-sm w-full sm:w-auto"
+                aria-label={t('attempt.tryDifferentAgent')}
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                {t('attempt.tryDifferentAgent')}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t('attempt.tryDifferentAgentTooltip')}
+            </TooltipContent>
+          </Tooltip>
 
           {/* Right: Icon buttons */}
           {fileCount > 0 && (

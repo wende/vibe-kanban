@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ChevronDown, ChevronUp, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -17,6 +17,12 @@ import {
 interface ContextUsageIndicatorProps {
   className?: string;
   compact?: boolean;
+  resetVersion?: number;
+}
+
+interface CompactOverrideState {
+  version: number;
+  usageSignature: string | null;
 }
 
 function getWarningStyles(warningLevel: ContextWarningLevel): {
@@ -70,8 +76,14 @@ function ContextUsageBar({
   );
 }
 
-function ContextUsageDetails({ usage }: { usage: ContextUsage }) {
-  const styles = getWarningStyles(usage.warning_level);
+function ContextUsageDetails({
+  usage,
+  isCompacted = false,
+}: {
+  usage: ContextUsage;
+  isCompacted?: boolean;
+}) {
+  const styles = getWarningStyles(isCompacted ? 'none' : usage.warning_level);
 
   // Convert bigint to number for display
   const inputTokens = Number(usage.input_tokens);
@@ -97,8 +109,8 @@ function ContextUsageDetails({ usage }: { usage: ContextUsage }) {
       </div>
 
       <ContextUsageBar
-        percent={usage.context_used_percent}
-        warningLevel={usage.warning_level}
+        percent={isCompacted ? 0 : usage.context_used_percent}
+        warningLevel={isCompacted ? 'none' : usage.warning_level}
       />
 
       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -141,14 +153,14 @@ function ContextUsageDetails({ usage }: { usage: ContextUsage }) {
         </div>
       </div>
 
-      {usage.warning_level === 'critical' && (
+      {!isCompacted && usage.warning_level === 'critical' && (
         <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
           <AlertCircle className="h-3 w-3" />
           <span>Context nearly full. Consider using /compact.</span>
         </div>
       )}
 
-      {usage.warning_level === 'approaching' && (
+      {!isCompacted && usage.warning_level === 'approaching' && (
         <div className="flex items-center gap-2 text-xs text-yellow-600 dark:text-yellow-400">
           <AlertCircle className="h-3 w-3" />
           <span>Approaching context limit.</span>
@@ -160,22 +172,90 @@ function ContextUsageDetails({ usage }: { usage: ContextUsage }) {
           * Estimated from text length
         </div>
       )}
+
+      {isCompacted && (
+        <div className="text-xs text-muted-foreground italic">
+          Awaiting updated context usage after /compact.
+        </div>
+      )}
     </div>
   );
+}
+
+function getUsageSignature(usage: ContextUsage | null): string | null {
+  if (!usage) {
+    return null;
+  }
+
+  const cached =
+    usage.cached_input_tokens !== undefined && usage.cached_input_tokens !== null
+      ? usage.cached_input_tokens.toString()
+      : 'null';
+  const cacheRead =
+    usage.cache_read_tokens !== undefined && usage.cache_read_tokens !== null
+      ? usage.cache_read_tokens.toString()
+      : 'null';
+
+  return [
+    usage.input_tokens.toString(),
+    usage.output_tokens.toString(),
+    usage.total_tokens.toString(),
+    usage.context_window_size.toString(),
+    usage.context_used_percent.toFixed(4),
+    usage.context_remaining.toString(),
+    cached,
+    cacheRead,
+    usage.is_estimated ? 'estimated' : 'exact',
+  ].join('|');
 }
 
 export function ContextUsageIndicator({
   className,
   compact = true,
+  resetVersion,
 }: ContextUsageIndicatorProps) {
   const { usage, hasData } = useContextUsage();
   const [expanded, setExpanded] = useState(false);
+  const [compactOverride, setCompactOverride] =
+    useState<CompactOverrideState | null>(null);
+
+  const usageSignature = useMemo(() => getUsageSignature(usage), [usage]);
+
+  useEffect(() => {
+    if (resetVersion === undefined) {
+      return;
+    }
+
+    if (resetVersion === 0) {
+      if (compactOverride !== null) {
+        setCompactOverride(null);
+      }
+      return;
+    }
+
+    if (!compactOverride || resetVersion > compactOverride.version) {
+      setCompactOverride({
+        version: resetVersion,
+        usageSignature,
+      });
+    }
+  }, [resetVersion, usageSignature, compactOverride]);
+
+  useEffect(() => {
+    if (!compactOverride) return;
+    if (!usageSignature) return;
+
+    if (usageSignature !== compactOverride.usageSignature) {
+      setCompactOverride(null);
+    }
+  }, [compactOverride, usageSignature]);
 
   if (!hasData || !usage) {
     return null;
   }
 
-  const styles = getWarningStyles(usage.warning_level);
+  const isCompacted = compactOverride !== null;
+  const styles = getWarningStyles(isCompacted ? 'none' : usage.warning_level);
 
   // Calculate context used for tooltip
   const inputTokens = Number(usage.input_tokens);
@@ -187,6 +267,13 @@ export function ContextUsageIndicator({
     : 0;
   const contextUsed = inputTokens + cachedInputTokens + cacheReadTokens;
   const contextWindowSize = Number(usage.context_window_size);
+  const displayPercent = isCompacted ? 0 : usage.context_used_percent;
+  const displayWarningLevel: ContextWarningLevel = isCompacted
+    ? 'none'
+    : usage.warning_level;
+  const percentLabel = isCompacted
+    ? '?%'
+    : formatPercent(usage.context_used_percent);
 
   if (compact && !expanded) {
     return (
@@ -206,23 +293,32 @@ export function ContextUsageIndicator({
               <div className="flex items-center gap-1.5">
                 <div className="w-16">
                   <ContextUsageBar
-                    percent={usage.context_used_percent}
-                    warningLevel={usage.warning_level}
+                    percent={displayPercent}
+                    warningLevel={displayWarningLevel}
                   />
                 </div>
-                <span className="font-mono">
-                  {formatPercent(usage.context_used_percent)}
-                </span>
+                <span className="font-mono">{percentLabel}</span>
               </div>
               <ChevronDown className="h-3 w-3" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs">
-            <p>
-              Context: {formatTokens(contextUsed)} /{' '}
-              {formatTokens(contextWindowSize)} tokens
-            </p>
-            <p className="text-muted-foreground">Click to expand</p>
+            {isCompacted ? (
+              <>
+                <p>Context reset after /compact.</p>
+                <p className="text-muted-foreground">
+                  Waiting for updated usage metrics.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Context: {formatTokens(contextUsed)} /{' '}
+                  {formatTokens(contextWindowSize)} tokens
+                </p>
+                <p className="text-muted-foreground">Click to expand</p>
+              </>
+            )}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -237,7 +333,7 @@ export function ContextUsageIndicator({
       >
         <ChevronUp className="h-4 w-4" />
       </button>
-      <ContextUsageDetails usage={usage} />
+      <ContextUsageDetails usage={usage} isCompacted={isCompacted} />
     </div>
   );
 }

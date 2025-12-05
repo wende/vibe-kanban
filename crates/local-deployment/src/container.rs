@@ -80,6 +80,7 @@ pub struct LocalContainerService {
     approvals: Approvals,
     queued_message_service: QueuedMessageService,
     publisher: Result<SharePublisher, RemoteClientNotConfigured>,
+    worktree_cleanup_shutdown: Arc<tokio::sync::watch::Sender<bool>>,
 }
 
 impl LocalContainerService {
@@ -97,6 +98,8 @@ impl LocalContainerService {
     ) -> Self {
         let child_store = Arc::new(RwLock::new(HashMap::new()));
         let input_senders = Arc::new(RwLock::new(HashMap::new()));
+        let (worktree_cleanup_shutdown_tx, worktree_cleanup_shutdown_rx) =
+            tokio::sync::watch::channel(false);
 
         let container = LocalContainerService {
             db,
@@ -110,11 +113,19 @@ impl LocalContainerService {
             approvals,
             queued_message_service,
             publisher,
+            worktree_cleanup_shutdown: Arc::new(worktree_cleanup_shutdown_tx),
         };
 
-        container.spawn_worktree_cleanup().await;
+        container
+            .spawn_worktree_cleanup(worktree_cleanup_shutdown_rx)
+            .await;
 
         container
+    }
+
+    /// Signal the worktree cleanup task to stop
+    pub fn request_worktree_cleanup_shutdown(&self) {
+        let _ = self.worktree_cleanup_shutdown.send(true);
     }
 
     pub async fn get_child_from_store(&self, id: &Uuid) -> Option<Arc<RwLock<AsyncGroupChild>>> {
@@ -328,26 +339,39 @@ impl LocalContainerService {
         Ok(())
     }
 
-    pub async fn spawn_worktree_cleanup(&self) {
+    pub async fn spawn_worktree_cleanup(
+        &self,
+        mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
+    ) {
         let db = self.db.clone();
         let mut cleanup_interval = tokio::time::interval(tokio::time::Duration::from_secs(1800)); // 30 minutes
         Self::cleanup_orphaned_worktrees(self.db()).await;
         tokio::spawn(async move {
             loop {
-                cleanup_interval.tick().await;
-                tracing::info!("Starting periodic worktree cleanup...");
-                Self::cleanup_orphaned_worktrees(&db).await;
-                Self::check_externally_deleted_worktrees(&db)
-                    .await
-                    .unwrap_or_else(|e| {
-                        tracing::error!("Failed to check externally deleted worktrees: {}", e);
-                    });
-                Self::cleanup_expired_attempts(&db)
-                    .await
-                    .unwrap_or_else(|e| {
-                        tracing::error!("Failed to clean up expired worktree attempts: {}", e)
-                    });
+                tokio::select! {
+                    _ = shutdown_rx.changed() => {
+                        if *shutdown_rx.borrow() {
+                            tracing::info!("Worktree cleanup received shutdown signal");
+                            break;
+                        }
+                    }
+                    _ = cleanup_interval.tick() => {
+                        tracing::info!("Starting periodic worktree cleanup...");
+                        Self::cleanup_orphaned_worktrees(&db).await;
+                        Self::check_externally_deleted_worktrees(&db)
+                            .await
+                            .unwrap_or_else(|e| {
+                                tracing::error!("Failed to check externally deleted worktrees: {}", e);
+                            });
+                        Self::cleanup_expired_attempts(&db)
+                            .await
+                            .unwrap_or_else(|e| {
+                                tracing::error!("Failed to clean up expired worktree attempts: {}", e)
+                            });
+                    }
+                }
             }
+            tracing::info!("Worktree cleanup stopped");
         });
     }
 
@@ -838,11 +862,13 @@ impl LocalContainerService {
                 prompt: queued_data.message.clone(),
                 session_id,
                 executor_profile_id: executor_profile_id.clone(),
+                is_orchestrator: ctx.task_attempt.is_orchestrator,
             })
         } else {
             ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
                 prompt: queued_data.message.clone(),
                 executor_profile_id: executor_profile_id.clone(),
+                is_orchestrator: ctx.task_attempt.is_orchestrator,
             })
         };
 
@@ -987,6 +1013,59 @@ impl ContainerService for LocalContainerService {
         Ok(worktree_path.to_string_lossy().to_string())
     }
 
+    async fn create_and_start_task_attempt(
+        &self,
+        task: &Task,
+        executor_profile_id: ExecutorProfileId,
+        base_branch: &str,
+        custom_branch: Option<String>,
+        use_existing_branch: bool,
+        conversation_history: Option<String>,
+    ) -> Result<TaskAttempt, ContainerError> {
+        let attempt_id = Uuid::new_v4();
+        let git_branch_name = if let Some(custom_branch) = custom_branch {
+            custom_branch
+        } else if use_existing_branch {
+            base_branch.to_string()
+        } else {
+            self.git_branch_from_task_attempt(&attempt_id, &task.title)
+                .await
+        };
+
+        let task_attempt = TaskAttempt::create(
+            &self.db.pool,
+            &db::models::task_attempt::CreateTaskAttempt {
+                executor: executor_profile_id.executor,
+                base_branch: base_branch.to_string(),
+                branch: git_branch_name.clone(),
+                is_orchestrator: false,
+            },
+            attempt_id,
+            task.id,
+        )
+        .await?;
+
+        let start_result = self
+            .start_attempt_with_prompt(
+                &task_attempt,
+                executor_profile_id.clone(),
+                conversation_history,
+            )
+            .await;
+
+        if let Err(err) = start_result {
+            tracing::error!("Failed to start task attempt: {}", err);
+
+            if let Err(e) = TaskAttempt::delete(&self.db.pool, task_attempt.id).await {
+                tracing::error!("Failed to delete task attempt after startup error: {}", e);
+            }
+
+            return Err(err);
+        }
+
+        Ok(task_attempt)
+    }
+
     async fn delete_inner(&self, task_attempt: &TaskAttempt) -> Result<(), ContainerError> {
         // Orchestrator attempts don't have worktrees to clean up
         if task_attempt.is_orchestrator {
@@ -1062,7 +1141,22 @@ impl ContainerService for LocalContainerService {
         }
 
         let worktree_path = PathBuf::from(container_ref);
+        let worktree_base = WorktreeManager::get_worktree_base_dir();
 
+        // For external worktrees (not in managed directory), just verify the path exists
+        // Don't try to recreate them - they're managed externally (e.g., use_existing_branch)
+        if !worktree_path.starts_with(&worktree_base) {
+            if worktree_path.exists() {
+                return Ok(container_ref.to_string());
+            } else {
+                return Err(ContainerError::Other(anyhow!(
+                    "External worktree path '{}' no longer exists",
+                    container_ref
+                )));
+            }
+        }
+
+        // For managed worktrees, ensure they exist (recreate if needed)
         WorktreeManager::ensure_worktree_exists(
             &project.git_repo_path,
             &task_attempt.branch,

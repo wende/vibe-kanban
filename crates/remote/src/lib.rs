@@ -14,6 +14,14 @@ pub use app::Server;
 use sentry_tracing::{EventFilter, SentryLayer};
 pub use state::AppState;
 use tracing::Level;
+
+/// Returns true if telemetry is enabled via the ENABLE_TELEMETRY environment variable.
+/// Telemetry is disabled by default.
+pub fn is_telemetry_enabled() -> bool {
+    env::var("ENABLE_TELEMETRY")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     fmt::{self, format::FmtSpan},
@@ -53,6 +61,11 @@ fn environment() -> &'static str {
 }
 
 pub fn sentry_init_once() {
+    if !is_telemetry_enabled() {
+        tracing::debug!("Telemetry disabled, skipping Sentry initialization");
+        return;
+    }
+
     INIT_GUARD.get_or_init(|| {
         sentry::init((
             "https://d6e4c45af2b081fadb10fb0ba726ccaf@o4509603705192449.ingest.de.sentry.io/4510305669283920",

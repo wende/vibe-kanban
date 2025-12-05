@@ -83,7 +83,21 @@ pub trait ContainerService {
 
     async fn create(&self, task_attempt: &TaskAttempt) -> Result<ContainerRef, ContainerError>;
 
+    async fn create_and_start_task_attempt(
+        &self,
+        task: &Task,
+        executor_profile_id: ExecutorProfileId,
+        base_branch: &str,
+        custom_branch: Option<String>,
+        use_existing_branch: bool,
+        conversation_history: Option<String>,
+    ) -> Result<TaskAttempt, ContainerError>;
+
     async fn kill_all_running_processes(&self) -> Result<(), ContainerError>;
+
+    /// Signal the worktree cleanup background task to stop.
+    /// Default implementation does nothing (for deployments without worktree cleanup).
+    fn request_worktree_cleanup_shutdown(&self) {}
 
     async fn delete(&self, task_attempt: &TaskAttempt) -> Result<(), ContainerError> {
         self.try_stop(task_attempt).await;
@@ -449,6 +463,7 @@ pub trait ContainerService {
             Some(
                 store
                     .history_plus_stream() // BoxStream<Result<LogMsg, io::Error>>
+                    .take_while(|msg| future::ready(!matches!(msg, Ok(LogMsg::Finished))))
                     .filter(|msg| future::ready(matches!(msg, Ok(LogMsg::JsonPatch(..)))))
                     .chain(futures::stream::once(async {
                         Ok::<_, std::io::Error>(LogMsg::Finished)
@@ -477,6 +492,8 @@ pub trait ContainerService {
 
             // Create temporary store and populate
             // Include JsonPatch messages (already normalized) and Stdout/Stderr (need normalization)
+            // NOTE: We push Finished AFTER populating so the normalizer knows when to stop,
+            // but the return stream will wait for JsonPatch entries from the live broadcast.
             let temp_store = Arc::new(MsgStore::new());
             for msg in raw_messages {
                 if matches!(
@@ -486,6 +503,7 @@ pub trait ContainerService {
                     temp_store.push(msg);
                 }
             }
+            // Push Finished to signal end of raw logs to the normalizer
             temp_store.push_finished();
 
             let process = match ExecutionProcess::find_by_id(&self.db().pool, *id).await {
@@ -551,14 +569,55 @@ pub trait ContainerService {
                     return None;
                 }
             }
+
+            // For historic logs loaded from DB, we need to wait for the normalizer to
+            // complete before returning entries. The normalizer runs as a spawned task
+            // that reads stdout entries and emits JsonPatch entries.
+            //
+            // We create a stream that polls the store's history until we see that the
+            // normalizer has finished (by detecting JsonPatch entries or timeout).
+            // Then we return all JsonPatch entries from history followed by Finished.
             Some(
-                temp_store
-                    .history_plus_stream()
-                    .filter(|msg| future::ready(matches!(msg, Ok(LogMsg::JsonPatch(..)))))
-                    .chain(futures::stream::once(async {
-                        Ok::<_, std::io::Error>(LogMsg::Finished)
-                    }))
-                    .boxed(),
+                async_stream::stream! {
+                    let mut poll_count = 0usize;
+
+                    // Poll for JsonPatch entries in history
+                    // The normalizer adds them as it processes stdout
+                    loop {
+                        let history = temp_store.get_history();
+                        let json_patch_count = history
+                            .iter()
+                            .filter(|msg| matches!(msg, LogMsg::JsonPatch(_)))
+                            .count();
+
+                        // If we have JsonPatch entries, wait a bit more to ensure normalizer is fully done
+                        if json_patch_count > 0 {
+                            // Wait for normalizer to finish (it stops at Finished)
+                            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+                            // Get final history and yield all JsonPatch entries
+                            let final_history = temp_store.get_history();
+                            for msg in final_history {
+                                if matches!(msg, LogMsg::JsonPatch(_)) {
+                                    yield Ok::<_, std::io::Error>(msg);
+                                }
+                            }
+                            break;
+                        }
+
+                        poll_count += 1;
+                        // Timeout after ~5 seconds (100 * 50ms) if no JsonPatch entries appear
+                        if poll_count > 100 {
+                            break;
+                        }
+
+                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                    }
+
+                    // Always yield Finished at the end
+                    yield Ok(LogMsg::Finished);
+                }
+                .boxed(),
             )
         }
     }
@@ -642,6 +701,19 @@ pub trait ContainerService {
         task_attempt: &TaskAttempt,
         executor_profile_id: ExecutorProfileId,
     ) -> Result<ExecutionProcess, ContainerError> {
+        self.start_attempt_with_prompt(task_attempt, executor_profile_id, None)
+            .await
+    }
+
+    /// Start a task attempt with an optional custom prompt prefix.
+    /// If `prompt_prefix` is provided, it will be prepended to the task prompt.
+    /// This is useful for passing conversation history when continuing with a different agent.
+    async fn start_attempt_with_prompt(
+        &self,
+        task_attempt: &TaskAttempt,
+        executor_profile_id: ExecutorProfileId,
+        prompt_prefix: Option<String>,
+    ) -> Result<ExecutionProcess, ContainerError> {
         // Create container
         self.create(task_attempt).await?;
 
@@ -662,7 +734,12 @@ pub trait ContainerService {
             .await?
             .ok_or(SqlxError::RowNotFound)?;
 
-        let prompt = task.to_prompt();
+        // Build prompt, optionally prepending conversation history
+        let base_prompt = task.to_prompt();
+        let prompt = match prompt_prefix {
+            Some(prefix) => format!("{}\n\n---\n\n{}", prefix, base_prompt),
+            None => base_prompt,
+        };
 
         let cleanup_action = self.cleanup_action(project.cleanup_script);
 
@@ -679,6 +756,7 @@ pub trait ContainerService {
                     ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
                         prompt,
                         executor_profile_id: executor_profile_id.clone(),
+                        is_orchestrator: task_attempt.is_orchestrator,
                     }),
                     cleanup_action,
                 ))),
@@ -695,6 +773,7 @@ pub trait ContainerService {
                 ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
                     prompt,
                     executor_profile_id: executor_profile_id.clone(),
+                    is_orchestrator: task_attempt.is_orchestrator,
                 }),
                 cleanup_action,
             );

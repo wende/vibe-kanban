@@ -4,6 +4,7 @@ import {
   useState,
   useMemo,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
 import type { PatchTypeWithKey } from '@/hooks/useConversationHistory';
@@ -18,10 +19,23 @@ const EntriesContext = createContext<EntriesContextType | null>(null);
 
 interface EntriesProviderProps {
   children: ReactNode;
+  resetKey?: string | number | null;
 }
 
-export const EntriesProvider = ({ children }: EntriesProviderProps) => {
+export const EntriesProvider = ({
+  children,
+  resetKey,
+}: EntriesProviderProps) => {
   const [entries, setEntriesState] = useState<PatchTypeWithKey[]>([]);
+  // Track resetKey changes to know when to accept new entries vs keep old
+  const currentResetKeyRef = useRef(resetKey);
+
+  // Don't clear entries immediately on resetKey change - this causes flicker
+  // Instead, let setEntries replace them when new data arrives
+  // Just track that the key changed so reset() knows to clear
+  if (currentResetKeyRef.current !== resetKey) {
+    currentResetKeyRef.current = resetKey;
+  }
 
   const setEntries = useCallback((newEntries: PatchTypeWithKey[]) => {
     setEntriesState(newEntries);

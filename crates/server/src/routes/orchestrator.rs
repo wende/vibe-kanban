@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::Arc, sync::LazyLock};
+
 use axum::{
     Json, Router,
     extract::State,
@@ -22,11 +24,17 @@ use executors::{
 use serde::{Deserialize, Serialize};
 use services::services::container::ContainerService;
 use sqlx::Error as SqlxError;
+use tokio::sync::Mutex;
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
+
+// Per-project lock for orchestrator creation to prevent concurrent duplicate creation.
+// Key: project_id, Value: async mutex
+static ORCHESTRATOR_CREATION_LOCKS: LazyLock<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Response type for orchestrator endpoints
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -67,42 +75,72 @@ pub async fn get_orchestrator(
     // Get or create the orchestrator task
     let task = Task::get_or_create_orchestrator(pool, project_id).await?;
 
-    // Check if there's an existing orchestrator attempt
-    let existing_attempt = TaskAttempt::find_orchestrator_by_project_id(pool, project_id).await?;
+    // Check if there's an existing orchestrator attempt (quick path without lock)
+    if let Some(attempt) = TaskAttempt::find_orchestrator_by_project_id(pool, project_id).await? {
+        // Get latest process for this attempt
+        let latest_process =
+            ExecutionProcess::find_latest_by_task_attempt(pool, attempt.id).await?;
 
-    let attempt = if let Some(attempt) = existing_attempt {
-        attempt
-    } else {
-        // Get current branch from repo (orchestrator operates on whatever branch is checked out)
-        let current_branch = deployment
-            .git()
-            .get_current_branch(&project.git_repo_path)
-            .unwrap_or_else(|_| "main".to_string());
+        return Ok(ResponseJson(ApiResponse::success(OrchestratorResponse {
+            task,
+            attempt,
+            latest_process,
+        })));
+    }
 
-        // Create a new orchestrator attempt
-        let attempt_id = Uuid::new_v4();
-        let attempt = TaskAttempt::create(
-            pool,
-            &CreateTaskAttempt {
-                executor: BaseCodingAgent::ClaudeCode,
-                base_branch: current_branch.clone(),
-                branch: current_branch, // Orchestrator works on current branch
-                is_orchestrator: true,
-            },
-            attempt_id,
-            task.id,
-        )
-        .await?;
-
-        // Set container_ref to project's git_repo_path
-        let container_ref = project.git_repo_path.to_string_lossy().to_string();
-        TaskAttempt::update_container_ref(pool, attempt.id, &container_ref).await?;
-
-        // Reload to get updated attempt
-        TaskAttempt::find_by_id(pool, attempt.id)
-            .await?
-            .ok_or(SqlxError::RowNotFound)?
+    // No existing attempt - need to create one. Use per-project lock to prevent duplicates.
+    let lock = {
+        let mut locks = ORCHESTRATOR_CREATION_LOCKS.lock().await;
+        locks
+            .entry(project_id)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
     };
+
+    // Acquire the lock for this project
+    let _guard = lock.lock().await;
+
+    // Double-check after acquiring lock (another request might have created it)
+    if let Some(attempt) = TaskAttempt::find_orchestrator_by_project_id(pool, project_id).await? {
+        let latest_process =
+            ExecutionProcess::find_latest_by_task_attempt(pool, attempt.id).await?;
+
+        return Ok(ResponseJson(ApiResponse::success(OrchestratorResponse {
+            task,
+            attempt,
+            latest_process,
+        })));
+    }
+
+    // Get current branch from repo (orchestrator operates on whatever branch is checked out)
+    let current_branch = deployment
+        .git()
+        .get_current_branch(&project.git_repo_path)
+        .unwrap_or_else(|_| "main".to_string());
+
+    // Create a new orchestrator attempt
+    let attempt_id = Uuid::new_v4();
+    let attempt = TaskAttempt::create(
+        pool,
+        &CreateTaskAttempt {
+            executor: BaseCodingAgent::ClaudeCode,
+            base_branch: current_branch.clone(),
+            branch: current_branch, // Orchestrator works on current branch
+            is_orchestrator: true,
+        },
+        attempt_id,
+        task.id,
+    )
+    .await?;
+
+    // Set container_ref to project's git_repo_path
+    let container_ref = project.git_repo_path.to_string_lossy().to_string();
+    TaskAttempt::update_container_ref(pool, attempt.id, &container_ref).await?;
+
+    // Reload to get updated attempt
+    let attempt = TaskAttempt::find_by_id(pool, attempt.id)
+        .await?
+        .ok_or(SqlxError::RowNotFound)?;
 
     // Get latest process for this attempt
     let latest_process = ExecutionProcess::find_latest_by_task_attempt(pool, attempt.id).await?;
@@ -196,12 +234,14 @@ pub async fn orchestrator_send(
             prompt,
             session_id,
             executor_profile_id: executor_profile_id.clone(),
+            is_orchestrator: true,
         })
     } else {
         // Start new session
         ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
             prompt,
             executor_profile_id: executor_profile_id.clone(),
+            is_orchestrator: true,
         })
     };
 

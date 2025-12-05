@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
 import { attemptsApi } from '@/lib/api';
+import { usePreviousDataQuery } from '@/hooks/usePreviousDataQuery';
 
 export function useBranchStatus(attemptId?: string) {
-  return useQuery({
+  return usePreviousDataQuery({
     queryKey: ['branchStatus', attemptId],
     queryFn: () => attemptsApi.getBranchStatus(attemptId!),
     enabled: !!attemptId,

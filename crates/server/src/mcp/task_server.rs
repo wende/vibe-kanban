@@ -234,6 +234,25 @@ pub struct GetTaskResponse {
     pub task: TaskDetails,
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct WaitForTaskRequest {
+    #[schemars(description = "The ID of the task to wait for")]
+    pub task_id: Uuid,
+    #[schemars(description = "Polling interval in seconds (default: 2.0, minimum: 0.1)")]
+    pub interval: Option<f64>,
+    #[schemars(description = "Maximum wait time in seconds (optional, no timeout if not specified)")]
+    pub timeout: Option<f64>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct WaitForTaskResponse {
+    pub task: TaskDetails,
+    #[schemars(description = "Whether the wait timed out")]
+    pub timed_out: bool,
+    #[schemars(description = "Time spent waiting in seconds")]
+    pub waited_seconds: f64,
+}
+
 #[derive(Debug, Clone)]
 pub struct TaskServer {
     client: reqwest::Client,
@@ -563,6 +582,7 @@ impl TaskServer {
             base_branch,
             use_existing_branch: false,
             custom_branch: None,
+            conversation_history: None,
         };
 
         let url = self.url("/api/task-attempts");
@@ -664,12 +684,63 @@ impl TaskServer {
 
         TaskServer::success(&response)
     }
+
+    #[tool(
+        description = "Wait for a task to transition from in-progress to another state (done, in-review, cancelled, etc.). Returns immediately if task is not in-progress."
+    )]
+    async fn wait_for_task(
+        &self,
+        Parameters(WaitForTaskRequest {
+            task_id,
+            interval,
+            timeout,
+        }): Parameters<WaitForTaskRequest>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let interval_secs = interval.unwrap_or(2.0).max(0.1);
+        let start_time = std::time::Instant::now();
+
+        loop {
+            // Fetch current task status
+            let url = self.url(&format!("/api/tasks/{}", task_id));
+            let task: Task = match self.send_json(self.client.get(&url)).await {
+                Ok(t) => t,
+                Err(e) => return Ok(e),
+            };
+
+            // Check if task is no longer in-progress
+            if task.status != TaskStatus::InProgress {
+                let details = TaskDetails::from_task(task);
+                let response = WaitForTaskResponse {
+                    task: details,
+                    timed_out: false,
+                    waited_seconds: start_time.elapsed().as_secs_f64(),
+                };
+                return TaskServer::success(&response);
+            }
+
+            // Check timeout
+            if let Some(timeout_secs) = timeout {
+                if start_time.elapsed().as_secs_f64() >= timeout_secs {
+                    let details = TaskDetails::from_task(task);
+                    let response = WaitForTaskResponse {
+                        task: details,
+                        timed_out: true,
+                        waited_seconds: start_time.elapsed().as_secs_f64(),
+                    };
+                    return TaskServer::success(&response);
+                }
+            }
+
+            // Sleep before next poll
+            tokio::time::sleep(std::time::Duration::from_secs_f64(interval_secs)).await;
+        }
+    }
 }
 
 #[tool_handler]
 impl ServerHandler for TaskServer {
     fn get_info(&self) -> ServerInfo {
-        let mut instruction = "A task and project management server. If you need to create or update tickets or tasks then use these tools. Most of them absolutely require that you pass the `project_id` of the project that you are currently working on. You can get project ids by using `list projects`. Call `list_tasks` to fetch the `task_ids` of all the tasks in a project`.. TOOLS: 'list_projects', 'list_tasks', 'create_task', 'start_task_attempt', 'get_task', 'update_task', 'delete_task'. Make sure to pass `project_id` or `task_id` where required. You can use list tools to get the available ids.".to_string();
+        let mut instruction = "A task and project management server. If you need to create or update tickets or tasks then use these tools. Most of them absolutely require that you pass the `project_id` of the project that you are currently working on. You can get project ids by using `list projects`. Call `list_tasks` to fetch the `task_ids` of all the tasks in a project. TOOLS: 'list_projects', 'list_tasks', 'create_task', 'start_task_attempt', 'wait_for_task', 'get_task', 'update_task', 'delete_task'. Make sure to pass `project_id` or `task_id` where required. You can use list tools to get the available ids.".to_string();
         if self.context.is_some() {
             let context_instruction = "Use 'get_context' to fetch project/task/attempt metadata for the active Vibe Kanban attempt when available.";
             instruction = format!("{} {}", context_instruction, instruction);

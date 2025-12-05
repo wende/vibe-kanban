@@ -18,11 +18,12 @@ use axum::{
 };
 use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus},
+    execution_process_logs::ExecutionProcessLogs,
     merge::{Merge, MergeStatus},
     project::{Project, ProjectError},
     scratch::{Scratch, ScratchType},
     task::{Task, TaskRelationships, TaskStatus},
-    task_attempt::{CreateTaskAttempt, TaskAttempt, TaskAttemptError},
+    task_attempt::{TaskAttempt, TaskAttemptError},
 };
 use deployment::Deployment;
 use executors::{
@@ -31,7 +32,9 @@ use executors::{
         coding_agent_follow_up::CodingAgentFollowUpRequest,
         script::{ScriptContext, ScriptRequest, ScriptRequestLanguage},
     },
+    conversation_export::{self, ExportResult},
     executors::{CodingAgent, ExecutorError},
+    logs::utils::patch::extract_normalized_entry_from_patch,
     profile::{ExecutorConfigs, ExecutorProfileId},
 };
 use git2::BranchType;
@@ -44,7 +47,8 @@ use services::services::{
 };
 use sqlx::Error as SqlxError;
 use ts_rs::TS;
-use utils::response::ApiResponse;
+use utils::{log_msg::LogMsg, response::ApiResponse};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -74,6 +78,33 @@ pub struct CreateGitHubPrRequest {
     pub title: String,
     pub body: Option<String>,
     pub target_branch: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, TS)]
+pub struct CommitChangesRequest {
+    /// Files to stage before committing. If empty, stages all changes.
+    pub files: Vec<String>,
+    /// Commit message.
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+pub struct WorktreeStatusResponse {
+    pub entries: Vec<FileStatusEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct FileStatusEntry {
+    /// Single-letter staged status (X column) - ' ' means unchanged, 'M' modified, 'A' added, etc.
+    pub staged: String,
+    /// Single-letter unstaged status (Y column)
+    pub unstaged: String,
+    /// File path
+    pub path: String,
+    /// Original path for renames
+    pub orig_path: Option<String>,
+    /// True if this is an untracked file
+    pub is_untracked: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,6 +146,9 @@ pub struct CreateTaskAttemptBody {
     /// Custom branch name to use instead of auto-generating one.
     /// Takes precedence over use_existing_branch when set.
     pub custom_branch: Option<String>,
+    /// Conversation history from a previous attempt to prepend to the prompt.
+    /// Used when continuing a task with a different agent.
+    pub conversation_history: Option<String>,
 }
 
 impl CreateTaskAttemptBody {
@@ -142,56 +176,31 @@ pub async fn create_task_attempt(
         .await?
         .ok_or(SqlxError::RowNotFound)?;
 
-    let attempt_id = Uuid::new_v4();
-    let git_branch_name = if let Some(custom_branch) = &payload.custom_branch {
-        // Use the custom branch name provided by the user
-        custom_branch.clone()
-    } else if payload.use_existing_branch {
-        // Use the existing branch directly instead of creating a new one
-        payload.base_branch.clone()
-    } else {
-        deployment
-            .container()
-            .git_branch_from_task_attempt(&attempt_id, &task.title)
-            .await
-    };
-
-    let task_attempt = TaskAttempt::create(
-        &deployment.db().pool,
-        &CreateTaskAttempt {
-            executor: executor_profile_id.executor,
-            base_branch: payload.base_branch.clone(),
-            branch: git_branch_name.clone(),
-            is_orchestrator: false,
-        },
-        attempt_id,
-        payload.task_id,
-    )
-    .await?;
-
-    let start_result = deployment
+    let task_attempt_result = deployment
         .container()
-        .start_attempt(&task_attempt, executor_profile_id.clone())
+        .create_and_start_task_attempt(
+            &task,
+            executor_profile_id.clone(),
+            &payload.base_branch,
+            payload.custom_branch,
+            payload.use_existing_branch,
+            payload.conversation_history,
+        )
         .await;
 
-    // Handle errors from starting the attempt
-    if let Err(err) = &start_result {
-        tracing::error!("Failed to start task attempt: {}", err);
-
-        // Check if this is a "branch already checked out" error
-        if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
-            // Clean up: delete the task attempt since we can't proceed
-            if let Err(e) = TaskAttempt::delete(&deployment.db().pool, task_attempt.id).await {
-                tracing::error!("Failed to delete task attempt after worktree error: {}", e);
+    let task_attempt = match task_attempt_result {
+        Ok(attempt) => attempt,
+        Err(err) => {
+            if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
+                return Err(ApiError::Conflict(format!(
+                    "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
+                    Please select a different branch or create a new branch for this task.",
+                    branch
+                )));
             }
-
-            return Err(ApiError::Conflict(format!(
-                "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
-                Please select a different branch or create a new branch for this task.",
-                branch
-            )));
+            return Err(ApiError::Container(err));
         }
-    }
+    };
 
     deployment
         .track_if_analytics_allowed(
@@ -358,12 +367,14 @@ pub async fn follow_up(
             prompt: prompt.clone(),
             session_id,
             executor_profile_id: executor_profile_id.clone(),
+            is_orchestrator: task_attempt.is_orchestrator,
         })
     } else {
         ExecutorActionType::CodingAgentInitialRequest(
             executors::actions::coding_agent_initial::CodingAgentInitialRequest {
                 prompt,
                 executor_profile_id: executor_profile_id.clone(),
+                is_orchestrator: task_attempt.is_orchestrator,
             },
         )
     };
@@ -636,6 +647,53 @@ pub async fn force_push_task_attempt_branch(
     deployment
         .git()
         .push_to_github(&ws_path, &task_attempt.branch, true)?;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+pub async fn get_worktree_status(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<WorktreeStatusResponse>>, ApiError> {
+    let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
+    let status = deployment.git().get_worktree_status(&ws_path)?;
+
+    let entries: Vec<FileStatusEntry> = status
+        .entries
+        .into_iter()
+        .map(|e| FileStatusEntry {
+            staged: e.staged.to_string(),
+            unstaged: e.unstaged.to_string(),
+            path: e.path,
+            orig_path: e.orig_path,
+            is_untracked: e.is_untracked,
+        })
+        .collect();
+
+    Ok(ResponseJson(ApiResponse::success(WorktreeStatusResponse {
+        entries,
+    })))
+}
+
+pub async fn commit_changes(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+    Json(request): Json<CommitChangesRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
+    // Stage files
+    if request.files.is_empty() {
+        // Stage all changes
+        deployment.git().add_all(&ws_path)?;
+    } else {
+        // Stage specific files
+        deployment.git().add_files(&ws_path, &request.files)?;
+    }
+
+    // Commit
+    deployment.git().commit_staged(&ws_path, &request.message)?;
+
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
@@ -1009,6 +1067,151 @@ pub async fn get_task_attempt_branch_status(
         conflicted_files,
     };
     Ok(ResponseJson(ApiResponse::success(branch_status)))
+}
+
+// Batch branch status request for fetching multiple statuses at once
+#[derive(Debug, Deserialize)]
+pub struct BatchBranchStatusRequest {
+    pub attempt_ids: Vec<Uuid>,
+}
+
+/// Helper function to get branch status for a single task attempt
+async fn get_branch_status_for_attempt(
+    deployment: &DeploymentImpl,
+    task_attempt: &TaskAttempt,
+) -> Result<BranchStatus, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let task = task_attempt
+        .parent_task(pool)
+        .await?
+        .ok_or(ApiError::TaskAttempt(TaskAttemptError::TaskNotFound))?;
+    let ctx = TaskAttempt::load_context(pool, task_attempt.id, task.id, task.project_id).await?;
+
+    // For orchestrator tasks, use container_ref directly
+    let wt_buf = if task_attempt.is_orchestrator {
+        task_attempt
+            .container_ref
+            .as_ref()
+            .map(PathBuf::from)
+            .ok_or_else(|| {
+                ApiError::TaskAttempt(TaskAttemptError::ValidationError(
+                    "Orchestrator attempt missing container_ref".to_string(),
+                ))
+            })?
+    } else {
+        ensure_worktree_path(deployment, task_attempt).await?
+    };
+    let wt = wt_buf.as_path();
+
+    let has_uncommitted_changes = deployment
+        .container()
+        .is_container_clean(task_attempt)
+        .await
+        .ok()
+        .map(|is_clean| !is_clean);
+    let head_oid = deployment.git().get_head_info(wt).ok().map(|h| h.oid);
+    let is_rebase_in_progress = deployment.git().is_rebase_in_progress(wt).unwrap_or(false);
+    let conflicted_files = deployment
+        .git()
+        .get_conflicted_files(wt)
+        .unwrap_or_default();
+    let conflict_op = if conflicted_files.is_empty() {
+        None
+    } else {
+        deployment.git().detect_conflict_op(wt).unwrap_or(None)
+    };
+    let (uncommitted_count, untracked_count) = match deployment.git().get_worktree_change_counts(wt)
+    {
+        Ok((a, b)) => (Some(a), Some(b)),
+        Err(_) => (None, None),
+    };
+
+    let target_branch_type = deployment
+        .git()
+        .find_branch_type(&ctx.project.git_repo_path, &task_attempt.target_branch)?;
+
+    let (commits_ahead, commits_behind) = match target_branch_type {
+        BranchType::Local => {
+            let (a, b) = deployment.git().get_branch_status(
+                &ctx.project.git_repo_path,
+                &task_attempt.branch,
+                &task_attempt.target_branch,
+            )?;
+            (Some(a), Some(b))
+        }
+        BranchType::Remote => {
+            let (remote_commits_ahead, remote_commits_behind) =
+                deployment.git().get_remote_branch_status(
+                    &ctx.project.git_repo_path,
+                    &task_attempt.branch,
+                    Some(&task_attempt.target_branch),
+                )?;
+            (Some(remote_commits_ahead), Some(remote_commits_behind))
+        }
+    };
+    let merges = Merge::find_by_task_attempt_id(pool, task_attempt.id).await?;
+
+    let (remote_ahead, remote_behind) = deployment
+        .git()
+        .get_remote_branch_status(&ctx.project.git_repo_path, &task_attempt.branch, None)
+        .map(|(ahead, behind)| (Some(ahead), Some(behind)))
+        .unwrap_or((None, None));
+
+    Ok(BranchStatus {
+        commits_ahead,
+        commits_behind,
+        has_uncommitted_changes,
+        head_oid,
+        uncommitted_count,
+        untracked_count,
+        remote_commits_ahead: remote_ahead,
+        remote_commits_behind: remote_behind,
+        merges,
+        target_branch_name: task_attempt.target_branch.clone(),
+        is_rebase_in_progress,
+        conflict_op,
+        conflicted_files,
+    })
+}
+
+/// Batch endpoint to get branch status for multiple task attempts at once
+pub async fn get_batch_branch_status(
+    State(deployment): State<DeploymentImpl>,
+    Json(payload): Json<BatchBranchStatusRequest>,
+) -> Result<ResponseJson<ApiResponse<HashMap<Uuid, BranchStatus>>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let mut results = HashMap::new();
+
+    // Fetch all task attempts in parallel using tokio::join
+    let futures: Vec<_> = payload
+        .attempt_ids
+        .iter()
+        .map(|id| async {
+            let attempt = TaskAttempt::find_by_id(pool, *id).await;
+            (*id, attempt)
+        })
+        .collect();
+
+    let attempts: Vec<_> = futures_util::future::join_all(futures).await;
+
+    // Process each attempt's branch status
+    // Note: Running these in sequence to avoid overwhelming git operations
+    for (id, attempt_result) in attempts {
+        if let Ok(Some(attempt)) = attempt_result {
+            match get_branch_status_for_attempt(&deployment, &attempt).await {
+                Ok(status) => {
+                    results.insert(id, status);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to get branch status for attempt {}: {:?}", id, e);
+                    // Continue processing other attempts even if one fails
+                }
+            }
+        }
+    }
+
+    Ok(ResponseJson(ApiResponse::success(results)))
 }
 
 #[derive(serde::Deserialize, Debug, TS)]
@@ -1575,6 +1778,85 @@ pub async fn gh_cli_setup_handler(
     }
 }
 
+/// Export the conversation history from a task attempt as markdown.
+/// This is useful for passing context to a different agent.
+#[axum::debug_handler]
+pub async fn export_conversation(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<ExportResult>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    // Get all non-dropped execution processes for this attempt that are CodingAgent type
+    let processes = ExecutionProcess::find_by_task_attempt_id(pool, task_attempt.id, false)
+        .await?
+        .into_iter()
+        .filter(|p| {
+            matches!(
+                p.run_reason,
+                ExecutionProcessRunReason::CodingAgent
+            )
+        })
+        .collect::<Vec<_>>();
+
+    if processes.is_empty() {
+        return Ok(ResponseJson(ApiResponse::success(ExportResult {
+            markdown: "No conversation history available.".to_string(),
+            message_count: 0,
+            truncated: false,
+        })));
+    }
+
+    // Collect all normalized entries from all processes
+    let mut all_entries = Vec::new();
+
+    for process in &processes {
+        // Load logs for this process
+        let log_records = ExecutionProcessLogs::find_by_execution_id(pool, process.id).await?;
+
+        // Parse the JSONL logs
+        let messages = match ExecutionProcessLogs::parse_logs(&log_records) {
+            Ok(msgs) => msgs,
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to parse logs for process {}: {}",
+                    process.id,
+                    e
+                );
+                continue;
+            }
+        };
+
+        // Extract NormalizedEntry from JsonPatch messages
+        for msg in messages {
+            if let LogMsg::JsonPatch(patch) = msg {
+                if let Some((_idx, entry)) = extract_normalized_entry_from_patch(&patch) {
+                    all_entries.push(entry);
+                }
+            }
+        }
+    }
+
+    // Get the executor name for the header
+    let executor_name = task_attempt.executor.to_string();
+
+    // Export to markdown
+    let result = conversation_export::export_to_markdown(&all_entries, &executor_name);
+
+    deployment
+        .track_if_analytics_allowed(
+            "conversation_exported",
+            serde_json::json!({
+                "attempt_id": task_attempt.id.to_string(),
+                "message_count": result.message_count,
+                "truncated": result.truncated,
+            }),
+        )
+        .await;
+
+    Ok(ResponseJson(ApiResponse::success(result)))
+}
+
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let task_attempt_id_router = Router::new()
         .route("/", get(get_task_attempt))
@@ -1588,6 +1870,8 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/merge", post(merge_task_attempt))
         .route("/push", post(push_task_attempt_branch))
         .route("/push/force", post(force_push_task_attempt_branch))
+        .route("/worktree-status", get(get_worktree_status))
+        .route("/commit", post(commit_changes))
         .route("/rebase", post(rebase_task_attempt))
         .route("/conflicts/abort", post(abort_conflicts_task_attempt))
         .route("/pr", post(create_github_pr))
@@ -1597,6 +1881,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/stop", post(stop_task_attempt_execution))
         .route("/change-target-branch", post(change_target_branch))
         .route("/rename-branch", post(rename_branch))
+        .route("/export-conversation", get(export_conversation))
         .layer(from_fn_with_state(
             deployment.clone(),
             load_task_attempt_middleware,
@@ -1604,6 +1889,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
 
     let task_attempts_router = Router::new()
         .route("/", get(get_task_attempts).post(create_task_attempt))
+        .route("/batch-status", post(get_batch_branch_status))
         .nest("/{id}", task_attempt_id_router)
         .nest("/{id}/images", images::router(deployment))
         .nest("/{id}/queue", queue::router(deployment));

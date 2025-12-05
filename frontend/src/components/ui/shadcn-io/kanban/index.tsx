@@ -19,12 +19,22 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { type ReactNode, type Ref, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
-import { Plus } from 'lucide-react';
+import { Plus, X, AlertTriangle } from 'lucide-react';
 import type { ClientRect } from '@dnd-kit/core';
 import type { Transform } from '@dnd-kit/utilities';
 import { Button } from '../../button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../dialog';
+import { useState } from 'react';
 export type { DragEndEvent } from '@dnd-kit/core';
 
 export type Status = {
@@ -150,8 +160,15 @@ export type KanbanCardsProps = {
 };
 
 export const KanbanCards = ({ children, className }: KanbanCardsProps) => (
-  <div className={cn('flex flex-1 flex-col', className)}>{children}</div>
+  <div className={cn('flex flex-1 flex-col relative z-10', className)}>
+    {children}
+  </div>
 );
+
+export type KanbanHeaderAction =
+  | { type: 'add'; onAdd: () => void }
+  | { type: 'clear'; onClear: () => void; itemCount: number }
+  | { type: 'none' };
 
 export type KanbanHeaderProps =
   | {
@@ -161,15 +178,116 @@ export type KanbanHeaderProps =
       name: Status['name'];
       color: Status['color'];
       className?: string;
+      action?: KanbanHeaderAction;
+      /** @deprecated Use action prop instead */
       onAddTask?: () => void;
     };
 
 export const KanbanHeader = (props: KanbanHeaderProps) => {
   const { t } = useTranslation('tasks');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   if ('children' in props) {
     return props.children;
   }
+
+  // Support legacy onAddTask prop for backwards compatibility
+  const action: KanbanHeaderAction =
+    props.action ??
+    (props.onAddTask
+      ? { type: 'add', onAdd: props.onAddTask }
+      : { type: 'none' });
+
+  const handleClearConfirm = () => {
+    if (action.type === 'clear') {
+      action.onClear();
+    }
+    setShowConfirmDialog(false);
+  };
+
+  const renderAction = () => {
+    if (action.type === 'none') {
+      return null;
+    }
+
+    if (action.type === 'add') {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className="m-0 p-0 h-0 text-foreground/50 hover:text-foreground"
+                onClick={action.onAdd}
+                aria-label={t('actions.addTask')}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">{t('actions.addTask')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    if (action.type === 'clear') {
+      return (
+        <>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="m-0 p-0 h-0 text-foreground/50 hover:text-destructive"
+                  onClick={() => setShowConfirmDialog(true)}
+                  aria-label={t('actions.clearColumn')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {t('actions.clearColumn')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {createPortal(
+            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                    <DialogTitle>
+                      {t('actions.clearColumnConfirmTitle')}
+                    </DialogTitle>
+                  </div>
+                  <DialogDescription className="text-left pt-2">
+                    {t('actions.clearColumnConfirmDescription', {
+                      count: action.itemCount,
+                      column: props.name,
+                    })}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowConfirmDialog(false)}
+                  >
+                    {t('actions.cancel')}
+                  </Button>
+                  <Button variant="destructive" onClick={handleClearConfirm}>
+                    {t('actions.clearColumnConfirm')}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>,
+            document.body
+          )}
+        </>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <Card
@@ -192,21 +310,7 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
 
         <p className="m-0 text-sm font-medium">{props.name}</p>
       </span>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              className="m-0 p-0 h-0 text-foreground/50 hover:text-foreground"
-              onClick={props.onAddTask}
-              aria-label={t('actions.addTask')}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">{t('actions.addTask')}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {renderAction()}
     </Card>
   );
 };

@@ -235,6 +235,10 @@
       "rebase": "リベース",
       "rebasing": "リベース中..."
     },
+    "tooltips": {
+      "quickRebase": "既定のターゲットブランチへすぐにリベース",
+      "advancedRebase": "リベース前にターゲットとアップストリームを選択"
+    },
     "status": {
       "ahead": "先行",
       "behind": "遅れ",
