@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 interface TaskAttemptPanelProps {
   attempt: TaskAttempt | undefined;
   task: TaskWithAttemptStatus | null;
+  attemptId?: string;
   children: (sections: { logs: ReactNode; followUp: ReactNode }) => ReactNode;
 }
 
@@ -57,6 +58,7 @@ function FollowUpSkeleton() {
 const TaskAttemptPanel = ({
   attempt,
   task,
+  attemptId,
   children,
 }: TaskAttemptPanelProps) => {
   const { markAsRead } = useTaskReadStatus();
@@ -80,10 +82,10 @@ const TaskAttemptPanel = ({
     ) : (
       <FollowUpSkeleton />
     );
-  const providerKey = attempt?.id ?? 'pending-attempt';
+  const providerResetKey = attempt?.id ?? attemptId ?? 'pending-attempt';
 
   return (
-    <EntriesProvider key={providerKey}>
+    <EntriesProvider resetKey={providerResetKey}>
       <RetryUiProvider attemptId={attempt?.id}>
         {children({
           logs: logsContent,
