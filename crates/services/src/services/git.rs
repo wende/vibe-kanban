@@ -1114,7 +1114,11 @@ impl GitService {
     }
 
     /// Commit already staged changes with a message (does not stage automatically)
-    pub fn commit_staged(&self, worktree_path: &Path, message: &str) -> Result<(), GitServiceError> {
+    pub fn commit_staged(
+        &self,
+        worktree_path: &Path,
+        message: &str,
+    ) -> Result<(), GitServiceError> {
         let cli = GitCli::new();
         self.ensure_cli_commit_identity(worktree_path)?;
         cli.commit(worktree_path, message)
@@ -1352,17 +1356,17 @@ impl GitService {
         let worktree_repo = Repository::open(worktree_path)?;
         let main_repo = self.open_repo(repo_path)?;
 
-        // Safety guard: never operate on a dirty worktree. This preserves any
-        // uncommitted changes to tracked files by failing fast instead of
-        // resetting or cherry-picking over them. Untracked files are allowed.
-        self.check_worktree_clean(&worktree_repo)?;
-
         // If a rebase is already in progress, refuse to proceed instead of
         // aborting (which might destroy user changes mid-rebase).
         let git = GitCli::new();
         if git.is_rebase_in_progress(worktree_path).unwrap_or(false) {
             return Err(GitServiceError::RebaseInProgress);
         }
+
+        // Stash any uncommitted changes before rebasing
+        let stashed = git
+            .stash_push(worktree_path)
+            .map_err(|e| GitServiceError::InvalidRepository(format!("Failed to stash: {e}")))?;
 
         // Get the target base branch reference
         let nbr = Self::find_branch(&main_repo, new_base_branch)?.into_reference();
@@ -1374,7 +1378,18 @@ impl GitService {
         // Ensure identity for any commits produced by rebase
         self.ensure_cli_commit_identity(worktree_path)?;
         // Use git CLI rebase to carry out the operation safely
-        match git.rebase_onto(worktree_path, new_base_branch, old_base_branch, task_branch) {
+        let rebase_result =
+            git.rebase_onto(worktree_path, new_base_branch, old_base_branch, task_branch);
+
+        // Pop stash after rebase (whether successful or not, if we stashed something)
+        // We do this before handling rebase errors so stashed changes are restored
+        if stashed {
+            // Best-effort stash pop - if it fails due to conflicts, the user will
+            // see the stash remains and can manually resolve
+            let _ = git.stash_pop(worktree_path);
+        }
+
+        match rebase_result {
             Ok(()) => {}
             Err(GitCliError::RebaseInProgress) => {
                 return Err(GitServiceError::RebaseInProgress);

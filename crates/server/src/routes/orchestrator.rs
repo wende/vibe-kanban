@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc, sync::LazyLock};
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock},
+};
 
 use axum::{
     Json, Router,
