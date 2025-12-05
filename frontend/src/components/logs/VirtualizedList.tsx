@@ -165,7 +165,7 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
 
   return (
     <ApprovalFormProvider>
-      <div className="relative h-full min-h-0">
+      <div className="h-full flex flex-col relative">
         {/* Loading overlay with fade out animation - only show if not disabled by parent */}
         {!disableLoadingOverlay && (
           <div
