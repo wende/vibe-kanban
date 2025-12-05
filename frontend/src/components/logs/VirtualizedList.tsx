@@ -110,10 +110,10 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
       // When loading starts, immediately show the overlay
       setDebouncedLoading(true);
     } else {
-      // When loading ends, delay hiding the overlay by 50ms
+      // When loading ends, delay hiding the overlay by 1s (testing)
       const timer = setTimeout(() => {
         setDebouncedLoading(false);
-      }, 50);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [loading]);
