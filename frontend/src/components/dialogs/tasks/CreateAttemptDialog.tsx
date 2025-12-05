@@ -232,36 +232,47 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                {t('createAttemptDialog.baseBranch')}{' '}
-                <span className="text-destructive">*</span>
-              </Label>
-              <BranchSelector
-                branches={branches}
-                selectedBranch={effectiveBranch}
-                onBranchSelect={setUserSelectedBranch}
-                placeholder={
-                  isLoadingBranches
-                    ? t('createAttemptDialog.loadingBranches')
-                    : t('createAttemptDialog.selectBranch')
-                }
-              />
-            </div>
-
-            {!sourceAttemptId && (
+            {sourceAttemptId ? (
               <div className="space-y-2">
-                <Label htmlFor="custom-branch" className="text-sm font-medium text-muted-foreground">
-                  Custom branch name (optional)
+                <Label className="text-sm font-medium">
+                  {t('createAttemptDialog.continuingOnBranch')}
                 </Label>
-                <Input
-                  id="custom-branch"
-                  value={customBranch}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBranch(e.target.value)}
-                  placeholder="feature/my-custom-branch"
-                  disabled={isCreating}
-                />
+                <div className="text-sm text-muted-foreground font-mono bg-muted px-3 py-2 rounded">
+                  {sourceAttempt?.branch ?? '...'}
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    {t('createAttemptDialog.baseBranch')}{' '}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <BranchSelector
+                    branches={branches}
+                    selectedBranch={effectiveBranch}
+                    onBranchSelect={setUserSelectedBranch}
+                    placeholder={
+                      isLoadingBranches
+                        ? t('createAttemptDialog.loadingBranches')
+                        : t('createAttemptDialog.selectBranch')
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="custom-branch" className="text-sm font-medium text-muted-foreground">
+                    Custom branch name (optional)
+                  </Label>
+                  <Input
+                    id="custom-branch"
+                    value={customBranch}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBranch(e.target.value)}
+                    placeholder="feature/my-custom-branch"
+                    disabled={isCreating}
+                  />
+                </div>
+              </>
             )}
 
             {sourceAttemptId && (

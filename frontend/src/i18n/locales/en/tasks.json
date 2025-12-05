@@ -280,6 +280,7 @@
     "title": "Create Attempt",
     "description": "Start a new attempt with a coding agent. A git worktree and task branch will be created.",
     "baseBranch": "Base branch",
+    "continuingOnBranch": "Continuing on branch",
     "loadingBranches": "Loading branches...",
     "selectBranch": "Select branch",
     "error": "Failed to create attempt. Please try again.",
