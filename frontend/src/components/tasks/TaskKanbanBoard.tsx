@@ -131,6 +131,12 @@ function TaskKanbanBoard({
                 name={statusLabels[statusKey]}
                 color={statusBoardColors[statusKey]}
                 action={action}
+                neutralBackground={
+                  statusKey === 'inprogress' ||
+                  statusKey === 'inreview' ||
+                  statusKey === 'done' ||
+                  statusKey === 'cancelled'
+                }
               />
               <KanbanCards>
                 {items.map((item, index) => {
