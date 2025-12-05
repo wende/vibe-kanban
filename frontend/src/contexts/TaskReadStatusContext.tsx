@@ -64,8 +64,8 @@ export function TaskReadStatusProvider({ children }: { children: ReactNode }) {
     (taskId: string, updatedAt: string | Date): boolean => {
       const lastViewedTime = lastViewed[taskId];
       if (!lastViewedTime) {
-        // Never viewed - don't show as unread (avoid showing glow on first load)
-        return false;
+        // Never viewed - show as unread
+        return true;
       }
 
       const lastViewedDate = new Date(lastViewedTime);

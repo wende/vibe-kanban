@@ -3,7 +3,8 @@ import VirtualizedList from '@/components/logs/VirtualizedList';
 import { TaskFollowUpSection } from '@/components/tasks/TaskFollowUpSection';
 import { EntriesProvider } from '@/contexts/EntriesContext';
 import { RetryUiProvider } from '@/contexts/RetryUiContext';
-import type { ReactNode } from 'react';
+import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
+import { useEffect, type ReactNode } from 'react';
 
 interface TaskAttemptPanelProps {
   attempt: TaskAttempt | undefined;
@@ -16,6 +17,15 @@ const TaskAttemptPanel = ({
   task,
   children,
 }: TaskAttemptPanelProps) => {
+  const { markAsRead } = useTaskReadStatus();
+
+  // Mark task as read when viewing the panel, and whenever it gets updated
+  useEffect(() => {
+    if (task?.id) {
+      markAsRead(task.id);
+    }
+  }, [task?.id, task?.updated_at, markAsRead]);
+
   if (!attempt) {
     return <div className="p-6 text-muted-foreground">Loading attempt...</div>;
   }
