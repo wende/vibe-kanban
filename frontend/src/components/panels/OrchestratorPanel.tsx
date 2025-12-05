@@ -170,10 +170,10 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
         </div>
       </div>
 
-      {/* Main Content - Reuse TaskAttemptPanel */}
+      {/* Main Content - Reuse TaskAttemptPanel - hidden with visibility to prevent overflow */}
       <div
         className={`flex-1 min-h-0 flex flex-col transition-opacity duration-200 ${
-          readyToShow ? 'opacity-100' : 'opacity-0'
+          readyToShow ? 'opacity-100 visible' : 'opacity-0 invisible'
         }`}
       >
         <ClickedElementsProvider attempt={displayOrchestrator.attempt}>
