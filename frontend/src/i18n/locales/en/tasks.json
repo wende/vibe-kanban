@@ -6,7 +6,12 @@
     "noSearchResults": "No tasks match your search."
   },
   "actions": {
-    "addTask": "Add task"
+    "addTask": "Add task",
+    "clearColumn": "Clear column",
+    "clearColumnConfirmTitle": "Clear column?",
+    "clearColumnConfirmDescription": "This will permanently delete {{count}} task(s) from the {{column}} column. This action cannot be undone.",
+    "clearColumnConfirm": "Delete all",
+    "cancel": "Cancel"
   },
   "filters": {
     "sharedToggleAria": "Toggle shared tasks",
