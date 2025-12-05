@@ -231,6 +231,10 @@
       "createPr": "Create PR",
       "commit": "Commit"
     },
+    "tooltips": {
+      "quickRebase": "Quickly rebase onto the default target branch",
+      "advancedRebase": "Choose a target and upstream branch before rebasing"
+    },
     "errors": {
       "changeTargetBranch": "Failed to change target branch",
       "pushChanges": "Failed to push changes",
