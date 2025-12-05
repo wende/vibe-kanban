@@ -4766,6 +4766,7 @@ name = "services"
 version = "0.0.126"
 dependencies = [
  "anyhow",
+ "async-stream",
  "async-trait",
  "axum 0.8.6",
  "backon",
