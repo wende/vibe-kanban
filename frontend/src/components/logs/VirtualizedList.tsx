@@ -148,29 +148,31 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
   return (
     <ApprovalFormProvider>
       <div className="relative h-full min-h-0">
-        <VirtuosoMessageListLicense
-          licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
-        >
-          <VirtuosoMessageList<PatchTypeWithKey, MessageListContext>
-            ref={messageListRef}
-            className="h-full"
-            data={channelData}
-            initialLocation={INITIAL_TOP_ITEM}
-            context={messageListContext}
-            computeItemKey={computeItemKey}
-            ItemContent={ItemContent}
-            Header={() => <div className="h-2"></div>}
-            Footer={() => <div className="h-2"></div>}
-          />
-        </VirtuosoMessageListLicense>
         {debouncedLoading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Loading history...</span>
             </div>
           </div>
         )}
+        <div className={debouncedLoading ? 'invisible' : 'visible'}>
+          <VirtuosoMessageListLicense
+            licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
+          >
+            <VirtuosoMessageList<PatchTypeWithKey, MessageListContext>
+              ref={messageListRef}
+              className="h-full"
+              data={channelData}
+              initialLocation={INITIAL_TOP_ITEM}
+              context={messageListContext}
+              computeItemKey={computeItemKey}
+              ItemContent={ItemContent}
+              Header={() => <div className="h-2"></div>}
+              Footer={() => <div className="h-2"></div>}
+            />
+          </VirtuosoMessageListLicense>
+        </div>
       </div>
     </ApprovalFormProvider>
   );
