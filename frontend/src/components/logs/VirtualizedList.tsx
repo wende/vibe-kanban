@@ -125,7 +125,7 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
             if (!cancelled) {
               setReadyToShow(true);
             }
-          }, 50);
+          }, 100);
         }
       });
     });
