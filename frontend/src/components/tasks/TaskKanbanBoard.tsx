@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks';
 import {
   type DragEndEvent,
+  type KanbanHeaderAction,
   KanbanBoard,
   KanbanCards,
   KanbanHeader,
@@ -34,7 +35,8 @@ interface TaskKanbanBoardProps {
   onViewSharedTask?: (task: SharedTaskRecord) => void;
   selectedTaskId?: string;
   selectedSharedTaskId?: string | null;
-  onCreateTask?: () => void;
+  onCreateTask?: (defaultAutoStart?: boolean) => void;
+  onClearColumn?: (status: TaskStatus, taskIds: string[]) => void;
   projectId: string;
 }
 
@@ -46,6 +48,7 @@ function TaskKanbanBoard({
   selectedTaskId,
   selectedSharedTaskId,
   onCreateTask,
+  onClearColumn,
   projectId,
 }: TaskKanbanBoardProps) {
   const { userId } = useAuth();
@@ -63,59 +66,113 @@ function TaskKanbanBoard({
     return ids;
   }, [columns]);
 
+  // Get task IDs from column items (only own tasks, not shared-only)
+  const getTaskIdsFromColumn = useCallback(
+    (items: KanbanColumnItem[]): string[] => {
+      return items
+        .filter(
+          (item): item is KanbanColumnItem & { type: 'task' } =>
+            item.type === 'task'
+        )
+        .map((item) => item.task.id);
+    },
+    []
+  );
+
+  // Determine header action based on column status
+  const getHeaderAction = useCallback(
+    (statusKey: TaskStatus, items: KanbanColumnItem[]): KanbanHeaderAction => {
+      switch (statusKey) {
+        case 'todo':
+          // To Do: Add task with autoStart defaulting to OFF
+          return onCreateTask
+            ? { type: 'add', onAdd: () => onCreateTask(false) }
+            : { type: 'none' };
+
+        case 'inprogress':
+          // In Progress: Add task with autoStart defaulting to ON
+          return onCreateTask
+            ? { type: 'add', onAdd: () => onCreateTask(true) }
+            : { type: 'none' };
+
+        case 'inreview':
+          // In Review: No action
+          return { type: 'none' };
+
+        case 'done':
+        case 'cancelled': {
+          // Done & Cancelled: Clear column (X button)
+          const taskIds = getTaskIdsFromColumn(items);
+          return taskIds.length > 0 && onClearColumn
+            ? {
+                type: 'clear',
+                onClear: () => onClearColumn(statusKey, taskIds),
+                itemCount: taskIds.length,
+              }
+            : { type: 'none' };
+        }
+
+        default:
+          return { type: 'none' };
+      }
+    },
+    [onCreateTask, onClearColumn, getTaskIdsFromColumn]
+  );
+
   return (
     <BranchStatusProvider attemptIds={attemptIds}>
       <KanbanProvider onDragEnd={onDragEnd}>
         {Object.entries(columns).map(([status, items]) => {
-        const statusKey = status as TaskStatus;
-        return (
-          <KanbanBoard key={status} id={statusKey}>
-            <KanbanHeader
-              name={statusLabels[statusKey]}
-              color={statusBoardColors[statusKey]}
-              onAddTask={onCreateTask}
-            />
-            <KanbanCards>
-              {items.map((item, index) => {
-                const isOwnTask =
-                  item.type === 'task' &&
-                  (!item.sharedTask?.assignee_user_id ||
-                    !userId ||
-                    item.sharedTask?.assignee_user_id === userId);
+          const statusKey = status as TaskStatus;
+          const action = getHeaderAction(statusKey, items);
+          return (
+            <KanbanBoard key={status} id={statusKey}>
+              <KanbanHeader
+                name={statusLabels[statusKey]}
+                color={statusBoardColors[statusKey]}
+                action={action}
+              />
+              <KanbanCards>
+                {items.map((item, index) => {
+                  const isOwnTask =
+                    item.type === 'task' &&
+                    (!item.sharedTask?.assignee_user_id ||
+                      !userId ||
+                      item.sharedTask?.assignee_user_id === userId);
 
-                if (isOwnTask) {
+                  if (isOwnTask) {
+                    return (
+                      <TaskCard
+                        key={item.task.id}
+                        task={item.task}
+                        index={index}
+                        status={statusKey}
+                        onViewDetails={onViewTaskDetails}
+                        isOpen={selectedTaskId === item.task.id}
+                        projectId={projectId}
+                        sharedTask={item.sharedTask}
+                      />
+                    );
+                  }
+
+                  const sharedTask =
+                    item.type === 'shared' ? item.task : item.sharedTask!;
+
                   return (
-                    <TaskCard
-                      key={item.task.id}
-                      task={item.task}
+                    <SharedTaskCard
+                      key={`shared-${item.task.id}`}
+                      task={sharedTask}
                       index={index}
                       status={statusKey}
-                      onViewDetails={onViewTaskDetails}
-                      isOpen={selectedTaskId === item.task.id}
-                      projectId={projectId}
-                      sharedTask={item.sharedTask}
+                      isSelected={selectedSharedTaskId === item.task.id}
+                      onViewDetails={onViewSharedTask}
                     />
                   );
-                }
-
-                const sharedTask =
-                  item.type === 'shared' ? item.task : item.sharedTask!;
-
-                return (
-                  <SharedTaskCard
-                    key={`shared-${item.task.id}`}
-                    task={sharedTask}
-                    index={index}
-                    status={statusKey}
-                    isSelected={selectedSharedTaskId === item.task.id}
-                    onViewDetails={onViewSharedTask}
-                  />
-                );
-              })}
-            </KanbanCards>
-          </KanbanBoard>
-        );
-      })}
+                })}
+              </KanbanCards>
+            </KanbanBoard>
+          );
+        })}
       </KanbanProvider>
     </BranchStatusProvider>
   );

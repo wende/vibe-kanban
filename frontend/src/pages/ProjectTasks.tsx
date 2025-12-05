@@ -7,7 +7,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Plus, X, Loader2, RotateCcw } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { tasksApi } from '@/lib/api';
-import type { GitBranch, TaskAttempt, BranchStatus } from 'shared/types';
+import type {
+  GitBranch,
+  TaskAttempt,
+  BranchStatus,
+  TaskStatus,
+} from 'shared/types';
 import { openTaskForm } from '@/lib/openTaskForm';
 import { FeatureShowcaseDialog } from '@/components/dialogs/global/FeatureShowcaseDialog';
 import { showcases } from '@/config/showcases';
@@ -19,7 +24,11 @@ import { useProject } from '@/contexts/ProjectContext';
 import { useTaskAttempts } from '@/hooks/useTaskAttempts';
 import { useTaskAttempt } from '@/hooks/useTaskAttempt';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useBranchStatus, useAttemptExecution } from '@/hooks';
+import {
+  useBranchStatus,
+  useAttemptExecution,
+  useTaskMutations,
+} from '@/hooks';
 import { projectsApi } from '@/lib/api';
 import { paths } from '@/lib/paths';
 import { ExecutionProcessesProvider } from '@/contexts/ExecutionProcessesContext';
@@ -78,7 +87,7 @@ import {
 import { AttemptHeaderActions } from '@/components/panels/AttemptHeaderActions';
 import { TaskPanelHeaderActions } from '@/components/panels/TaskPanelHeaderActions';
 
-import type { TaskWithAttemptStatus, TaskStatus } from 'shared/types';
+import type { TaskWithAttemptStatus } from 'shared/types';
 
 type Task = TaskWithAttemptStatus;
 
@@ -171,12 +180,31 @@ export function ProjectTasks() {
     };
   }, [enableScope, disableScope]);
 
-  const handleCreateTask = useCallback(() => {
-    if (projectId) {
-      openTaskForm({ mode: 'create', projectId });
-    }
-  }, [projectId]);
+  const handleCreateTask = useCallback(
+    (defaultAutoStart?: boolean) => {
+      if (projectId) {
+        openTaskForm({ mode: 'create', projectId, defaultAutoStart });
+      }
+    },
+    [projectId]
+  );
+
   const { debouncedQuery: searchQuery, focusInput } = useSearch();
+  const { deleteTask } = useTaskMutations(projectId);
+
+  const handleClearColumn = useCallback(
+    async (_status: TaskStatus, taskIds: string[]) => {
+      // Delete all tasks in the column sequentially
+      for (const taskId of taskIds) {
+        try {
+          await deleteTask.mutateAsync(taskId);
+        } catch (error) {
+          console.error(`Failed to delete task ${taskId}:`, error);
+        }
+      }
+    },
+    [deleteTask]
+  );
 
   const {
     tasks,
@@ -202,7 +230,8 @@ export function ProjectTasks() {
   }
 
   // Use last valid task for rendering to prevent flicker when task data is temporarily null
-  const displayTask = selectedTask ?? (taskId ? lastValidTaskRef.current : null);
+  const displayTask =
+    selectedTask ?? (taskId ? lastValidTaskRef.current : null);
 
   const selectedSharedTask = useMemo(() => {
     if (!selectedSharedTaskId) return null;
@@ -229,7 +258,8 @@ export function ProjectTasks() {
   const queryClient = useQueryClient();
   const orchestratorStopMutation = useOrchestratorStop(projectId || '');
   const orchestratorRestartMutation = useMutation({
-    mutationFn: () => orchestratorApi.send(projectId!, undefined, undefined, true),
+    mutationFn: () =>
+      orchestratorApi.send(projectId!, undefined, undefined, true),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orchestrator', projectId] });
     },
@@ -247,7 +277,8 @@ export function ProjectTasks() {
   // Panel is open if we have a taskId (even if task data is still loading) or shared task or orchestrator
   const isTaskPanelOpen = Boolean(taskId);
   const isSharedPanelOpen = Boolean(selectedSharedTask);
-  const isPanelOpen = isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
+  const isPanelOpen =
+    isTaskPanelOpen || isSharedPanelOpen || isOrchestratorOpen;
 
   const { config, updateAndSaveConfig, loading } = useUserSystem();
   const taskPanelShowcase = showcases.taskPanel;
@@ -950,7 +981,8 @@ export function ProjectTasks() {
           onViewSharedTask={handleViewSharedTask}
           selectedTaskId={selectedTask?.id}
           selectedSharedTaskId={selectedSharedTaskId}
-          onCreateTask={handleCreateNewTask}
+          onCreateTask={handleCreateTask}
+          onClearColumn={handleClearColumn}
           projectId={projectId!}
         />
       </div>
@@ -979,7 +1011,9 @@ export function ProjectTasks() {
             variant="outline"
             size="sm"
             onClick={() => orchestratorRestartMutation.mutate()}
-            disabled={orchestratorRestartMutation.isPending || isOrchestratorRunning}
+            disabled={
+              orchestratorRestartMutation.isPending || isOrchestratorRunning
+            }
             aria-label="Restart orchestrator session"
           >
             {orchestratorRestartMutation.isPending ? (
@@ -1135,26 +1169,26 @@ export function ProjectTasks() {
           task={displayTask}
           attemptId={attemptPanelResetKey}
         >
-            {({ logs, followUp }) => (
-              <>
-                <GitErrorBanner />
-                <div className="flex-1 min-h-0 flex flex-col">
-                  <div className="flex-1 min-h-0 flex flex-col">{logs}</div>
+          {({ logs, followUp }) => (
+            <>
+              <GitErrorBanner />
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 min-h-0 flex flex-col">{logs}</div>
 
-                  <div className="shrink-0 border-t">
-                    <div className="mx-auto w-full max-w-[50rem]">
-                      <TodoPanel />
-                    </div>
-                  </div>
-
-                  <div className="min-h-0 max-h-[50%] border-t overflow-hidden bg-background">
-                    <div className="mx-auto w-full max-w-[50rem] h-full min-h-0">
-                      {followUp}
-                    </div>
+                <div className="shrink-0 border-t">
+                  <div className="mx-auto w-full max-w-[50rem]">
+                    <TodoPanel />
                   </div>
                 </div>
-              </>
-            )}
+
+                <div className="min-h-0 max-h-[50%] border-t overflow-hidden bg-background">
+                  <div className="mx-auto w-full max-w-[50rem] h-full min-h-0">
+                    {followUp}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </TaskAttemptPanel>
       )}
     </NewCard>
