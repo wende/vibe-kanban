@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KanbanCard } from '@/components/ui/shadcn-io/kanban';
 import { CheckCircle, Link, Loader2, XCircle } from 'lucide-react';
 import type { TaskWithAttemptStatus } from 'shared/types';
 import { ActionsDropdown } from '@/components/ui/actions-dropdown';
 import { Button } from '@/components/ui/button';
-import { useBranchStatus, useNavigateWithSearch } from '@/hooks';
+import { useNavigateWithSearch } from '@/hooks';
 import { paths } from '@/lib/paths';
 import { attemptsApi } from '@/lib/api';
 import type { SharedTaskRecord } from '@/hooks/useProjectTasks';
 import { TaskCardHeader } from './TaskCardHeader';
 import { useTranslation } from 'react-i18next';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
+import { useBranchStatusFromContext } from '@/contexts/BranchStatusContext';
 
 type Task = TaskWithAttemptStatus;
 
@@ -30,12 +31,13 @@ type GitIndicator = {
   label: string;
 };
 
-function GitStatusIndicators({
+const GitStatusIndicators = memo(function GitStatusIndicators({
   attemptId,
 }: {
   attemptId?: string | null;
 }) {
-  const { data: branchStatus } = useBranchStatus(attemptId ?? undefined);
+  // Use batch-fetched branch status from context instead of individual API calls
+  const branchStatus = useBranchStatusFromContext(attemptId);
   const [sticky, setSticky] = useState({ uncommitted: false, untracked: false });
 
   useEffect(() => {
@@ -120,9 +122,9 @@ function GitStatusIndicators({
       ))}
     </div>
   );
-}
+});
 
-export function TaskCard({
+export const TaskCard = memo(function TaskCard({
   task,
   index,
   status,
@@ -248,4 +250,4 @@ export function TaskCard({
       </div>
     </KanbanCard>
   );
-}
+});

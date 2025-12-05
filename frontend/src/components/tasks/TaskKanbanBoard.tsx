@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { useAuth } from '@/hooks';
 import {
   type DragEndEvent,
@@ -12,6 +12,7 @@ import type { TaskStatus, TaskWithAttemptStatus } from 'shared/types';
 import { statusBoardColors, statusLabels } from '@/utils/statusLabels';
 import type { SharedTaskRecord } from '@/hooks/useProjectTasks';
 import { SharedTaskCard } from './SharedTaskCard';
+import { BranchStatusProvider } from '@/contexts/BranchStatusContext';
 
 export type KanbanColumnItem =
   | {
@@ -49,9 +50,23 @@ function TaskKanbanBoard({
 }: TaskKanbanBoardProps) {
   const { userId } = useAuth();
 
+  // Collect all attempt IDs for batch branch status fetching
+  const attemptIds = useMemo(() => {
+    const ids: string[] = [];
+    Object.values(columns).forEach((items) => {
+      items.forEach((item) => {
+        if (item.type === 'task' && item.task.latest_task_attempt_id) {
+          ids.push(item.task.latest_task_attempt_id);
+        }
+      });
+    });
+    return ids;
+  }, [columns]);
+
   return (
-    <KanbanProvider onDragEnd={onDragEnd}>
-      {Object.entries(columns).map(([status, items]) => {
+    <BranchStatusProvider attemptIds={attemptIds}>
+      <KanbanProvider onDragEnd={onDragEnd}>
+        {Object.entries(columns).map(([status, items]) => {
         const statusKey = status as TaskStatus;
         return (
           <KanbanBoard key={status} id={statusKey}>
@@ -101,7 +116,8 @@ function TaskKanbanBoard({
           </KanbanBoard>
         );
       })}
-    </KanbanProvider>
+      </KanbanProvider>
+    </BranchStatusProvider>
   );
 }
 

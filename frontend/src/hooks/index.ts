@@ -1,4 +1,5 @@
 export { useBranchStatus } from './useBranchStatus';
+export { useBatchBranchStatus, type BranchStatusMap } from './useBatchBranchStatus';
 export { useAttemptExecution } from './useAttemptExecution';
 export { useOpenInEditor } from './useOpenInEditor';
 export { useProjectBranches } from './useProjectBranches';

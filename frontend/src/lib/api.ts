@@ -496,6 +496,16 @@ export const attemptsApi = {
     return handleApiResponse<BranchStatus>(response);
   },
 
+  getBatchBranchStatus: async (
+    attemptIds: string[]
+  ): Promise<Record<string, BranchStatus>> => {
+    const response = await makeRequest('/api/task-attempts/batch-status', {
+      method: 'POST',
+      body: JSON.stringify({ attempt_ids: attemptIds }),
+    });
+    return handleApiResponse<Record<string, BranchStatus>>(response);
+  },
+
   merge: async (attemptId: string): Promise<void> => {
     const response = await makeRequest(
       `/api/task-attempts/${attemptId}/merge`,

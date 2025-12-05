@@ -11,6 +11,7 @@ import { useLocation, useParams } from 'react-router-dom';
 
 interface SearchState {
   query: string;
+  debouncedQuery: string;
   setQuery: (query: string) => void;
   active: boolean;
   clear: () => void;
@@ -26,6 +27,7 @@ interface SearchProviderProps {
 
 export function SearchProvider({ children }: SearchProviderProps) {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const location = useLocation();
   const { projectId } = useParams<{ projectId: string }>();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -33,19 +35,32 @@ export function SearchProvider({ children }: SearchProviderProps) {
   // Check if we're on a tasks route
   const isTasksRoute = /^\/projects\/[^/]+\/tasks/.test(location.pathname);
 
+  // Debounce the query for filtering (150ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   // Clear search when leaving tasks pages
   useEffect(() => {
     if (!isTasksRoute && query !== '') {
       setQuery('');
+      setDebouncedQuery('');
     }
   }, [isTasksRoute, query]);
 
   // Clear search when project changes
   useEffect(() => {
     setQuery('');
+    setDebouncedQuery('');
   }, [projectId]);
 
-  const clear = () => setQuery('');
+  const clear = () => {
+    setQuery('');
+    setDebouncedQuery('');
+  };
 
   const focusInput = () => {
     if (inputRef.current && isTasksRoute) {
@@ -59,6 +74,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
   const value: SearchState = {
     query,
+    debouncedQuery,
     setQuery,
     active: isTasksRoute,
     clear,
