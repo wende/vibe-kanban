@@ -22,6 +22,7 @@ import {
   FilePlus,
   FileX,
   FileEdit,
+  Sparkles,
 } from 'lucide-react';
 import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/lib/modals';
@@ -84,6 +85,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [committing, setCommitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -125,6 +127,37 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
       setSelectedFiles(new Set(files.map((f) => f.path)));
     }
   }, [selectedFiles.size, files]);
+
+  const handleGenerateMessage = useCallback(async () => {
+    setGenerating(true);
+    setError(null);
+
+    try {
+      const result = await attemptsApi.generateCommitMessage(attemptId);
+      if (result.success) {
+        setCommitMessage(result.data.message);
+      } else if (result.error) {
+        switch (result.error.type) {
+          case 'no_changes':
+            setError(t('commit.dialog.errors.noChanges'));
+            break;
+          case 'claude_code_failed':
+            setError(result.error.message || t('commit.dialog.errors.generateFailed'));
+            break;
+        }
+      } else {
+        setError(t('commit.dialog.errors.generateFailed'));
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('commit.dialog.errors.generateFailed')
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }, [attemptId, t]);
 
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim() || selectedFiles.size === 0) return;
@@ -185,9 +218,30 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
         ) : (
           <div className="flex-1 space-y-4 py-4 overflow-hidden flex flex-col min-w-0">
             <div className="space-y-2 min-w-0">
-              <Label htmlFor="commit-message">
-                {t('commit.dialog.messageLabel')}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="commit-message">
+                  {t('commit.dialog.messageLabel')}
+                </Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGenerateMessage}
+                  disabled={generating || files.length === 0}
+                  className="h-7 px-2 text-xs"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      {t('commit.dialog.generating')}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-1.5 h-3 w-3" />
+                      {t('commit.dialog.generateButton')}
+                    </>
+                  )}
+                </Button>
+              </div>
               <Textarea
                 id="commit-message"
                 value={commitMessage}
