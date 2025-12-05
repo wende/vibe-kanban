@@ -38,6 +38,7 @@ import {
 import { OAuthDialog } from '@/components/dialogs/global/OAuthDialog';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { oauthApi } from '@/lib/api';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 const INTERNAL_NAV = [{ label: 'Projects', icon: FolderOpen, to: '/projects' }];
 
@@ -76,6 +77,8 @@ export function Navbar() {
   const { query, setQuery, active, clear, registerInputRef } = useSearch();
   const handleOpenInEditor = useOpenProjectInEditor(project || null);
   const { loginStatus, reloadSystem } = useUserSystem();
+  const isXL = useMediaQuery('(min-width: 1280px)');
+  const isMobile = !isXL;
 
   const setSearchBarRef = useCallback(
     (node: HTMLInputElement | null) => {
@@ -182,10 +185,14 @@ export function Navbar() {
             {projectId ? (
               <>
                 <div className="flex items-center gap-1">
-                  <OpenInIdeButton
-                    onClick={handleOpenInIDE}
-                    className="h-9 w-9"
-                  />
+                  {isMobile ? (
+                    <OrchestratorButton projectId={projectId} />
+                  ) : (
+                    <OpenInIdeButton
+                      onClick={handleOpenInIDE}
+                      className="h-9 w-9"
+                    />
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
