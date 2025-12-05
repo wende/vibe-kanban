@@ -1131,7 +1131,6 @@ export function ProjectTasks() {
           attempt={attempt}
           task={displayTask}
           attemptId={attemptPanelResetKey}
-          showTopLevelLoading={true}
         >
             {({ logs, followUp }) => (
               <>
