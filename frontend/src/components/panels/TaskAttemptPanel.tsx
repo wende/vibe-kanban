@@ -6,6 +6,7 @@ import { RetryUiProvider } from '@/contexts/RetryUiContext';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 // Wrapper that fades in content after mount
 function FadeIn({ children, className }: { children: ReactNode; className?: string }) {
@@ -36,6 +37,7 @@ interface TaskAttemptPanelProps {
   attemptId?: string;
   children: (sections: { logs: ReactNode; followUp: ReactNode }) => ReactNode;
   disableLoadingOverlay?: boolean; // Pass through to VirtualizedList
+  showTopLevelLoading?: boolean; // Show loading overlay at TaskAttemptPanel level
 }
 
 function SkeletonLine({ className }: { className?: string }) {
@@ -85,6 +87,7 @@ const TaskAttemptPanel = ({
   attemptId,
   children,
   disableLoadingOverlay = false,
+  showTopLevelLoading = false,
 }: TaskAttemptPanelProps) => {
   const { markAsRead } = useTaskReadStatus();
   // Keep track of the last valid attempt to prevent flickering during transitions
@@ -110,12 +113,45 @@ const TaskAttemptPanel = ({
     }
   }, [task?.id, task?.updated_at, markAsRead]);
 
+  // Top-level loading state (similar to OrchestratorPanel)
+  const [readyToShow, setReadyToShow] = useState(false);
+  const hasContent = !!(displayTask && displayAttempt);
+
+  useEffect(() => {
+    if (!showTopLevelLoading) return; // Only manage loading if enabled
+
+    if (!hasContent) {
+      setReadyToShow(false);
+      return;
+    }
+
+    // Wait for VirtualizedList child to fully load and render
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) {
+          setTimeout(() => {
+            if (!cancelled) {
+              setReadyToShow(true);
+            }
+          }, 250);
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasContent, showTopLevelLoading]);
+
+  const showLoading = showTopLevelLoading && (!hasContent || !readyToShow);
+
   const logsContent =
     displayTask && displayAttempt ? (
       <VirtualizedList
         attempt={displayAttempt}
         task={displayTask}
-        disableLoadingOverlay={disableLoadingOverlay}
+        disableLoadingOverlay={disableLoadingOverlay || showTopLevelLoading}
       />
     ) : (
       <LogsSkeleton />
@@ -130,7 +166,7 @@ const TaskAttemptPanel = ({
     );
   const providerResetKey = attempt?.id ?? attemptId ?? 'pending-attempt';
 
-  return (
+  const content = (
     <EntriesProvider resetKey={providerResetKey}>
       <RetryUiProvider attemptId={attempt?.id}>
         {children({
@@ -139,6 +175,35 @@ const TaskAttemptPanel = ({
         })}
       </RetryUiProvider>
     </EntriesProvider>
+  );
+
+  if (!showTopLevelLoading) {
+    return content;
+  }
+
+  // Wrap with loading overlay when showTopLevelLoading is enabled
+  return (
+    <div className="h-full flex flex-col relative">
+      {/* Loading overlay */}
+      <div
+        className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
+          showLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+          <span>Loading...</span>
+        </div>
+      </div>
+      {/* Content */}
+      <div
+        className={`flex-1 min-h-0 flex flex-col transition-opacity duration-200 ${
+          readyToShow ? 'opacity-100 visible' : 'opacity-0 invisible'
+        }`}
+      >
+        {content}
+      </div>
+    </div>
   );
 };
 
