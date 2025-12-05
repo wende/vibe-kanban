@@ -1,14 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
 import { attemptsApi } from '@/lib/api';
+import { usePreviousDataQuery } from '@/hooks/usePreviousDataQuery';
 
 export function useBranchStatus(attemptId?: string) {
-  return useQuery({
+  return usePreviousDataQuery({
     queryKey: ['branchStatus', attemptId],
     queryFn: () => attemptsApi.getBranchStatus(attemptId!),
     enabled: !!attemptId,
     // Poll faster to promptly reflect rebase/abort transitions
     refetchInterval: 5000,
-    // Keep previous data to prevent flickering during transitions
-    placeholderData: (previousData) => previousData,
   });
 }

@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import { attemptsApi } from '@/lib/api';
+import { usePreviousDataQuery } from '@/hooks/usePreviousDataQuery';
 import type { TaskAttempt } from 'shared/types';
 
 export const taskAttemptKeys = {
@@ -16,12 +16,10 @@ export function useTaskAttempts(taskId?: string, opts?: Options) {
   const enabled = (opts?.enabled ?? true) && !!taskId;
   const refetchInterval = opts?.refetchInterval ?? 5000;
 
-  return useQuery<TaskAttempt[]>({
+  return usePreviousDataQuery<TaskAttempt[]>({
     queryKey: taskAttemptKeys.byTask(taskId),
     queryFn: () => attemptsApi.getAll(taskId!),
     enabled,
     refetchInterval,
-    // Keep previous data while fetching new task's attempts to prevent flickering
-    placeholderData: (previousData) => previousData,
   });
 }

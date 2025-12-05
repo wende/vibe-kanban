@@ -1,12 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
 import { attemptsApi } from '@/lib/api';
+import { usePreviousDataQuery } from '@/hooks/usePreviousDataQuery';
 
 export function useTaskAttempt(attemptId?: string) {
-  return useQuery({
+  return usePreviousDataQuery({
     queryKey: ['taskAttempt', attemptId],
     queryFn: () => attemptsApi.get(attemptId!),
     enabled: !!attemptId,
-    // Keep previous data while fetching new attempt to prevent flickering
-    placeholderData: (previousData) => previousData,
   });
 }

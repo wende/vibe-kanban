@@ -21,16 +21,16 @@ pub use self::protocol::ProtocolPeerSpawnResult;
 use self::{client::ClaudeAgentClient, protocol::ProtocolPeer, types::PermissionMode};
 use crate::{
     approvals::ExecutorApprovalService,
-    command::{CmdOverrides, CommandBuilder, CommandParts, apply_overrides},
+    command::{apply_overrides, CmdOverrides, CommandBuilder, CommandParts},
     executors::{
-        AppendPrompt, AvailabilityInfo, ExecutorError, SpawnedChild, StandardCodingAgentExecutor,
-        codex::client::LogWriter,
+        codex::client::LogWriter, AppendPrompt, AvailabilityInfo, ExecutorError, SpawnedChild,
+        StandardCodingAgentExecutor,
     },
     logs::{
+        stderr_processor::normalize_stderr_logs,
+        utils::{patch::ConversationPatch, EntryIndexProvider},
         ActionType, FileChange, NormalizedEntry, NormalizedEntryError, NormalizedEntryType,
         TodoItem, ToolStatus,
-        stderr_processor::normalize_stderr_logs,
-        utils::{EntryIndexProvider, patch::ConversationPatch},
     },
     stdout_dup::create_stdout_pipe_writer,
     token_tracker,
@@ -52,69 +52,72 @@ fn orchestrator_mcp_config_path() -> Option<String> {
     let config_dir = home.join(".vibe-kanban");
     let config_path = config_dir.join("orchestrator-mcp.json");
 
-    // Create directory if it doesn't exist
-    if !config_dir.exists() {
-        if let Err(e) = std::fs::create_dir_all(&config_dir) {
-            tracing::warn!("Failed to create orchestrator MCP config directory: {}", e);
-            return None;
-        }
+    // Ensure directory exists for config file
+    if let Err(e) = std::fs::create_dir_all(&config_dir) {
+        tracing::warn!("Failed to create orchestrator MCP config directory: {}", e);
+        return None;
     }
 
-    // Find the MCP binary relative to the current executable
-    // The MCP binary should be in the same directory as the main vibe-kanban binary
-    let mcp_binary_path = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|p| p.join("mcp_task_server")));
-
-    let mcp_binary_path = match mcp_binary_path {
-        Some(path) if path.exists() => path,
-        _ => {
-            tracing::warn!("MCP binary not found next to current executable, falling back to npx");
-            // Fallback to npx for published package installations
-            let mut env = serde_json::Map::new();
-            if let Ok(tmpdir) = std::env::var("TMPDIR") {
-                env.insert("TMPDIR".to_string(), serde_json::Value::String(tmpdir));
-            }
-            let mcp_config = serde_json::json!({
-                "mcpServers": {
-                    "vibe_kanban": {
-                        "command": "npx",
-                        "args": ["-y", "vibe-kanban@latest", "--mcp"],
-                        "env": env
-                    }
-                }
-            });
-            if let Err(e) = std::fs::write(&config_path, serde_json::to_string_pretty(&mcp_config).unwrap_or_default()) {
-                tracing::warn!("Failed to write orchestrator MCP config: {}", e);
-                return None;
-            }
-            return Some(config_path.to_string_lossy().into_owned());
-        }
-    };
-
-    // Build the environment variables to pass to the MCP server
-    // Include TMPDIR so the MCP server can find the port file
+    // Capture environment variables shared across both command paths
     let mut env = serde_json::Map::new();
     if let Ok(tmpdir) = std::env::var("TMPDIR") {
         env.insert("TMPDIR".to_string(), serde_json::Value::String(tmpdir));
     }
 
+    // Find the MCP binary relative to the current executable
+    // The MCP binary should be in the same directory as the main vibe-kanban binary
+    let resolved_binary = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.join("mcp_task_server")))
+        .filter(|path| path.exists());
+
+    // Determine command and arguments; fall back to `npx` when binary is missing
+    let (command, args, binary_for_log) = if let Some(path) = resolved_binary {
+        (path.to_string_lossy().into_owned(), Vec::new(), Some(path))
+    } else {
+        tracing::warn!("MCP binary not found next to current executable, falling back to npx");
+        (
+            "npx".to_string(),
+            vec!["-y", "vibe-kanban@latest", "--mcp"]
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect(),
+            None,
+        )
+    };
+
     // Always write the config to ensure paths and env vars are current
+    let command_for_log = command.clone();
     let mcp_config = serde_json::json!({
         "mcpServers": {
             "vibe_kanban": {
-                "command": mcp_binary_path.to_string_lossy(),
-                "args": [],
+                "command": command,
+                "args": args,
                 "env": env
             }
         }
     });
 
-    if let Err(e) = std::fs::write(&config_path, serde_json::to_string_pretty(&mcp_config).unwrap_or_default()) {
+    if let Err(e) = std::fs::write(
+        &config_path,
+        serde_json::to_string_pretty(&mcp_config).unwrap_or_default(),
+    ) {
         tracing::warn!("Failed to write orchestrator MCP config: {}", e);
         return None;
     }
-    tracing::debug!("Written orchestrator MCP config at {:?} with binary {:?}", config_path, mcp_binary_path);
+    if let Some(binary_path) = binary_for_log {
+        tracing::debug!(
+            "Written orchestrator MCP config at {:?} with binary {:?}",
+            config_path,
+            binary_path
+        );
+    } else {
+        tracing::debug!(
+            "Written orchestrator MCP config at {:?} using fallback {:?}",
+            config_path,
+            command_for_log
+        );
+    }
 
     Some(config_path.to_string_lossy().into_owned())
 }
@@ -2026,7 +2029,7 @@ impl ClaudeToolData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logs::utils::{EntryIndexProvider, patch::extract_normalized_entry_from_patch};
+    use crate::logs::utils::{patch::extract_normalized_entry_from_patch, EntryIndexProvider};
 
     fn patches_to_entries(patches: &[json_patch::Patch]) -> Vec<NormalizedEntry> {
         patches
@@ -2220,6 +2223,7 @@ mod tests {
             },
             approvals_service: None,
             disable_api_key: None,
+            is_orchestrator: false,
         };
         let msg_store = Arc::new(MsgStore::new());
         let current_dir = std::path::PathBuf::from("/tmp/test-worktree");
