@@ -19,6 +19,8 @@ type MarkdownSyncPluginProps = {
  * Handles bidirectional markdown synchronization between Lexical editor and external state.
  *
  * Uses an internal ref to prevent infinite update loops during bidirectional sync.
+ * The isLocalChangeRef prevents cursor jumping when the editor's own changes
+ * round-trip through the parent component's state.
  */
 export function MarkdownSyncPlugin({
   value,
@@ -29,6 +31,8 @@ export function MarkdownSyncPlugin({
 }: MarkdownSyncPluginProps) {
   const [editor] = useLexicalComposerContext();
   const lastSerializedRef = useRef<string | undefined>(undefined);
+  // Track whether a change originated from the editor itself
+  const isLocalChangeRef = useRef(false);
 
   // Handle editable state
   useEffect(() => {
@@ -37,6 +41,13 @@ export function MarkdownSyncPlugin({
 
   // Handle controlled value changes (external → editor)
   useEffect(() => {
+    // Skip if this is a round-trip of our own change
+    if (isLocalChangeRef.current) {
+      isLocalChangeRef.current = false;
+      lastSerializedRef.current = value;
+      return;
+    }
+
     if (value === lastSerializedRef.current) return;
 
     try {
@@ -64,6 +75,8 @@ export function MarkdownSyncPlugin({
       );
       if (markdown === lastSerializedRef.current) return;
 
+      // Mark that the next value change is from us, to prevent cursor reset
+      isLocalChangeRef.current = true;
       lastSerializedRef.current = markdown;
       onChange(markdown);
     });
