@@ -19,6 +19,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { type ReactNode, type Ref, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Plus, X, AlertTriangle } from 'lucide-react';
@@ -249,35 +250,38 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-6 w-6 text-destructive" />
-                  <DialogTitle>
-                    {t('actions.clearColumnConfirmTitle')}
-                  </DialogTitle>
-                </div>
-                <DialogDescription className="text-left pt-2">
-                  {t('actions.clearColumnConfirmDescription', {
-                    count: action.itemCount,
-                    column: props.name,
-                  })}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowConfirmDialog(false)}
-                >
-                  {t('actions.cancel')}
-                </Button>
-                <Button variant="destructive" onClick={handleClearConfirm}>
-                  {t('actions.clearColumnConfirm')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          {createPortal(
+            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                    <DialogTitle>
+                      {t('actions.clearColumnConfirmTitle')}
+                    </DialogTitle>
+                  </div>
+                  <DialogDescription className="text-left pt-2">
+                    {t('actions.clearColumnConfirmDescription', {
+                      count: action.itemCount,
+                      column: props.name,
+                    })}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowConfirmDialog(false)}
+                  >
+                    {t('actions.cancel')}
+                  </Button>
+                  <Button variant="destructive" onClick={handleClearConfirm}>
+                    {t('actions.clearColumnConfirm')}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>,
+            document.body
+          )}
         </>
       );
     }
