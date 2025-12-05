@@ -6,6 +6,24 @@
           "dangerously_skip_permissions": true
         }
       },
+      "SONNET": {
+        "CLAUDE_CODE": {
+          "dangerously_skip_permissions": true,
+          "model": "sonnet"
+        }
+      },
+      "OPUS": {
+        "CLAUDE_CODE": {
+          "dangerously_skip_permissions": true,
+          "model": "opus"
+        }
+      },
+      "HAIKU": {
+        "CLAUDE_CODE": {
+          "dangerously_skip_permissions": true,
+          "model": "haiku"
+        }
+      },
       "PLAN": {
         "CLAUDE_CODE": {
           "plan": true
