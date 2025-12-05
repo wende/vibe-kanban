@@ -51,7 +51,7 @@ fn base_command(claude_code_router: bool) -> &'static str {
 
 /// Returns the path to the orchestrator MCP config file, creating/updating it as necessary.
 /// This file contains MCP server configuration specific to orchestrator sessions.
-/// The config is regenerated on every call to ensure the TMPDIR env var is current.
+/// The config is regenerated on every call to ensure the paths and env vars are current.
 fn orchestrator_mcp_config_path() -> Option<String> {
     let home = dirs::home_dir()?;
     let config_dir = home.join(".vibe-kanban");
@@ -65,6 +65,38 @@ fn orchestrator_mcp_config_path() -> Option<String> {
         }
     }
 
+    // Find the MCP binary relative to the current executable
+    // The MCP binary should be in the same directory as the main vibe-kanban binary
+    let mcp_binary_path = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.join("mcp_task_server")));
+
+    let mcp_binary_path = match mcp_binary_path {
+        Some(path) if path.exists() => path,
+        _ => {
+            tracing::warn!("MCP binary not found next to current executable, falling back to npx");
+            // Fallback to npx for published package installations
+            let mut env = serde_json::Map::new();
+            if let Ok(tmpdir) = std::env::var("TMPDIR") {
+                env.insert("TMPDIR".to_string(), serde_json::Value::String(tmpdir));
+            }
+            let mcp_config = serde_json::json!({
+                "mcpServers": {
+                    "vibe_kanban": {
+                        "command": "npx",
+                        "args": ["-y", "vibe-kanban@latest", "--mcp"],
+                        "env": env
+                    }
+                }
+            });
+            if let Err(e) = std::fs::write(&config_path, serde_json::to_string_pretty(&mcp_config).unwrap_or_default()) {
+                tracing::warn!("Failed to write orchestrator MCP config: {}", e);
+                return None;
+            }
+            return Some(config_path.to_string_lossy().into_owned());
+        }
+    };
+
     // Build the environment variables to pass to the MCP server
     // Include TMPDIR so the MCP server can find the port file
     let mut env = serde_json::Map::new();
@@ -72,12 +104,12 @@ fn orchestrator_mcp_config_path() -> Option<String> {
         env.insert("TMPDIR".to_string(), serde_json::Value::String(tmpdir));
     }
 
-    // Always write the config to ensure env vars are current
+    // Always write the config to ensure paths and env vars are current
     let mcp_config = serde_json::json!({
         "mcpServers": {
             "vibe_kanban": {
-                "command": "npx",
-                "args": ["-y", "vibe-kanban@latest", "--mcp"],
+                "command": mcp_binary_path.to_string_lossy(),
+                "args": [],
                 "env": env
             }
         }
@@ -87,7 +119,7 @@ fn orchestrator_mcp_config_path() -> Option<String> {
         tracing::warn!("Failed to write orchestrator MCP config: {}", e);
         return None;
     }
-    tracing::debug!("Written orchestrator MCP config at {:?}", config_path);
+    tracing::debug!("Written orchestrator MCP config at {:?} with binary {:?}", config_path, mcp_binary_path);
 
     Some(config_path.to_string_lossy().into_owned())
 }
