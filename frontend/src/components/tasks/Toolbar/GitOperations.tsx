@@ -138,6 +138,10 @@ function GitOperations({
     if (rebasing) return t('git.states.rebasing');
     return t('git.states.rebase');
   }, [rebasing, t]);
+  const rebaseAdvancedButtonLabel = useMemo(() => {
+    if (rebasing) return t('git.states.rebasing');
+    return `${t('git.states.rebase')}*`;
+  }, [rebasing, t]);
 
   const prButtonLabel = useMemo(() => {
     if (mergeInfo.hasOpenPR) {
@@ -196,6 +200,20 @@ function GitOperations({
     } finally {
       setRebasing(false);
     }
+  };
+
+  const handleRebaseWithDefaults = async () => {
+    const defaultTargetBranch =
+      selectedAttempt.target_branch || branchStatus?.target_branch_name;
+
+    if (!defaultTargetBranch) {
+      return;
+    }
+
+    await handleRebaseWithNewBranchAndUpstream(
+      defaultTargetBranch,
+      defaultTargetBranch
+    );
   };
 
   const handleRebaseDialogOpen = async () => {
@@ -470,7 +488,7 @@ function GitOperations({
             </Button>
 
             <Button
-              onClick={handleRebaseDialogOpen}
+              onClick={handleRebaseWithDefaults}
               disabled={
                 mergeInfo.hasMergedPR ||
                 rebasing ||
@@ -486,6 +504,25 @@ function GitOperations({
                 className={`h-3.5 w-3.5 ${rebasing ? 'animate-spin' : ''}`}
               />
               <span className="truncate max-w-[10ch]">{rebaseButtonLabel}</span>
+            </Button>
+
+            <Button
+              onClick={handleRebaseDialogOpen}
+              disabled={
+                mergeInfo.hasMergedPR ||
+                rebasing ||
+                isAttemptRunning ||
+                hasConflictsCalculated
+              }
+              variant="outline"
+              size="xs"
+              className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
+              aria-label={t('rebase.dialog.title')}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span className="truncate max-w-[10ch]">
+                {rebaseAdvancedButtonLabel}
+              </span>
             </Button>
           </div>
         )}
