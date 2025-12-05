@@ -68,23 +68,26 @@ const TaskAttemptPanel = ({
     }
   }, [task?.id, task?.updated_at, markAsRead]);
 
-  if (!task || !attempt) {
-    return children({
-      logs: <LogsSkeleton />,
-      followUp: <FollowUpSkeleton />,
-    });
-  }
+  const logsContent =
+    task && attempt ? (
+      <VirtualizedList key={attempt.id} attempt={attempt} task={task} />
+    ) : (
+      <LogsSkeleton />
+    );
+  const followUpContent =
+    task && attempt ? (
+      <TaskFollowUpSection task={task} selectedAttemptId={attempt.id} />
+    ) : (
+      <FollowUpSkeleton />
+    );
+  const providerKey = attempt?.id ?? 'pending-attempt';
 
   return (
-    <EntriesProvider key={attempt.id}>
-      <RetryUiProvider attemptId={attempt.id}>
+    <EntriesProvider key={providerKey}>
+      <RetryUiProvider attemptId={attempt?.id}>
         {children({
-          logs: (
-            <VirtualizedList key={attempt.id} attempt={attempt} task={task} />
-          ),
-          followUp: (
-            <TaskFollowUpSection task={task} selectedAttemptId={attempt.id} />
-          ),
+          logs: logsContent,
+          followUp: followUpContent,
         })}
       </RetryUiProvider>
     </EntriesProvider>
