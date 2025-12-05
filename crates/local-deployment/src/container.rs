@@ -80,6 +80,7 @@ pub struct LocalContainerService {
     approvals: Approvals,
     queued_message_service: QueuedMessageService,
     publisher: Result<SharePublisher, RemoteClientNotConfigured>,
+    worktree_cleanup_shutdown: Arc<tokio::sync::watch::Sender<bool>>,
 }
 
 impl LocalContainerService {
@@ -97,6 +98,8 @@ impl LocalContainerService {
     ) -> Self {
         let child_store = Arc::new(RwLock::new(HashMap::new()));
         let interrupt_senders = Arc::new(RwLock::new(HashMap::new()));
+        let (worktree_cleanup_shutdown_tx, worktree_cleanup_shutdown_rx) =
+            tokio::sync::watch::channel(false);
 
         let container = LocalContainerService {
             db,
@@ -110,11 +113,19 @@ impl LocalContainerService {
             approvals,
             queued_message_service,
             publisher,
+            worktree_cleanup_shutdown: Arc::new(worktree_cleanup_shutdown_tx),
         };
 
-        container.spawn_worktree_cleanup().await;
+        container
+            .spawn_worktree_cleanup(worktree_cleanup_shutdown_rx)
+            .await;
 
         container
+    }
+
+    /// Signal the worktree cleanup task to stop
+    pub fn request_worktree_cleanup_shutdown(&self) {
+        let _ = self.worktree_cleanup_shutdown.send(true);
     }
 
     pub async fn get_child_from_store(&self, id: &Uuid) -> Option<Arc<RwLock<AsyncGroupChild>>> {
@@ -310,25 +321,38 @@ impl LocalContainerService {
         Ok(())
     }
 
-    pub async fn spawn_worktree_cleanup(&self) {
+    pub async fn spawn_worktree_cleanup(
+        &self,
+        mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
+    ) {
         let db = self.db.clone();
         let mut cleanup_interval = tokio::time::interval(tokio::time::Duration::from_secs(1800)); // 30 minutes
         self.cleanup_orphaned_worktrees().await;
         tokio::spawn(async move {
             loop {
-                cleanup_interval.tick().await;
-                tracing::info!("Starting periodic worktree cleanup...");
-                Self::check_externally_deleted_worktrees(&db)
-                    .await
-                    .unwrap_or_else(|e| {
-                        tracing::error!("Failed to check externally deleted worktrees: {}", e);
-                    });
-                Self::cleanup_expired_attempts(&db)
-                    .await
-                    .unwrap_or_else(|e| {
-                        tracing::error!("Failed to clean up expired worktree attempts: {}", e)
-                    });
+                tokio::select! {
+                    _ = shutdown_rx.changed() => {
+                        if *shutdown_rx.borrow() {
+                            tracing::info!("Worktree cleanup received shutdown signal");
+                            break;
+                        }
+                    }
+                    _ = cleanup_interval.tick() => {
+                        tracing::info!("Starting periodic worktree cleanup...");
+                        Self::check_externally_deleted_worktrees(&db)
+                            .await
+                            .unwrap_or_else(|e| {
+                                tracing::error!("Failed to check externally deleted worktrees: {}", e);
+                            });
+                        Self::cleanup_expired_attempts(&db)
+                            .await
+                            .unwrap_or_else(|e| {
+                                tracing::error!("Failed to clean up expired worktree attempts: {}", e)
+                            });
+                    }
+                }
             }
+            tracing::info!("Worktree cleanup stopped");
         });
     }
 

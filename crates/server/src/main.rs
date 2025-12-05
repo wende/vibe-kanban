@@ -57,7 +57,7 @@ async fn main() -> Result<(), VibeKanbanError> {
         .backfill_before_head_commits()
         .await
         .map_err(DeploymentError::from)?;
-    deployment.spawn_pr_monitor_service().await;
+    let pr_monitor_handle = deployment.spawn_pr_monitor_service().await;
     deployment
         .track_if_analytics_allowed("session_start", serde_json::json!({}))
         .await;
@@ -127,7 +127,7 @@ async fn main() -> Result<(), VibeKanbanError> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
-    perform_cleanup_actions(&deployment).await;
+    perform_cleanup_actions(&deployment, pr_monitor_handle).await;
 
     Ok(())
 }
@@ -168,10 +168,24 @@ pub async fn shutdown_signal() {
     }
 }
 
-pub async fn perform_cleanup_actions(deployment: &DeploymentImpl) {
+pub async fn perform_cleanup_actions(
+    deployment: &DeploymentImpl,
+    pr_monitor_handle: services::services::pr_monitor::PrMonitorHandle,
+) {
+    tracing::info!("Shutting down background services...");
+
+    // Signal worktree cleanup to stop
+    deployment.container().request_worktree_cleanup_shutdown();
+
+    // Shutdown PR monitor service
+    pr_monitor_handle.shutdown().await;
+
+    // Kill all running execution processes
     deployment
         .container()
         .kill_all_running_processes()
         .await
         .expect("Failed to cleanly kill running execution processes");
+
+    tracing::info!("Cleanup complete");
 }

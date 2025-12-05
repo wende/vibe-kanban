@@ -25,7 +25,7 @@ use services::services::{
     filesystem_watcher::FilesystemWatcherError,
     git::{GitService, GitServiceError},
     image::{ImageError, ImageService},
-    pr_monitor::PrMonitorService,
+    pr_monitor::{PrMonitorHandle, PrMonitorService},
     queued_message::QueuedMessageService,
     share::SharePublisher,
     worktree_manager::WorktreeError,
@@ -115,7 +115,7 @@ pub trait Deployment: Clone + Send + Sync + 'static {
         Ok(())
     }
 
-    async fn spawn_pr_monitor_service(&self) -> tokio::task::JoinHandle<()> {
+    async fn spawn_pr_monitor_service(&self) -> PrMonitorHandle {
         let db = self.db().clone();
         let analytics = self
             .analytics()

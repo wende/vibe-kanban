@@ -11,7 +11,7 @@ use db::{
 use serde_json::json;
 use sqlx::error::Error as SqlxError;
 use thiserror::Error;
-use tokio::time::interval;
+use tokio::{sync::watch, time::interval};
 use tracing::{debug, error, info};
 
 use crate::services::{
@@ -38,24 +38,50 @@ pub struct PrMonitorService {
     publisher: Option<SharePublisher>,
 }
 
+/// Handle to control the PR monitor service
+pub struct PrMonitorHandle {
+    shutdown_tx: watch::Sender<bool>,
+    join_handle: tokio::task::JoinHandle<()>,
+}
+
+impl PrMonitorHandle {
+    /// Request the PR monitor service to shutdown
+    pub fn request_shutdown(&self) {
+        let _ = self.shutdown_tx.send(true);
+    }
+
+    /// Request shutdown and wait for the service to stop
+    pub async fn shutdown(self) {
+        self.request_shutdown();
+        if let Err(e) = self.join_handle.await {
+            tracing::warn!("PR monitor task join failed: {:?}", e);
+        }
+    }
+}
+
 impl PrMonitorService {
     pub async fn spawn(
         db: DBService,
         analytics: Option<AnalyticsContext>,
         publisher: Option<SharePublisher>,
-    ) -> tokio::task::JoinHandle<()> {
+    ) -> PrMonitorHandle {
         let service = Self {
             db,
             poll_interval: Duration::from_secs(60), // Check every minute
             analytics,
             publisher,
         };
-        tokio::spawn(async move {
-            service.start().await;
-        })
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        let join_handle = tokio::spawn(async move {
+            service.start(shutdown_rx).await;
+        });
+        PrMonitorHandle {
+            shutdown_tx,
+            join_handle,
+        }
     }
 
-    async fn start(&self) {
+    async fn start(&self, mut shutdown_rx: watch::Receiver<bool>) {
         info!(
             "Starting PR monitoring service with interval {:?}",
             self.poll_interval
@@ -64,11 +90,21 @@ impl PrMonitorService {
         let mut interval = interval(self.poll_interval);
 
         loop {
-            interval.tick().await;
-            if let Err(e) = self.check_all_open_prs().await {
-                error!("Error checking open PRs: {}", e);
+            tokio::select! {
+                _ = shutdown_rx.changed() => {
+                    if *shutdown_rx.borrow() {
+                        info!("PR monitoring service received shutdown signal");
+                        break;
+                    }
+                }
+                _ = interval.tick() => {
+                    if let Err(e) = self.check_all_open_prs().await {
+                        error!("Error checking open PRs: {}", e);
+                    }
+                }
             }
         }
+        info!("PR monitoring service stopped");
     }
 
     /// Check all open PRs for updates with the provided GitHub token
