@@ -240,7 +240,9 @@ pub struct WaitForTaskRequest {
     pub task_id: Uuid,
     #[schemars(description = "Polling interval in seconds (default: 2.0, minimum: 0.1)")]
     pub interval: Option<f64>,
-    #[schemars(description = "Maximum wait time in seconds (optional, no timeout if not specified)")]
+    #[schemars(
+        description = "Maximum wait time in seconds (optional, no timeout if not specified)"
+    )]
     pub timeout: Option<f64>,
 }
 

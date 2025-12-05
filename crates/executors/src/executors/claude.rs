@@ -28,14 +28,14 @@ use crate::{
     command::{apply_overrides, CmdOverrides, CommandBuilder, CommandParts},
     env::ExecutionEnv,
     executors::{
-        codex::client::LogWriter, AppendPrompt, AvailabilityInfo, ExecutorError, SpawnedChild,
-        StandardCodingAgentExecutor,
+        AppendPrompt, AvailabilityInfo, ExecutorError, SpawnedChild, StandardCodingAgentExecutor,
+        codex::client::LogWriter,
     },
     logs::{
-        stderr_processor::normalize_stderr_logs,
-        utils::{patch::ConversationPatch, EntryIndexProvider},
         ActionType, FileChange, NormalizedEntry, NormalizedEntryError, NormalizedEntryType,
         TodoItem, ToolStatus,
+        stderr_processor::normalize_stderr_logs,
+        utils::{EntryIndexProvider, patch::ConversationPatch},
     },
     stdout_dup::create_stdout_pipe_writer,
     token_tracker,
@@ -2048,7 +2048,7 @@ impl ClaudeToolData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logs::utils::{patch::extract_normalized_entry_from_patch, EntryIndexProvider};
+    use crate::logs::utils::{EntryIndexProvider, patch::extract_normalized_entry_from_patch};
 
     fn patches_to_entries(patches: &[json_patch::Patch]) -> Vec<NormalizedEntry> {
         patches

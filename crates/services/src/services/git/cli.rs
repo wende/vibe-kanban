@@ -568,6 +568,24 @@ impl GitCli {
             .map(|_| ())
     }
 
+    /// Stash all changes (including untracked files) in the worktree.
+    /// Returns true if a stash was created, false if there was nothing to stash.
+    pub fn stash_push(&self, worktree_path: &Path) -> Result<bool, GitCliError> {
+        // Check if there's anything to stash first
+        let status = self.git(worktree_path, ["status", "--porcelain"])?;
+        if status.trim().is_empty() {
+            return Ok(false);
+        }
+        // Stash including untracked files
+        self.git(worktree_path, ["stash", "push", "--include-untracked"])?;
+        Ok(true)
+    }
+
+    /// Pop the most recent stash entry.
+    pub fn stash_pop(&self, worktree_path: &Path) -> Result<(), GitCliError> {
+        self.git(worktree_path, ["stash", "pop"]).map(|_| ())
+    }
+
     pub fn abort_merge(&self, worktree_path: &Path) -> Result<(), GitCliError> {
         if !self.is_merge_in_progress(worktree_path)? {
             return Ok(());

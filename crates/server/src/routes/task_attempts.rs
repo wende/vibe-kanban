@@ -5,6 +5,8 @@ pub mod images;
 pub mod queue;
 pub mod util;
 
+use std::{collections::HashMap, path::PathBuf};
+
 use axum::{
     Extension, Json, Router,
     extract::{
@@ -47,8 +49,6 @@ use services::services::{
 use sqlx::Error as SqlxError;
 use ts_rs::TS;
 use utils::{log_msg::LogMsg, response::ApiResponse};
-use std::collections::HashMap;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::{
@@ -2015,12 +2015,7 @@ pub async fn export_conversation(
     let processes = ExecutionProcess::find_by_task_attempt_id(pool, task_attempt.id, false)
         .await?
         .into_iter()
-        .filter(|p| {
-            matches!(
-                p.run_reason,
-                ExecutionProcessRunReason::CodingAgent
-            )
-        })
+        .filter(|p| matches!(p.run_reason, ExecutionProcessRunReason::CodingAgent))
         .collect::<Vec<_>>();
 
     if processes.is_empty() {
@@ -2042,11 +2037,7 @@ pub async fn export_conversation(
         let messages = match ExecutionProcessLogs::parse_logs(&log_records) {
             Ok(msgs) => msgs,
             Err(e) => {
-                tracing::warn!(
-                    "Failed to parse logs for process {}: {}",
-                    process.id,
-                    e
-                );
+                tracing::warn!("Failed to parse logs for process {}: {}", process.id, e);
                 continue;
             }
         };
