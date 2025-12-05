@@ -181,6 +181,8 @@ export type KanbanHeaderProps =
       action?: KanbanHeaderAction;
       /** @deprecated Use action prop instead */
       onAddTask?: () => void;
+      /** Whether to use neutral background instead of colored */
+      neutralBackground?: boolean;
     };
 
 export const KanbanHeader = (props: KanbanHeaderProps) => {
@@ -299,7 +301,10 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
         props.className
       )}
       style={{
-        backgroundImage: `linear-gradient(hsl(var(${props.color}) / 0.08), hsl(var(${props.color}) / 0.08))`,
+        backgroundColor: props.neutralBackground ? '#F7F8FA' : undefined,
+        backgroundImage: props.neutralBackground
+          ? 'none'
+          : `linear-gradient(hsl(var(${props.color}) / 0.08), hsl(var(${props.color}) / 0.08))`,
       }}
     >
       <span className="flex-1 flex items-center gap-2">
