@@ -8,25 +8,6 @@ import { Loader2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { TaskWithAttemptStatus } from 'shared/types';
 
-// Rainbow gradient text component for VIBE
-function RainbowVibe({ className }: { className?: string }) {
-  return (
-    <span
-      className={className}
-      style={{
-        fontWeight: 'bold',
-        background:
-          'linear-gradient(to right, #ef4444, #eab308, #22c55e, #3b82f6, #a855f7)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-      }}
-    >
-      VIBE
-    </span>
-  );
-}
-
 interface OrchestratorPanelProps {
   projectId: string;
 }
@@ -88,29 +69,20 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
   }
 
   // If no orchestrator process yet and no cached data, show starting state
+  // Use same small loading indicator as VirtualizedList for consistency
   if (!displayOrchestrator?.latest_process) {
     const hasError = startMutation.isError;
 
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="max-w-lg w-full space-y-6 text-center">
-            <RainbowVibe className="text-4xl" />
-            <h2 className="text-xl font-semibold">
-              {hasError ? 'Failed to Start' : 'Starting Orchestrator'}
-            </h2>
+      <div className="h-full flex flex-col relative">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
             {hasError ? (
-              <div className="space-y-4">
-                <p className="text-destructive text-sm">
-                  {String(startMutation.error)}
-                </p>
-              </div>
+              <span className="text-destructive">{String(startMutation.error)}</span>
             ) : (
               <>
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
-                <p className="text-muted-foreground">
-                  Initializing orchestrator...
-                </p>
+                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                <span>Loading...</span>
               </>
             )}
           </div>
