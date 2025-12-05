@@ -76,15 +76,16 @@ const computeItemKey: VirtuosoMessageListProps<
 >['computeItemKey'] = ({ data }) => `l-${data.patchKey}`;
 
 const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
-  const [channelData, setChannelData] =
-    useState<DataWithScrollModifier<PatchTypeWithKey> | null>(null);
+  const [channelData, setChannelData] = useState<
+    DataWithScrollModifier<PatchTypeWithKey>
+  >({ data: [], scrollModifier: InitialDataScrollModifier });
   const [loading, setLoading] = useState(true);
   const { setEntries, reset } = useEntries();
 
   useEffect(() => {
     setLoading(true);
-    setChannelData(null);
     reset();
+    setChannelData({ data: [], scrollModifier: InitialDataScrollModifier });
   }, [attempt.id, reset]);
 
   const onEntriesUpdated = (
@@ -116,27 +117,29 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
 
   return (
     <ApprovalFormProvider>
-      <VirtuosoMessageListLicense
-        licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
-      >
-        <VirtuosoMessageList<PatchTypeWithKey, MessageListContext>
-          ref={messageListRef}
-          className="flex-1"
-          data={channelData}
-          initialLocation={INITIAL_TOP_ITEM}
-          context={messageListContext}
-          computeItemKey={computeItemKey}
-          ItemContent={ItemContent}
-          Header={() => <div className="h-2"></div>}
-          Footer={() => <div className="h-2"></div>}
-        />
-      </VirtuosoMessageListLicense>
-      {loading && (
-        <div className="float-left top-0 left-0 w-full h-full bg-primary flex flex-col gap-2 justify-center items-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p>Loading History</p>
-        </div>
-      )}
+      <div className="relative flex-1 min-h-0">
+        <VirtuosoMessageListLicense
+          licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
+        >
+          <VirtuosoMessageList<PatchTypeWithKey, MessageListContext>
+            ref={messageListRef}
+            className="flex-1"
+            data={channelData}
+            initialLocation={INITIAL_TOP_ITEM}
+            context={messageListContext}
+            computeItemKey={computeItemKey}
+            ItemContent={ItemContent}
+            Header={() => <div className="h-2"></div>}
+            Footer={() => <div className="h-2"></div>}
+          />
+        </VirtuosoMessageListLicense>
+        {loading && (
+          <div className="absolute inset-0 z-10 w-full h-full bg-background/95 backdrop-blur-sm flex flex-col gap-2 justify-center items-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p>Loading History</p>
+          </div>
+        )}
+      </div>
     </ApprovalFormProvider>
   );
 };
