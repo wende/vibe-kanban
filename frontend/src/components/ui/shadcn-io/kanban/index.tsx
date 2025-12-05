@@ -130,7 +130,7 @@ export const KanbanCard = ({
       className={cn(
         'p-3 outline-none border-b flex-col space-y-2',
         isDragging && 'cursor-grabbing',
-        isOpen && 'ring-2 ring-secondary-foreground ring-inset',
+        isOpen && 'shadow-[inset_0_0_0_1px_#0869DA] bg-[#DEF3FF]',
         hasUnread &&
           !isOpen &&
           'shadow-[0_0_12px_2px_rgba(251,146,60,0.5)] ring-1 ring-orange-400/50',
