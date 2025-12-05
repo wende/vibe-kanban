@@ -190,6 +190,8 @@
     "diffs": "Diffs",
     "gitActions": "Git Actions",
     "tryAgain": "Try Again",
+    "tryDifferentAgent": "Try Different Agent",
+    "tryDifferentAgentTooltip": "Continue with a different coding agent, passing conversation history",
     "runSetup": "Run Setup",
     "setupHelpText": "{{agent}} isn't setup correctly. Click 'Run Setup' to install it and login.",
     "devScriptMissingTooltip": "To start the dev server, add a dev script to this project"
@@ -282,7 +284,10 @@
     "selectBranch": "Select branch",
     "error": "Failed to create attempt. Please try again.",
     "creating": "Creating...",
-    "start": "Start"
+    "loadingHistory": "Loading history...",
+    "start": "Start",
+    "includeHistory": "Include conversation history",
+    "includeHistoryDescription": "The new agent will receive context about what was discussed and attempted."
   },
   "viewProcessesDialog": {
     "title": "Execution processes"

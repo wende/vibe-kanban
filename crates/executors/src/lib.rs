@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod approvals;
 pub mod command;
+pub mod conversation_export;
 pub mod executors;
 pub mod logs;
 pub mod mcp_config;

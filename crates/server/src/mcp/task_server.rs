@@ -582,6 +582,7 @@ impl TaskServer {
             base_branch,
             use_existing_branch: false,
             custom_branch: None,
+            conversation_history: None,
         };
 
         let url = self.url("/api/task-attempts");

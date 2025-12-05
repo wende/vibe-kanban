@@ -18,6 +18,7 @@ use axum::{
 };
 use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus},
+    execution_process_logs::ExecutionProcessLogs,
     merge::{Merge, MergeStatus},
     project::{Project, ProjectError},
     scratch::{Scratch, ScratchType},
@@ -31,7 +32,9 @@ use executors::{
         coding_agent_follow_up::CodingAgentFollowUpRequest,
         script::{ScriptContext, ScriptRequest, ScriptRequestLanguage},
     },
+    conversation_export::{self, ExportResult},
     executors::{CodingAgent, ExecutorError},
+    logs::utils::patch::extract_normalized_entry_from_patch,
     profile::{ExecutorConfigs, ExecutorProfileId},
 };
 use git2::BranchType;
@@ -44,7 +47,7 @@ use services::services::{
 };
 use sqlx::Error as SqlxError;
 use ts_rs::TS;
-use utils::response::ApiResponse;
+use utils::{log_msg::LogMsg, response::ApiResponse};
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -142,6 +145,9 @@ pub struct CreateTaskAttemptBody {
     /// Custom branch name to use instead of auto-generating one.
     /// Takes precedence over use_existing_branch when set.
     pub custom_branch: Option<String>,
+    /// Conversation history from a previous attempt to prepend to the prompt.
+    /// Used when continuing a task with a different agent.
+    pub conversation_history: Option<String>,
 }
 
 impl CreateTaskAttemptBody {
@@ -198,7 +204,11 @@ pub async fn create_task_attempt(
 
     let start_result = deployment
         .container()
-        .start_attempt(&task_attempt, executor_profile_id.clone())
+        .start_attempt_with_prompt(
+            &task_attempt,
+            executor_profile_id.clone(),
+            payload.conversation_history,
+        )
         .await;
 
     // Handle errors from starting the attempt
@@ -1654,6 +1664,85 @@ pub async fn gh_cli_setup_handler(
     }
 }
 
+/// Export the conversation history from a task attempt as markdown.
+/// This is useful for passing context to a different agent.
+#[axum::debug_handler]
+pub async fn export_conversation(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<ExportResult>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    // Get all non-dropped execution processes for this attempt that are CodingAgent type
+    let processes = ExecutionProcess::find_by_task_attempt_id(pool, task_attempt.id, false)
+        .await?
+        .into_iter()
+        .filter(|p| {
+            matches!(
+                p.run_reason,
+                ExecutionProcessRunReason::CodingAgent
+            )
+        })
+        .collect::<Vec<_>>();
+
+    if processes.is_empty() {
+        return Ok(ResponseJson(ApiResponse::success(ExportResult {
+            markdown: "No conversation history available.".to_string(),
+            message_count: 0,
+            truncated: false,
+        })));
+    }
+
+    // Collect all normalized entries from all processes
+    let mut all_entries = Vec::new();
+
+    for process in &processes {
+        // Load logs for this process
+        let log_records = ExecutionProcessLogs::find_by_execution_id(pool, process.id).await?;
+
+        // Parse the JSONL logs
+        let messages = match ExecutionProcessLogs::parse_logs(&log_records) {
+            Ok(msgs) => msgs,
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to parse logs for process {}: {}",
+                    process.id,
+                    e
+                );
+                continue;
+            }
+        };
+
+        // Extract NormalizedEntry from JsonPatch messages
+        for msg in messages {
+            if let LogMsg::JsonPatch(patch) = msg {
+                if let Some((_idx, entry)) = extract_normalized_entry_from_patch(&patch) {
+                    all_entries.push(entry);
+                }
+            }
+        }
+    }
+
+    // Get the executor name for the header
+    let executor_name = task_attempt.executor.to_string();
+
+    // Export to markdown
+    let result = conversation_export::export_to_markdown(&all_entries, &executor_name);
+
+    deployment
+        .track_if_analytics_allowed(
+            "conversation_exported",
+            serde_json::json!({
+                "attempt_id": task_attempt.id.to_string(),
+                "message_count": result.message_count,
+                "truncated": result.truncated,
+            }),
+        )
+        .await;
+
+    Ok(ResponseJson(ApiResponse::success(result)))
+}
+
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let task_attempt_id_router = Router::new()
         .route("/", get(get_task_attempt))
@@ -1678,6 +1767,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/stop", post(stop_task_attempt_execution))
         .route("/change-target-branch", post(change_target_branch))
         .route("/rename-branch", post(rename_branch))
+        .route("/export-conversation", get(export_conversation))
         .layer(from_fn_with_state(
             deployment.clone(),
             load_task_attempt_middleware,

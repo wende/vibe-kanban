@@ -79,6 +79,7 @@ import {
   QueueStatus,
   CommitChangesRequest,
   WorktreeStatusResponse,
+  ExportResult,
 } from 'shared/types';
 
 class ApiError<E = unknown> extends Error {
@@ -629,6 +630,13 @@ export const attemptsApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  exportConversation: async (attemptId: string): Promise<ExportResult> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/export-conversation`
+    );
+    return handleApiResponse<ExportResult>(response);
   },
 };
 

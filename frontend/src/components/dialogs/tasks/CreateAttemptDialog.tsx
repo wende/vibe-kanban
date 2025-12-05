@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import BranchSelector from '@/components/tasks/BranchSelector';
 import { ExecutorProfileSelector } from '@/components/settings';
 import { useAttemptCreation } from '@/hooks/useAttemptCreation';
@@ -28,13 +29,16 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/lib/modals';
 import type { ExecutorProfileId, BaseCodingAgent } from 'shared/types';
 import { useKeySubmitTask, Scope } from '@/keyboard';
+import { attemptsApi } from '@/lib/api';
 
 export interface CreateAttemptDialogProps {
   taskId: string;
+  /** Optional source attempt to continue from (passes conversation history) */
+  sourceAttemptId?: string;
 }
 
 const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
-  ({ taskId }) => {
+  ({ taskId, sourceAttemptId }) => {
     const modal = useModal();
     const navigate = useNavigateWithSearch();
     const { projectId } = useProject();
@@ -55,6 +59,13 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
       null
     );
     const [customBranch, setCustomBranch] = useState<string>('');
+    const [includeHistory, setIncludeHistory] = useState(true);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    // Get source attempt details when continuing from another attempt
+    const { data: sourceAttempt } = useAttempt(sourceAttemptId, {
+      enabled: modal.visible && !!sourceAttemptId,
+    });
 
     const { data: branches = [], isLoading: isLoadingBranches } = useBranches(
       projectId,
@@ -91,8 +102,16 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
         setUserSelectedProfile(null);
         setUserSelectedBranch(null);
         setCustomBranch('');
+        setIncludeHistory(true);
       }
     }, [modal.visible]);
+
+    // Pre-select the source attempt's branch when continuing
+    useEffect(() => {
+      if (sourceAttempt && !userSelectedBranch) {
+        setUserSelectedBranch(sourceAttempt.branch);
+      }
+    }, [sourceAttempt, userSelectedBranch]);
 
     const defaultProfile: ExecutorProfileId | null = useMemo(() => {
       if (latestAttempt?.executor) {
@@ -140,16 +159,39 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
       isLoadingTask ||
       isLoadingParent;
     const canCreate = Boolean(
-      effectiveProfile && effectiveBranch && !isCreating && !isLoadingInitial
+      effectiveProfile &&
+        effectiveBranch &&
+        !isCreating &&
+        !isLoadingInitial &&
+        !isLoadingHistory
     );
 
     const handleCreate = async () => {
       if (!effectiveProfile || !effectiveBranch) return;
       try {
+        let conversationHistory: string | null = null;
+
+        // Fetch conversation history if continuing from another attempt
+        if (sourceAttemptId && includeHistory) {
+          try {
+            setIsLoadingHistory(true);
+            const result = await attemptsApi.exportConversation(sourceAttemptId);
+            conversationHistory = result.markdown;
+          } catch (err) {
+            console.error('Failed to export conversation:', err);
+            // Continue without history
+          } finally {
+            setIsLoadingHistory(false);
+          }
+        }
+
         await createAttempt({
           profile: effectiveProfile,
           baseBranch: effectiveBranch,
           customBranch: customBranch,
+          conversationHistory,
+          // Use existing branch when continuing from another attempt
+          useExistingBranch: !!sourceAttemptId,
         });
 
         modal.hide();
@@ -207,18 +249,42 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="custom-branch" className="text-sm font-medium text-muted-foreground">
-                Custom branch name (optional)
-              </Label>
-              <Input
-                id="custom-branch"
-                value={customBranch}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBranch(e.target.value)}
-                placeholder="feature/my-custom-branch"
-                disabled={isCreating}
-              />
-            </div>
+            {!sourceAttemptId && (
+              <div className="space-y-2">
+                <Label htmlFor="custom-branch" className="text-sm font-medium text-muted-foreground">
+                  Custom branch name (optional)
+                </Label>
+                <Input
+                  id="custom-branch"
+                  value={customBranch}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBranch(e.target.value)}
+                  placeholder="feature/my-custom-branch"
+                  disabled={isCreating}
+                />
+              </div>
+            )}
+
+            {sourceAttemptId && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="include-history"
+                    checked={includeHistory}
+                    onCheckedChange={(checked) => setIncludeHistory(checked === true)}
+                    disabled={isCreating || isLoadingHistory}
+                  />
+                  <Label
+                    htmlFor="include-history"
+                    className="text-sm font-medium cursor-pointer"
+                  >
+                    {t('createAttemptDialog.includeHistory')}
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground ml-6">
+                  {t('createAttemptDialog.includeHistoryDescription')}
+                </p>
+              </div>
+            )}
 
             {error && (
               <div className="text-sm text-destructive">
@@ -236,9 +302,11 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
               {t('common:buttons.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={!canCreate}>
-              {isCreating
-                ? t('createAttemptDialog.creating')
-                : t('createAttemptDialog.start')}
+              {isLoadingHistory
+                ? t('createAttemptDialog.loadingHistory')
+                : isCreating
+                  ? t('createAttemptDialog.creating')
+                  : t('createAttemptDialog.start')}
             </Button>
           </DialogFooter>
         </DialogContent>

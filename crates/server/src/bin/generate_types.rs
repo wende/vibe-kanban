@@ -152,6 +152,7 @@ fn generate_types_content() -> String {
         server::routes::task_attempts::CommitChangesRequest::decl(),
         server::routes::task_attempts::WorktreeStatusResponse::decl(),
         server::routes::task_attempts::FileStatusEntry::decl(),
+        executors::conversation_export::ExportResult::decl(),
         services::services::git::ConflictOp::decl(),
         db::models::task_attempt::TaskAttempt::decl(),
         db::models::execution_process::ExecutionProcess::decl(),
