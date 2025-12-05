@@ -1,4 +1,4 @@
-import { ReactNode, useState, useRef, useEffect } from 'react';
+import { ReactNode, useState, useRef, useEffect, useCallback } from 'react';
 import {
   PanelGroup,
   Panel,
@@ -10,6 +10,43 @@ import { cn } from '@/lib/utils';
 
 export type LayoutMode = 'preview' | 'diffs' | null;
 
+// Swipe gesture hook for mobile
+function useSwipeGesture(
+  onSwipeRight: () => void,
+  options: { threshold?: number; enabled?: boolean } = {}
+) {
+  const { threshold = 100, enabled = true } = options;
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!enabled || touchStartX.current === null || touchStartY.current === null) return;
+
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const deltaX = touchEndX - touchStartX.current;
+      const deltaY = Math.abs(touchEndY - touchStartY.current);
+
+      // Only trigger if horizontal swipe is dominant and exceeds threshold
+      if (deltaX > threshold && deltaX > deltaY * 2) {
+        onSwipeRight();
+      }
+
+      touchStartX.current = null;
+      touchStartY.current = null;
+    },
+    [enabled, threshold, onSwipeRight]
+  );
+
+  return { handleTouchStart, handleTouchEnd };
+}
+
 interface TasksLayoutProps {
   kanban: ReactNode;
   attempt: ReactNode;
@@ -18,6 +55,7 @@ interface TasksLayoutProps {
   mode: LayoutMode;
   isMobile?: boolean;
   rightHeader?: ReactNode;
+  onClose?: () => void;
 }
 
 type SplitSizes = [number, number];
@@ -309,7 +347,13 @@ export function TasksLayout({
   mode,
   isMobile = false,
   rightHeader,
+  onClose,
 }: TasksLayoutProps) {
+  const { handleTouchStart, handleTouchEnd } = useSwipeGesture(
+    () => onClose?.(),
+    { enabled: isMobile && isPanelOpen }
+  );
+
   if (isMobile) {
     const columns = isPanelOpen ? ['0fr', '1fr', '0fr'] : ['1fr', '0fr', '0fr'];
     const gridTemplateColumns = `minmax(0, ${columns[0]}) minmax(0, ${columns[1]}) minmax(0, ${columns[2]})`;
@@ -341,6 +385,8 @@ export function TasksLayout({
           aria-label="Details"
           role="region"
           style={{ pointerEvents: isAttemptVisible ? 'auto' : 'none' }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {rightHeader && (
             <div className="shrink-0 sticky top-0 z-20 bg-background border-b">

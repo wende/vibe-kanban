@@ -1229,6 +1229,7 @@ export function ProjectTasks() {
               mode={effectiveMode}
               isMobile={isMobile}
               rightHeader={rightHeader}
+              onClose={handleClosePanel}
             />
           </ExecutionProcessesProvider>
         </ReviewProvider>
