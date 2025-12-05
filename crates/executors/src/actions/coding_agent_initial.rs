@@ -19,6 +19,9 @@ pub struct CodingAgentInitialRequest {
     #[serde(alias = "profile_variant_label")]
     // Backwards compatability with ProfileVariantIds, esp stored in DB under ExecutorAction
     pub executor_profile_id: ExecutorProfileId,
+    /// Whether this is an orchestrator execution (enables orchestrator-specific MCP servers)
+    #[serde(default)]
+    pub is_orchestrator: bool,
 }
 
 impl CodingAgentInitialRequest {
@@ -43,6 +46,7 @@ impl Executable for CodingAgentInitialRequest {
             ))?;
 
         agent.use_approvals(approvals.clone());
+        agent.set_orchestrator_mode(self.is_orchestrator);
 
         agent.spawn(current_dir, &self.prompt, env).await
     }

@@ -1,12 +1,4 @@
 {
-  "vibe_kanban": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "vibe-kanban@latest",
-      "--mcp"
-    ]
-  },
   "context7": {
     "type": "http",
     "url": "https://mcp.context7.com/mcp",
@@ -21,12 +13,6 @@
     ]
   },
   "meta": {
-    "vibe_kanban": {
-      "name": "Vibe Kanban",
-      "description": "Create, update and delete Vibe Kanban tasks",
-      "url": "https://www.vibekanban.com/docs/integrations/vibe-kanban-mcp-server",
-      "icon": "favicon-vk-light.svg"
-    },
     "context7": {
       "name": "Context7",
       "description": "Fetch up-to-date documentation and code examples",
@@ -41,4 +27,3 @@
     }
   }
 }
-

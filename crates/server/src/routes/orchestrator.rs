@@ -196,12 +196,14 @@ pub async fn orchestrator_send(
             prompt,
             session_id,
             executor_profile_id: executor_profile_id.clone(),
+            is_orchestrator: true,
         })
     } else {
         // Start new session
         ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
             prompt,
             executor_profile_id: executor_profile_id.clone(),
+            is_orchestrator: true,
         })
     };
 

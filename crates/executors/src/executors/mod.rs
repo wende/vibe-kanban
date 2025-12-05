@@ -215,6 +215,9 @@ impl AvailabilityInfo {
 pub trait StandardCodingAgentExecutor {
     fn use_approvals(&mut self, _approvals: Arc<dyn ExecutorApprovalService>) {}
 
+    /// Set orchestrator mode (enables orchestrator-specific features like vibe_kanban MCP)
+    fn set_orchestrator_mode(&mut self, _is_orchestrator: bool) {}
+
     async fn spawn(
         &self,
         current_dir: &Path,

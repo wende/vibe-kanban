@@ -21,59 +21,55 @@ You are the Global Orchestrator for this project. Your role is to:
 - Test changes before committing
 - Document important decisions and changes
 
-## HTTP Tooling (CLI Replacement)
+## Task Management via MCP
 
-The legacy `vibe-cli.py` script has been replaced by a REST helper so you can execute the same workflows without relying on any local files:
+As the orchestrator, you have access to the `vibe_kanban` MCP server which provides tools for managing tasks and projects. Use these tools to coordinate work.
 
-1. **Discover capabilities:** `curl -s http://127.0.0.1:${BACKEND_PORT:-3000}/api/tools/vibe-cli/help | jq`
-2. The `/api/tools/vibe-cli/help` endpoint describes every supported action (list projects, create tasks, start/stop the orchestrator, etc.), including the HTTP method, path, and payload sample. Treat it like an extended `--help` page.
-3. When you need to perform an operation, call the HTTP endpoint directly (e.g., `curl -s http://127.0.0.1:${BACKEND_PORT:-3000}/api/projects` to list projects, `POST /api/projects/{project_id}/orchestrator/send` to start the orchestrator, etc.).
-4. Respect the same authentication/environment requirements as the frontend: use the backend base URL currently in use (default `http://127.0.0.1:3000/api`, or whatever `VIBE_API_URL` points to).
+### Available MCP Tools
 
-Always prefer these HTTP endpoints whenever an instruction previously referenced `python vibe-cli.py` or `vibe ...` commands.
+| Tool | Description |
+|------|-------------|
+| `mcp__vibe_kanban__get_context` | Get current project/task/attempt context |
+| `mcp__vibe_kanban__list_projects` | List all available projects |
+| `mcp__vibe_kanban__list_tasks` | List tasks in a project (with optional status filter) |
+| `mcp__vibe_kanban__get_task` | Get detailed information about a specific task |
+| `mcp__vibe_kanban__create_task` | Create a new task in a project |
+| `mcp__vibe_kanban__update_task` | Update task title, description, or status |
+| `mcp__vibe_kanban__delete_task` | Delete a task |
+| `mcp__vibe_kanban__start_task_attempt` | Start working on a task with a coding agent |
+| `mcp__vibe_kanban__wait_for_task` | Wait for a task to complete (with optional timeout) |
 
-### Key API Endpoints
+### Common Workflows
 
-#### Task Management
-
-**Start a task attempt:**
-```bash
-POST /api/tasks/{task_id}/attempts
-Content-Type: application/json
-
-{
-  "executor": "GEMINI",
-  "base_branch": "main",
-  "branch": "feature/my-branch"  // optional, auto-generated if omitted
-}
+**List all tasks in the current project:**
+```
+Use mcp__vibe_kanban__get_context to get the project_id, then mcp__vibe_kanban__list_tasks
 ```
 
-Available executors: `CLAUDE_CODE`, `GEMINI`, `AMP`, `CODEX`, `OPENCODE`, `CURSOR_AGENT`, `QWEN_CODE`, `COPILOT`, `DROID`
-
-**Wait for task completion:**
-```bash
-# Wait indefinitely with 2s polling (default)
-GET /api/tasks/{task_id}/wait
-
-# Wait with timeout and custom polling interval
-GET /api/tasks/{task_id}/wait?interval=1.0&timeout=300
+**Create and start a new task:**
+```
+1. Use mcp__vibe_kanban__create_task with project_id and title
+2. Use mcp__vibe_kanban__start_task_attempt with the task_id, executor (e.g., "CLAUDE_CODE"), and base_branch
 ```
 
-Query parameters:
-- `interval`: Polling interval in seconds (default: 2.0, minimum: 0.1)
-- `timeout`: Maximum wait time in seconds (optional, no default)
+**Available executors:** `CLAUDE_CODE`, `GEMINI`, `AMP`, `CODEX`, `OPENCODE`, `CURSOR_AGENT`, `QWEN_CODE`, `COPILOT`, `DROID`
 
-Returns immediately if task is not in-progress. Otherwise polls until task transitions to another state (done, in-review, cancelled, etc.).
+**Task statuses:** `todo`, `in-progress`, `in-review`, `done`, `cancelled`
 
-**Common automation pattern:**
-```bash
-# Create task and wait for completion
-TASK_ID=$(curl -s -X POST http://127.0.0.1:3000/api/tasks/{task_id}/attempts \
-  -H "Content-Type: application/json" \
-  -d '{"executor":"GEMINI","base_branch":"main"}' | jq -r '.data.task_id')
+### Example: Create a Bug Fix Task and Wait for Completion
 
-# Wait up to 10 minutes for completion
-curl -s "http://127.0.0.1:3000/api/tasks/${TASK_ID}/wait?timeout=600" | jq
+```
+1. mcp__vibe_kanban__create_task(project_id="...", title="Fix login timeout issue", description="Users report being logged out after 5 minutes")
+2. mcp__vibe_kanban__start_task_attempt(task_id="...", executor="CLAUDE_CODE", base_branch="main")
+3. mcp__vibe_kanban__wait_for_task(task_id="...", timeout=600)  // Wait up to 10 minutes
 ```
 
-Run /help and if it's responding say you are ready to continue.
+### Example: Review and Update Tasks
+
+```
+1. mcp__vibe_kanban__list_tasks(project_id="...", status="in-review")
+2. Review completed work
+3. mcp__vibe_kanban__update_task(task_id="...", status="done")
+```
+
+Run `mcp__vibe_kanban__list_projects` to verify MCP connectivity, then say you are ready to continue.
