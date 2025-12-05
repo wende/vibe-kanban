@@ -85,6 +85,10 @@ pub trait ContainerService {
 
     async fn kill_all_running_processes(&self) -> Result<(), ContainerError>;
 
+    /// Signal the worktree cleanup background task to stop.
+    /// Default implementation does nothing (for deployments without worktree cleanup).
+    fn request_worktree_cleanup_shutdown(&self) {}
+
     async fn delete(&self, task_attempt: &TaskAttempt) -> Result<(), ContainerError> {
         self.try_stop(task_attempt).await;
         self.delete_inner(task_attempt).await
