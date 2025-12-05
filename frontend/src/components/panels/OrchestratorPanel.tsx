@@ -80,7 +80,8 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
       return;
     }
 
-    // Wait for content to render before showing
+    // Wait for VirtualizedList child to fully load and render
+    // Use same delay as VirtualizedList (double RAF + 100ms) + extra buffer
     let cancelled = false;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -89,7 +90,7 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
             if (!cancelled) {
               setReadyToShow(true);
             }
-          }, 100);
+          }, 250); // Increased from 100ms to give VirtualizedList time to load
         }
       });
     });
