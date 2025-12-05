@@ -63,7 +63,7 @@ export function NextActionCard({
   const { data: attempt } = useQuery({
     queryKey: ['attempt', attemptId],
     queryFn: () => attemptsApi.get(attemptId!),
-    enabled: !!attemptId && failed,
+    enabled: !!attemptId,
   });
   const { capabilities } = useUserSystem();
 
