@@ -87,7 +87,7 @@ const TaskAttemptPanel = ({
 
   const logsContent =
     displayTask && displayAttempt ? (
-      <VirtualizedList key={displayAttempt.id} attempt={displayAttempt} task={displayTask} />
+      <VirtualizedList attempt={displayAttempt} task={displayTask} />
     ) : (
       <LogsSkeleton />
     );
