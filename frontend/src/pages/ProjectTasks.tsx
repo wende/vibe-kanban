@@ -1127,12 +1127,12 @@ export function ProjectTasks() {
       {isTaskView ? (
         <TaskPanel task={displayTask} />
       ) : (
-        <div className="h-full flex flex-col relative">
-          <TaskAttemptPanel
-            attempt={attempt}
-            task={displayTask}
-            attemptId={attemptPanelResetKey}
-          >
+        <TaskAttemptPanel
+          attempt={attempt}
+          task={displayTask}
+          attemptId={attemptPanelResetKey}
+          showTopLevelLoading={true}
+        >
             {({ logs, followUp }) => (
               <>
                 <GitErrorBanner />
@@ -1153,8 +1153,7 @@ export function ProjectTasks() {
                 </div>
               </>
             )}
-          </TaskAttemptPanel>
-        </div>
+        </TaskAttemptPanel>
       )}
     </NewCard>
   ) : selectedSharedTask ? (
