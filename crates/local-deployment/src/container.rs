@@ -1073,7 +1073,22 @@ impl ContainerService for LocalContainerService {
         }
 
         let worktree_path = PathBuf::from(container_ref);
+        let worktree_base = WorktreeManager::get_worktree_base_dir();
 
+        // For external worktrees (not in managed directory), just verify the path exists
+        // Don't try to recreate them - they're managed externally (e.g., use_existing_branch)
+        if !worktree_path.starts_with(&worktree_base) {
+            if worktree_path.exists() {
+                return Ok(container_ref.to_string());
+            } else {
+                return Err(ContainerError::Other(anyhow!(
+                    "External worktree path '{}' no longer exists",
+                    container_ref
+                )));
+            }
+        }
+
+        // For managed worktrees, ensure they exist (recreate if needed)
         WorktreeManager::ensure_worktree_exists(
             &project.git_repo_path,
             &task_attempt.branch,

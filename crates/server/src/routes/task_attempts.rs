@@ -202,22 +202,25 @@ pub async fn create_task_attempt(
         .await;
 
     // Handle errors from starting the attempt
-    if let Err(err) = &start_result {
+    if let Err(err) = start_result {
         tracing::error!("Failed to start task attempt: {}", err);
 
-        // Check if this is a "branch already checked out" error
-        if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
-            // Clean up: delete the task attempt since we can't proceed
-            if let Err(e) = TaskAttempt::delete(&deployment.db().pool, task_attempt.id).await {
-                tracing::error!("Failed to delete task attempt after worktree error: {}", e);
-            }
+        // Clean up: delete the task attempt since we can't proceed
+        if let Err(e) = TaskAttempt::delete(&deployment.db().pool, task_attempt.id).await {
+            tracing::error!("Failed to delete task attempt after startup error: {}", e);
+        }
 
+        // Check if this is a "branch already checked out" error for a user-friendly message
+        if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
             return Err(ApiError::Conflict(format!(
                 "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
                 Please select a different branch or create a new branch for this task.",
                 branch
             )));
         }
+
+        // Propagate other errors
+        return Err(ApiError::Container(err));
     }
 
     deployment
