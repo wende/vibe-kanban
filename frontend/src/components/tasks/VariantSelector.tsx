@@ -32,9 +32,8 @@ const VariantSelectorInner = forwardRef<HTMLButtonElement, Props>(
     const hasVariants =
       currentProfile && Object.keys(currentProfile).length > 0;
 
-    if (!currentProfile) return null;
-
-    if (!hasVariants) {
+    // Show placeholder with consistent dimensions while loading to prevent flicker
+    if (!currentProfile || !hasVariants) {
       return (
         <Button
           ref={ref}
