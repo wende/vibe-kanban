@@ -159,7 +159,9 @@ export type KanbanCardsProps = {
 };
 
 export const KanbanCards = ({ children, className }: KanbanCardsProps) => (
-  <div className={cn('flex flex-1 flex-col', className)}>{children}</div>
+  <div className={cn('flex flex-1 flex-col relative z-10', className)}>
+    {children}
+  </div>
 );
 
 export type KanbanHeaderAction =
