@@ -4,8 +4,31 @@ import { TaskFollowUpSection } from '@/components/tasks/TaskFollowUpSection';
 import { EntriesProvider } from '@/contexts/EntriesContext';
 import { RetryUiProvider } from '@/contexts/RetryUiContext';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+
+// Wrapper that fades in content after mount
+function FadeIn({ children, className }: { children: ReactNode; className?: string }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    // Small delay to ensure content is rendered before fading in
+    const timer = setTimeout(() => setIsVisible(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div
+      className={cn(
+        'transition-opacity duration-200',
+        isVisible ? 'opacity-100' : 'opacity-0',
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 
 interface TaskAttemptPanelProps {
   attempt: TaskAttempt | undefined;
@@ -93,7 +116,9 @@ const TaskAttemptPanel = ({
     );
   const followUpContent =
     displayTask && displayAttempt ? (
-      <TaskFollowUpSection task={displayTask} selectedAttemptId={displayAttempt.id} />
+      <FadeIn className="h-full">
+        <TaskFollowUpSection task={displayTask} selectedAttemptId={displayAttempt.id} />
+      </FadeIn>
     ) : (
       <FollowUpSkeleton />
     );

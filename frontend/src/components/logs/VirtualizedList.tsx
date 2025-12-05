@@ -165,15 +165,23 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
   return (
     <ApprovalFormProvider>
       <div className="relative h-full min-h-0">
-        {!readyToShow && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Loading history...</span>
-            </div>
+        {/* Loading overlay with fade out animation */}
+        <div
+          className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
+            readyToShow ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading history...</span>
           </div>
-        )}
-        <div className={readyToShow ? 'visible' : 'invisible'}>
+        </div>
+        {/* Content with fade in animation */}
+        <div
+          className={`transition-opacity duration-200 ${
+            readyToShow ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
           <VirtuosoMessageListLicense
             licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
           >
