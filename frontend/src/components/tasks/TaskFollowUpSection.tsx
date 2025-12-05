@@ -223,11 +223,21 @@ export function TaskFollowUpSection({
       500
     );
 
-  // Sync local message from scratch when it loads
+  // Sync local message from scratch only on initial load
+  // We track whether we've done the initial sync to avoid overwriting user's typing
+  // when scratch updates come back from the server after our debounced save
+  const hasInitializedFromScratchRef = useRef(false);
   useEffect(() => {
     if (isScratchLoading) return;
+    if (hasInitializedFromScratchRef.current) return;
+    hasInitializedFromScratchRef.current = true;
     setLocalMessage(scratchData?.message ?? '');
   }, [isScratchLoading, scratchData?.message]);
+
+  // Reset the initialization flag when the attempt changes
+  useEffect(() => {
+    hasInitializedFromScratchRef.current = false;
+  }, [selectedAttemptId]);
 
   // During retry, follow-up box is greyed/disabled (not hidden)
   // Use RetryUi context so optimistic retry immediately disables this box
