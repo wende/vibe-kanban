@@ -80,6 +80,8 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
     DataWithScrollModifier<PatchTypeWithKey>
   >({ data: [], scrollModifier: InitialDataScrollModifier });
   const [loading, setLoading] = useState(true);
+  // Debounced loading state - stays true for 50ms after loading becomes false to mask flicker
+  const [debouncedLoading, setDebouncedLoading] = useState(true);
   const { setEntries, reset } = useEntries();
   const prevAttemptIdRef = useRef<string | null>(null);
 
@@ -101,6 +103,20 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
       reset();
     }
   }, [attempt.id, reset]);
+
+  // Debounce the loading state - keep overlay visible 50ms longer to mask flicker
+  useEffect(() => {
+    if (loading) {
+      // When loading starts, immediately show the overlay
+      setDebouncedLoading(true);
+    } else {
+      // When loading ends, delay hiding the overlay by 50ms
+      const timer = setTimeout(() => {
+        setDebouncedLoading(false);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   const onEntriesUpdated = (
     newEntries: PatchTypeWithKey[],
@@ -147,7 +163,7 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
             Footer={() => <div className="h-2"></div>}
           />
         </VirtuosoMessageListLicense>
-        {loading && (
+        {debouncedLoading && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
             <div className="flex items-center gap-2 rounded-full bg-background/95 px-4 py-2 text-sm text-muted-foreground shadow-md">
               <Loader2 className="h-4 w-4 animate-spin" />
