@@ -15,7 +15,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { attemptsApi } from '@/lib/api.ts';
 import { useTranslation } from 'react-i18next';
 import { FileStatusEntry } from 'shared/types';
-import { Loader2, GitCommit, FileText, FilePlus, FileX, FileEdit } from 'lucide-react';
+import {
+  Loader2,
+  GitCommit,
+  FileText,
+  FilePlus,
+  FileX,
+  FileEdit,
+} from 'lucide-react';
 import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/lib/modals';
 import { useQueryClient } from '@tanstack/react-query';
@@ -24,6 +31,12 @@ interface CommitDialogProps {
   attemptId: string;
 }
 
+const GIT_STATUS_DELETED = 'D';
+const GIT_STATUS_ADDED = 'A';
+const GIT_STATUS_MODIFIED = 'M';
+const GIT_STATUS_RENAMED = 'R';
+const GIT_STATUS_UNMODIFIED = ' ';
+
 function getFileIcon(entry: FileStatusEntry) {
   if (entry.is_untracked) {
     return <FilePlus className="h-4 w-4 text-green-500" />;
@@ -31,13 +44,13 @@ function getFileIcon(entry: FileStatusEntry) {
   const staged = entry.staged;
   const unstaged = entry.unstaged;
 
-  if (staged === 'D' || unstaged === 'D') {
+  if (staged === GIT_STATUS_DELETED || unstaged === GIT_STATUS_DELETED) {
     return <FileX className="h-4 w-4 text-red-500" />;
   }
-  if (staged === 'A') {
+  if (staged === GIT_STATUS_ADDED) {
     return <FilePlus className="h-4 w-4 text-green-500" />;
   }
-  if (staged === 'M' || unstaged === 'M') {
+  if (staged === GIT_STATUS_MODIFIED || unstaged === GIT_STATUS_MODIFIED) {
     return <FileEdit className="h-4 w-4 text-yellow-500" />;
   }
   return <FileText className="h-4 w-4 text-muted-foreground" />;
@@ -47,15 +60,16 @@ function getStatusLabel(entry: FileStatusEntry): string {
   if (entry.is_untracked) return 'untracked';
 
   const parts: string[] = [];
-  if (entry.staged !== ' ') {
-    if (entry.staged === 'M') parts.push('modified (staged)');
-    else if (entry.staged === 'A') parts.push('added');
-    else if (entry.staged === 'D') parts.push('deleted');
-    else if (entry.staged === 'R') parts.push('renamed');
+  if (entry.staged !== GIT_STATUS_UNMODIFIED) {
+    if (entry.staged === GIT_STATUS_MODIFIED)
+      parts.push('modified (staged)');
+    else if (entry.staged === GIT_STATUS_ADDED) parts.push('added');
+    else if (entry.staged === GIT_STATUS_DELETED) parts.push('deleted');
+    else if (entry.staged === GIT_STATUS_RENAMED) parts.push('renamed');
   }
-  if (entry.unstaged !== ' ') {
-    if (entry.unstaged === 'M') parts.push('modified');
-    else if (entry.unstaged === 'D') parts.push('deleted');
+  if (entry.unstaged !== GIT_STATUS_UNMODIFIED) {
+    if (entry.unstaged === GIT_STATUS_MODIFIED) parts.push('modified');
+    else if (entry.unstaged === GIT_STATUS_DELETED) parts.push('deleted');
   }
   return parts.join(', ') || 'changed';
 }

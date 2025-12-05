@@ -128,6 +128,9 @@ function GitOperations({
     };
   }, [branchStatus?.merges]);
 
+  const isActionDisabled =
+    mergeInfo.hasMergedPR || isAttemptRunning || hasConflictsCalculated;
+
   const mergeButtonLabel = useMemo(() => {
     if (mergeSuccess) return t('git.states.merged');
     if (merging) return t('git.states.merging');
@@ -427,9 +430,7 @@ function GitOperations({
             <Button
               onClick={handleCommitClick}
               disabled={
-                mergeInfo.hasMergedPR ||
-                isAttemptRunning ||
-                hasConflictsCalculated ||
+                isActionDisabled ||
                 (!branchStatus.has_uncommitted_changes &&
                   (branchStatus.uncommitted_count ?? 0) === 0 &&
                   (branchStatus.untracked_count ?? 0) === 0)
@@ -446,11 +447,9 @@ function GitOperations({
             <Button
               onClick={handleMergeClick}
               disabled={
-                mergeInfo.hasMergedPR ||
+                isActionDisabled ||
                 mergeInfo.hasOpenPR ||
                 merging ||
-                hasConflictsCalculated ||
-                isAttemptRunning ||
                 ((branchStatus.commits_ahead ?? 0) === 0 &&
                   !pushSuccess &&
                   !mergeSuccess)
@@ -467,10 +466,8 @@ function GitOperations({
             <Button
               onClick={handlePRButtonClick}
               disabled={
-                mergeInfo.hasMergedPR ||
+                isActionDisabled ||
                 pushing ||
-                isAttemptRunning ||
-                hasConflictsCalculated ||
                 (mergeInfo.hasOpenPR &&
                   branchStatus.remote_commits_ahead === 0) ||
                 ((branchStatus.commits_ahead ?? 0) === 0 &&
@@ -492,12 +489,7 @@ function GitOperations({
                 <TooltipTrigger asChild>
                   <Button
                     onClick={handleRebaseWithDefaults}
-                    disabled={
-                      mergeInfo.hasMergedPR ||
-                      rebasing ||
-                      isAttemptRunning ||
-                      hasConflictsCalculated
-                    }
+                    disabled={isActionDisabled || rebasing}
                     variant="outline"
                     size="xs"
                     className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
@@ -522,12 +514,7 @@ function GitOperations({
                 <TooltipTrigger asChild>
                   <Button
                     onClick={handleRebaseDialogOpen}
-                    disabled={
-                      mergeInfo.hasMergedPR ||
-                      rebasing ||
-                      isAttemptRunning ||
-                      hasConflictsCalculated
-                    }
+                    disabled={isActionDisabled || rebasing}
                     variant="outline"
                     size="xs"
                     className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
