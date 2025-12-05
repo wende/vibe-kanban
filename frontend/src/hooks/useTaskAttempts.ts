@@ -21,5 +21,7 @@ export function useTaskAttempts(taskId?: string, opts?: Options) {
     queryFn: () => attemptsApi.getAll(taskId!),
     enabled,
     refetchInterval,
+    // Keep previous data while fetching new task's attempts to prevent flickering
+    placeholderData: (previousData) => previousData,
   });
 }

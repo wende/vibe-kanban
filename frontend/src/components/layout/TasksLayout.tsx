@@ -1,5 +1,10 @@
-import { ReactNode, useState } from 'react';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { ReactNode, useState, useRef, useEffect } from 'react';
+import {
+  PanelGroup,
+  Panel,
+  PanelResizeHandle,
+  type ImperativePanelGroupHandle,
+} from 'react-resizable-panels';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -189,7 +194,26 @@ function DesktopSimple({
     loadSizes(STORAGE_KEYS.KANBAN_ATTEMPT, DEFAULT_KANBAN_ATTEMPT)
   );
   const [isKanbanCollapsed, setIsKanbanCollapsed] = useState(false);
-  const kanbanDefaultSize = showRightArea ? outerSizes[0] : 100;
+  const panelGroupRef = useRef<ImperativePanelGroupHandle | null>(null);
+
+  // Track if we need to animate the panel opening
+  const prevShowRightAreaRef = useRef(showRightArea);
+
+  // Animate panel sizes when showRightArea changes
+  useEffect(() => {
+    const wasOpen = prevShowRightAreaRef.current;
+    prevShowRightAreaRef.current = showRightArea;
+
+    if (panelGroupRef.current && wasOpen !== showRightArea) {
+      if (showRightArea) {
+        // Panel is opening - animate from kanban-only to split view
+        panelGroupRef.current.setLayout([outerSizes[0], outerSizes[1]]);
+      } else {
+        // Panel is closing - animate to kanban-only
+        panelGroupRef.current.setLayout([100, 0]);
+      }
+    }
+  }, [showRightArea, outerSizes]);
 
   // When preview/diffs is open, hide Kanban entirely and render only RightWorkArea
   if (mode !== null) {
@@ -206,10 +230,12 @@ function DesktopSimple({
   // When only viewing attempt logs, show Kanban | Attempt (no aux)
   return (
     <PanelGroup
+      ref={panelGroupRef}
       direction="horizontal"
       className="h-full min-h-0"
       onLayout={(layout) => {
-        if (layout.length === 2) {
+        // Only save sizes when both panels are visible and have reasonable values
+        if (layout.length === 2 && showRightArea && layout[0] > 5 && layout[1] > 5) {
           setOuterSizes([layout[0], layout[1]]);
           saveSizes(STORAGE_KEYS.KANBAN_ATTEMPT, [layout[0], layout[1]]);
         }
@@ -218,8 +244,8 @@ function DesktopSimple({
       <Panel
         id="kanban"
         order={1}
-        defaultSize={kanbanDefaultSize}
-        minSize={MIN_PANEL_SIZE}
+        defaultSize={showRightArea ? outerSizes[0] : 100}
+        minSize={showRightArea ? MIN_PANEL_SIZE : 100}
         collapsible={showRightArea}
         collapsedSize={0}
         onCollapse={() => setIsKanbanCollapsed(true)}
@@ -231,46 +257,46 @@ function DesktopSimple({
         {kanban}
       </Panel>
 
-      {showRightArea && (
-        <>
-          <PanelResizeHandle
-            id="handle-kr"
-            className={cn(
-              'relative z-30 bg-border cursor-col-resize group touch-none',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-              'focus-visible:ring-offset-1 focus-visible:ring-offset-background',
-              'transition-all',
-              isKanbanCollapsed ? 'w-6' : 'w-1'
-            )}
-            aria-label="Resize panels"
-            role="separator"
-            aria-orientation="vertical"
-          >
-            <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border" />
-            <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-muted/90 border border-border rounded-full px-1.5 py-3 opacity-70 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shadow-sm">
-              <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-              <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-              <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-            </div>
-          </PanelResizeHandle>
+      <PanelResizeHandle
+        id="handle-kr"
+        className={cn(
+          'relative z-30 bg-border cursor-col-resize group touch-none',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+          'focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+          'transition-all',
+          !showRightArea && 'hidden',
+          isKanbanCollapsed ? 'w-6' : 'w-1'
+        )}
+        aria-label="Resize panels"
+        role="separator"
+        aria-orientation="vertical"
+      >
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border" />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-muted/90 border border-border rounded-full px-1.5 py-3 opacity-70 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shadow-sm">
+          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+        </div>
+      </PanelResizeHandle>
 
-          <Panel
-            id="right"
-            order={2}
-            defaultSize={outerSizes[1]}
-            minSize={MIN_PANEL_SIZE}
-            collapsible={false}
-            className="min-w-0 min-h-0 overflow-hidden"
-          >
-            <RightWorkArea
-              attempt={attempt}
-              aux={aux}
-              mode={mode}
-              rightHeader={rightHeader}
-            />
-          </Panel>
-        </>
-      )}
+      <Panel
+        id="right"
+        order={2}
+        defaultSize={showRightArea ? outerSizes[1] : 0}
+        minSize={showRightArea ? MIN_PANEL_SIZE : 0}
+        collapsible={false}
+        className={cn(
+          'min-w-0 min-h-0 overflow-hidden transition-opacity duration-200',
+          !showRightArea && 'opacity-0 pointer-events-none'
+        )}
+      >
+        <RightWorkArea
+          attempt={attempt}
+          aux={aux}
+          mode={mode}
+          rightHeader={rightHeader}
+        />
+      </Panel>
     </PanelGroup>
   );
 }

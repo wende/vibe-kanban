@@ -99,10 +99,6 @@ function GitStatusIndicators({
   }, [
     branchStatus?.commits_ahead,
     branchStatus?.remote_commits_ahead,
-    branchStatus?.uncommitted_count,
-    branchStatus?.untracked_count,
-    branchStatus?.has_uncommitted_changes,
-    branchStatus?.conflicted_files?.length,
     sticky.uncommitted,
     sticky.untracked,
   ]);

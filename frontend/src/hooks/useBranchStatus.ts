@@ -8,5 +8,7 @@ export function useBranchStatus(attemptId?: string) {
     enabled: !!attemptId,
     // Poll faster to promptly reflect rebase/abort transitions
     refetchInterval: 5000,
+    // Keep previous data to prevent flickering during transitions
+    placeholderData: (previousData) => previousData,
   });
 }

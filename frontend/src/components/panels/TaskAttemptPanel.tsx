@@ -4,7 +4,7 @@ import { TaskFollowUpSection } from '@/components/tasks/TaskFollowUpSection';
 import { EntriesProvider } from '@/contexts/EntriesContext';
 import { RetryUiProvider } from '@/contexts/RetryUiContext';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface TaskAttemptPanelProps {
@@ -62,6 +62,21 @@ const TaskAttemptPanel = ({
   children,
 }: TaskAttemptPanelProps) => {
   const { markAsRead } = useTaskReadStatus();
+  // Keep track of the last valid attempt to prevent flickering during transitions
+  const lastAttemptRef = useRef<TaskAttempt | undefined>(attempt);
+  const lastTaskRef = useRef<TaskWithAttemptStatus | null>(task);
+
+  // Update refs when we have valid data
+  if (attempt) {
+    lastAttemptRef.current = attempt;
+  }
+  if (task) {
+    lastTaskRef.current = task;
+  }
+
+  // Use the last valid data for rendering to prevent skeleton flash
+  const displayAttempt = attempt ?? lastAttemptRef.current;
+  const displayTask = task ?? lastTaskRef.current;
 
   // Mark task as read when viewing the panel, and whenever it gets updated
   useEffect(() => {
@@ -71,14 +86,14 @@ const TaskAttemptPanel = ({
   }, [task?.id, task?.updated_at, markAsRead]);
 
   const logsContent =
-    task && attempt ? (
-      <VirtualizedList key={attempt.id} attempt={attempt} task={task} />
+    displayTask && displayAttempt ? (
+      <VirtualizedList key={displayAttempt.id} attempt={displayAttempt} task={displayTask} />
     ) : (
       <LogsSkeleton />
     );
   const followUpContent =
-    task && attempt ? (
-      <TaskFollowUpSection task={task} selectedAttemptId={attempt.id} />
+    displayTask && displayAttempt ? (
+      <TaskFollowUpSection task={displayTask} selectedAttemptId={displayAttempt.id} />
     ) : (
       <FollowUpSkeleton />
     );
