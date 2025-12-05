@@ -176,14 +176,16 @@ function DesktopSimple({
   aux,
   mode,
   rightHeader,
+  showRightArea,
 }: {
   kanban: ReactNode;
   attempt: ReactNode;
   aux: ReactNode;
   mode: LayoutMode;
   rightHeader?: ReactNode;
+  showRightArea: boolean;
 }) {
-  const [outerSizes] = useState<SplitSizes>(() =>
+  const [outerSizes, setOuterSizes] = useState<SplitSizes>(() =>
     loadSizes(STORAGE_KEYS.KANBAN_ATTEMPT, DEFAULT_KANBAN_ATTEMPT)
   );
   const [isKanbanCollapsed, setIsKanbanCollapsed] = useState(false);
@@ -207,6 +209,7 @@ function DesktopSimple({
       className="h-full min-h-0"
       onLayout={(layout) => {
         if (layout.length === 2) {
+          setOuterSizes([layout[0], layout[1]]);
           saveSizes(STORAGE_KEYS.KANBAN_ATTEMPT, [layout[0], layout[1]]);
         }
       }}
@@ -216,7 +219,7 @@ function DesktopSimple({
         order={1}
         defaultSize={outerSizes[0]}
         minSize={MIN_PANEL_SIZE}
-        collapsible
+        collapsible={showRightArea}
         collapsedSize={0}
         onCollapse={() => setIsKanbanCollapsed(true)}
         onExpand={() => setIsKanbanCollapsed(false)}
@@ -227,42 +230,46 @@ function DesktopSimple({
         {kanban}
       </Panel>
 
-      <PanelResizeHandle
-        id="handle-kr"
-        className={cn(
-          'relative z-30 bg-border cursor-col-resize group touch-none',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-          'focus-visible:ring-offset-1 focus-visible:ring-offset-background',
-          'transition-all',
-          isKanbanCollapsed ? 'w-6' : 'w-1'
-        )}
-        aria-label="Resize panels"
-        role="separator"
-        aria-orientation="vertical"
-      >
-        <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border" />
-        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-muted/90 border border-border rounded-full px-1.5 py-3 opacity-70 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shadow-sm">
-          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-        </div>
-      </PanelResizeHandle>
+      {showRightArea && (
+        <>
+          <PanelResizeHandle
+            id="handle-kr"
+            className={cn(
+              'relative z-30 bg-border cursor-col-resize group touch-none',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+              'focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+              'transition-all',
+              isKanbanCollapsed ? 'w-6' : 'w-1'
+            )}
+            aria-label="Resize panels"
+            role="separator"
+            aria-orientation="vertical"
+          >
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border" />
+            <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-muted/90 border border-border rounded-full px-1.5 py-3 opacity-70 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shadow-sm">
+              <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+              <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+              <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+            </div>
+          </PanelResizeHandle>
 
-      <Panel
-        id="right"
-        order={2}
-        defaultSize={outerSizes[1]}
-        minSize={MIN_PANEL_SIZE}
-        collapsible={false}
-        className="min-w-0 min-h-0 overflow-hidden"
-      >
-        <RightWorkArea
-          attempt={attempt}
-          aux={aux}
-          mode={mode}
-          rightHeader={rightHeader}
-        />
-      </Panel>
+          <Panel
+            id="right"
+            order={2}
+            defaultSize={outerSizes[1]}
+            minSize={MIN_PANEL_SIZE}
+            collapsible={false}
+            className="min-w-0 min-h-0 overflow-hidden"
+          >
+            <RightWorkArea
+              attempt={attempt}
+              aux={aux}
+              mode={mode}
+              rightHeader={rightHeader}
+            />
+          </Panel>
+        </>
+      )}
     </PanelGroup>
   );
 }
@@ -276,8 +283,6 @@ export function TasksLayout({
   isMobile = false,
   rightHeader,
 }: TasksLayoutProps) {
-  const desktopKey = isPanelOpen ? 'desktop-with-panel' : 'kanban-only';
-
   if (isMobile) {
     const columns = isPanelOpen ? ['0fr', '1fr', '0fr'] : ['1fr', '0fr', '0fr'];
     const gridTemplateColumns = `minmax(0, ${columns[0]}) minmax(0, ${columns[1]}) minmax(0, ${columns[2]})`;
@@ -331,42 +336,20 @@ export function TasksLayout({
     );
   }
 
-  let desktopNode: ReactNode;
-
-  if (!isPanelOpen) {
-    desktopNode = (
-      <div
-        className="h-full min-h-0 min-w-0 overflow-hidden"
-        role="region"
-        aria-label="Kanban board"
-      >
-        {kanban}
-      </div>
-    );
-  } else {
-    desktopNode = (
-      <DesktopSimple
-        kanban={kanban}
-        attempt={attempt}
-        aux={aux}
-        mode={mode}
-        rightHeader={rightHeader}
-      />
-    );
-  }
+  const desktopNode = (
+    <DesktopSimple
+      kanban={kanban}
+      attempt={attempt}
+      aux={aux}
+      mode={mode}
+      rightHeader={rightHeader}
+      showRightArea={isPanelOpen}
+    />
+  );
 
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      <motion.div
-        key={desktopKey}
-        className="h-full min-h-0"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
-      >
-        {desktopNode}
-      </motion.div>
-    </AnimatePresence>
+    <div className="h-full min-h-0" data-panel-open={isPanelOpen ? 'true' : 'false'}>
+      {desktopNode}
+    </div>
   );
 }
