@@ -337,6 +337,10 @@ export function ProjectTasks() {
   const effectiveAttemptId = attemptId === 'latest' ? undefined : attemptId;
   const isTaskView = !!taskId && !effectiveAttemptId;
   const { data: attempt } = useTaskAttempt(effectiveAttemptId);
+  const attemptPanelResetKey =
+    attempt?.id ??
+    effectiveAttemptId ??
+    (attemptId === 'latest' ? 'latest' : undefined);
 
   const { data: branchStatus } = useBranchStatus(attempt?.id);
   const [branches, setBranches] = useState<GitBranch[]>([]);
@@ -1113,7 +1117,11 @@ export function ProjectTasks() {
       {isTaskView ? (
         <TaskPanel task={selectedTask} />
       ) : (
-        <TaskAttemptPanel attempt={attempt} task={selectedTask}>
+        <TaskAttemptPanel
+          attempt={attempt}
+          task={selectedTask}
+          attemptId={attemptPanelResetKey}
+        >
           {({ logs, followUp }) => (
             <>
               <GitErrorBanner />
