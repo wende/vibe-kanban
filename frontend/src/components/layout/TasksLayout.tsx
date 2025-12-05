@@ -189,6 +189,7 @@ function DesktopSimple({
     loadSizes(STORAGE_KEYS.KANBAN_ATTEMPT, DEFAULT_KANBAN_ATTEMPT)
   );
   const [isKanbanCollapsed, setIsKanbanCollapsed] = useState(false);
+  const kanbanDefaultSize = showRightArea ? outerSizes[0] : 100;
 
   // When preview/diffs is open, hide Kanban entirely and render only RightWorkArea
   if (mode !== null) {
@@ -217,7 +218,7 @@ function DesktopSimple({
       <Panel
         id="kanban"
         order={1}
-        defaultSize={outerSizes[0]}
+        defaultSize={kanbanDefaultSize}
         minSize={MIN_PANEL_SIZE}
         collapsible={showRightArea}
         collapsedSize={0}
