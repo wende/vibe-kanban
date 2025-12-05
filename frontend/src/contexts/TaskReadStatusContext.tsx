@@ -52,9 +52,12 @@ export function TaskReadStatusProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAsRead = useCallback((taskId: string) => {
+    // Add a small buffer to account for backend updates that happen
+    // after the user action (e.g., sending a follow-up updates task.updated_at)
+    const futureTime = new Date(Date.now() + 1000).toISOString();
     const newStore = {
       ...getStore(),
-      [taskId]: new Date().toISOString(),
+      [taskId]: futureTime,
     };
     setStore(newStore);
     setLastViewed(newStore);
