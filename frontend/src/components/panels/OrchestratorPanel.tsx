@@ -5,7 +5,7 @@ import { ExecutionProcessesProvider } from '@/contexts/ExecutionProcessesContext
 import { ReviewProvider } from '@/contexts/ReviewProvider';
 import { ClickedElementsProvider } from '@/contexts/ClickedElementsProvider';
 import { Loader2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { TaskWithAttemptStatus } from 'shared/types';
 
 // Rainbow gradient text component for VIBE
@@ -63,27 +63,58 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
 
   const isRunning = orchestrator?.latest_process?.status === 'running';
 
+  // Cache last valid orchestrator data to prevent flicker during transitions
+  const lastOrchestratorRef = useRef(orchestrator);
+  if (orchestrator?.latest_process) {
+    lastOrchestratorRef.current = orchestrator;
+  }
+  const displayOrchestrator = orchestrator?.latest_process ? orchestrator : lastOrchestratorRef.current;
+
+  // Track ready state with delay for smooth transitions
+  const [readyToShow, setReadyToShow] = useState(false);
+  const hasContent = !!displayOrchestrator?.latest_process;
+
+  useEffect(() => {
+    if (!hasContent) {
+      setReadyToShow(false);
+      return;
+    }
+
+    // Wait for content to render before showing
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) {
+          setTimeout(() => {
+            if (!cancelled) {
+              setReadyToShow(true);
+            }
+          }, 100);
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasContent]);
+
   // Convert orchestrator data to the format TaskAttemptPanel expects
-  const taskWithStatus: TaskWithAttemptStatus | null = orchestrator
+  const taskWithStatus: TaskWithAttemptStatus | null = displayOrchestrator
     ? {
-        ...orchestrator.task,
+        ...displayOrchestrator.task,
         has_in_progress_attempt: isRunning,
         has_merged_attempt: false,
-        last_attempt_failed: orchestrator.latest_process?.status === 'failed',
+        last_attempt_failed: displayOrchestrator.latest_process?.status === 'failed',
         executor: 'CLAUDE_CODE',
-        latest_task_attempt_id: orchestrator.attempt.id,
+        latest_task_attempt_id: displayOrchestrator.attempt.id,
       }
     : null;
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // Show loading overlay until content is ready
+  const showLoading = isLoading || !hasContent || !readyToShow;
 
-  if (error) {
+  if (error && !displayOrchestrator) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4 text-center p-6">
         <p className="text-destructive">Failed to load orchestrator</p>
@@ -92,8 +123,8 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
     );
   }
 
-  // If no orchestrator process yet, show starting state
-  if (!orchestrator?.latest_process) {
+  // If no orchestrator process yet and no cached data, show starting state
+  if (!displayOrchestrator?.latest_process) {
     const hasError = startMutation.isError;
 
     return (
@@ -126,17 +157,33 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
 
   // Show the orchestrator session with logs
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* Loading overlay with fade */}
+      <div
+        className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
+          showLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading orchestrator...</span>
+        </div>
+      </div>
+
       {/* Main Content - Reuse TaskAttemptPanel */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        <ClickedElementsProvider attempt={orchestrator.attempt}>
-          <ReviewProvider key={orchestrator.attempt.id}>
+      <div
+        className={`flex-1 min-h-0 flex flex-col transition-opacity duration-200 ${
+          readyToShow ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <ClickedElementsProvider attempt={displayOrchestrator.attempt}>
+          <ReviewProvider key={displayOrchestrator.attempt.id}>
             <ExecutionProcessesProvider
-              key={orchestrator.attempt.id}
-              attemptId={orchestrator.attempt.id}
+              key={displayOrchestrator.attempt.id}
+              attemptId={displayOrchestrator.attempt.id}
             >
               <TaskAttemptPanel
-                attempt={orchestrator.attempt}
+                attempt={displayOrchestrator.attempt}
                 task={taskWithStatus}
               >
                 {({ logs, followUp }) => (
