@@ -487,43 +487,63 @@ function GitOperations({
               <span className="truncate max-w-[10ch]">{prButtonLabel}</span>
             </Button>
 
-            <Button
-              onClick={handleRebaseWithDefaults}
-              disabled={
-                mergeInfo.hasMergedPR ||
-                rebasing ||
-                isAttemptRunning ||
-                hasConflictsCalculated
-              }
-              variant="outline"
-              size="xs"
-              className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
-              aria-label={rebaseButtonLabel}
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${rebasing ? 'animate-spin' : ''}`}
-              />
-              <span className="truncate max-w-[10ch]">{rebaseButtonLabel}</span>
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleRebaseWithDefaults}
+                    disabled={
+                      mergeInfo.hasMergedPR ||
+                      rebasing ||
+                      isAttemptRunning ||
+                      hasConflictsCalculated
+                    }
+                    variant="outline"
+                    size="xs"
+                    className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
+                    aria-label={rebaseButtonLabel}
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${rebasing ? 'animate-spin' : ''}`}
+                    />
+                    <span className="truncate max-w-[10ch]">
+                      {rebaseButtonLabel}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t('git.tooltips.quickRebase')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-            <Button
-              onClick={handleRebaseDialogOpen}
-              disabled={
-                mergeInfo.hasMergedPR ||
-                rebasing ||
-                isAttemptRunning ||
-                hasConflictsCalculated
-              }
-              variant="outline"
-              size="xs"
-              className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
-              aria-label={t('rebase.dialog.title')}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span className="truncate max-w-[10ch]">
-                {rebaseAdvancedButtonLabel}
-              </span>
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleRebaseDialogOpen}
+                    disabled={
+                      mergeInfo.hasMergedPR ||
+                      rebasing ||
+                      isAttemptRunning ||
+                      hasConflictsCalculated
+                    }
+                    variant="outline"
+                    size="xs"
+                    className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
+                    aria-label={t('rebase.dialog.title')}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span className="truncate max-w-[10ch]">
+                      {rebaseAdvancedButtonLabel}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t('git.tooltips.advancedRebase')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
       </div>

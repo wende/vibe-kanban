@@ -240,6 +240,10 @@
       "rebase": "리베이스",
       "rebasing": "리베이스 중..."
     },
+    "tooltips": {
+      "quickRebase": "기본 대상 브랜치로 바로 리베이스",
+      "advancedRebase": "리베이스 전에 대상과 업스트림 브랜치를 선택"
+    },
     "status": {
       "ahead": "앞서감",
       "behind": "뒤처짐",

@@ -240,6 +240,10 @@
       "rebase": "Rebase",
       "rebasing": "Rebaseando..."
     },
+    "tooltips": {
+      "quickRebase": "Rebase rápido sobre la rama de destino predeterminada",
+      "advancedRebase": "Elige ramas de destino y upstream antes del rebase"
+    },
     "status": {
       "ahead": "adelante",
       "behind": "atrás",
