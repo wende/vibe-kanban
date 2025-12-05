@@ -32,20 +32,22 @@ const VariantSelectorInner = forwardRef<HTMLButtonElement, Props>(
     const hasVariants =
       currentProfile && Object.keys(currentProfile).length > 0;
 
-    // Show placeholder with consistent dimensions while loading to prevent flicker
+    // Show placeholder with consistent styling while loading to prevent flicker
     if (!currentProfile || !hasVariants) {
       return (
         <Button
           ref={ref}
-          variant="outline"
+          variant="secondary"
           size="sm"
           className={cn(
-            'h-10 w-24 px-2 flex items-center justify-between',
+            'px-2 flex items-center justify-between',
             className
           )}
           disabled
         >
-          <span className="text-xs truncate flex-1 text-left">Default</span>
+          <Settings2 className="h-3 w-3 mr-1 flex-shrink-0" />
+          <span className="text-xs truncate flex-1 text-left">DEFAULT</span>
+          <ChevronDown className="h-3 w-3 ml-1 flex-shrink-0" />
         </Button>
       );
     }
