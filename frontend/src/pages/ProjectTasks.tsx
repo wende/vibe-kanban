@@ -970,7 +970,7 @@ export function ProjectTasks() {
         </Card>
       </div>
     ) : (
-      <div className="w-full h-full overflow-x-auto overflow-y-auto overscroll-x-contain">
+      <div className="w-full h-full overflow-x-auto overflow-y-auto overscroll-x-contain isolate">
         <TaskKanbanBoard
           columns={kanbanColumns}
           onDragEnd={handleDragEnd}
