@@ -23,12 +23,13 @@ import { IdeIcon } from '@/components/ide/IdeIcon';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { getIdeName } from '@/components/ide/IdeIcon';
 import { useProject } from '@/contexts/ProjectContext';
-import { useQuery } from '@tanstack/react-query';
+import { useTaskAttempt } from '@/hooks/useTaskAttempt';
 import { attemptsApi } from '@/lib/api';
 import {
   BaseAgentCapability,
   type BaseCodingAgent,
   type TaskWithAttemptStatus,
+  type TaskAttempt,
 } from 'shared/types';
 import {
   Tooltip,
@@ -39,6 +40,7 @@ import {
 
 type NextActionCardProps = {
   attemptId?: string;
+  attempt?: TaskAttempt;
   containerRef?: string | null;
   failed: boolean;
   execution_processes: number;
@@ -48,6 +50,7 @@ type NextActionCardProps = {
 
 export function NextActionCard({
   attemptId,
+  attempt: attemptProp,
   containerRef,
   failed,
   execution_processes,
@@ -60,11 +63,9 @@ export function NextActionCard({
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
-  const { data: attempt } = useQuery({
-    queryKey: ['attempt', attemptId],
-    queryFn: () => attemptsApi.get(attemptId!),
-    enabled: !!attemptId,
-  });
+  // Use the passed attempt if available, otherwise fetch it
+  const { data: fetchedAttempt } = useTaskAttempt(attemptProp ? undefined : attemptId);
+  const attempt = attemptProp ?? fetchedAttempt;
   const { capabilities } = useUserSystem();
 
   const openInEditor = useOpenInEditor(attemptId);
