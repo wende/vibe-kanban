@@ -16,7 +16,7 @@ use axum::{
 use db::models::{
     image::TaskImage,
     task::{CreateTask, Task, TaskWithAttemptStatus, UpdateTask},
-    task_attempt::{CreateTaskAttempt, TaskAttempt},
+    task_attempt::TaskAttempt,
 };
 use deployment::Deployment;
 use executors::executors::BaseCodingAgent;
@@ -173,90 +173,71 @@ pub async fn create_task_and_start(
             }),
         )
         .await;
-    let attempt_id = Uuid::new_v4();
-    let git_branch_name = if let Some(custom_branch) = &payload.custom_branch {
-        // Use the custom branch name provided by the user
-        custom_branch.clone()
-    } else if payload.use_existing_branch {
-        // Use the existing branch directly instead of creating a new one
-        payload.base_branch.clone()
-    } else {
-        deployment
-            .container()
-            .git_branch_from_task_attempt(&attempt_id, &task.title)
-            .await
-    };
 
-    let task_attempt = TaskAttempt::create(
-        &deployment.db().pool,
-        &CreateTaskAttempt {
-            executor: payload.executor_profile_id.executor,
-            base_branch: payload.base_branch.clone(),
-            branch: git_branch_name.clone(),
-            is_orchestrator: false,
-        },
-        attempt_id,
-        task.id,
-    )
-    .await?;
-
-    let start_result = deployment
+    let task_attempt_result = deployment
         .container()
-        .start_attempt(&task_attempt, payload.executor_profile_id.clone())
+        .create_and_start_task_attempt(
+            &task,
+            payload.executor_profile_id.clone(),
+            &payload.base_branch,
+            payload.custom_branch,
+            payload.use_existing_branch,
+            None, // conversation_history for a new task is always None
+        )
         .await;
 
-    // Handle errors from starting the attempt
-    let is_attempt_running = match &start_result {
-        Ok(_) => true,
+    let response = match task_attempt_result {
+        Ok(task_attempt) => {
+            deployment
+                .track_if_analytics_allowed(
+                    "task_attempt_started",
+                    serde_json::json!({
+                        "task_id": task.id.to_string(),
+                        "executor": &payload.executor_profile_id.executor,
+                        "variant": &payload.executor_profile_id.variant,
+                        "attempt_id": task_attempt.id.to_string(),
+                    }),
+                )
+                .await;
+
+            tracing::info!("Started attempt for task {}", task.id);
+
+            TaskWithAttemptStatus {
+                task,
+                has_in_progress_attempt: true,
+                has_merged_attempt: false,
+                last_attempt_failed: false,
+                executor: task_attempt.executor.to_string(),
+                latest_task_attempt_id: Some(task_attempt.id),
+            }
+        }
         Err(err) => {
             tracing::error!("Failed to start task attempt: {}", err);
 
-            // Check if this is a "branch already checked out" error
-            if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
-                // Clean up: delete the task attempt and task since we can't proceed
-                if let Err(e) = TaskAttempt::delete(&deployment.db().pool, task_attempt.id).await {
-                    tracing::error!("Failed to delete task attempt after worktree error: {}", e);
-                }
+            if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = &err {
                 if let Err(e) = Task::delete(&deployment.db().pool, task.id).await {
                     tracing::error!("Failed to delete task after worktree error: {}", e);
                 }
 
                 return Err(ApiError::Conflict(format!(
-                    "Cannot start task on branch '{}' because it is already checked out in the main repository. \
+                    "Cannot start task on branch '{}' because it is already checked out in the main repository. \\\
                     Please select a different branch or create a new branch for this task.",
                     branch
                 )));
             }
 
-            false
+            TaskWithAttemptStatus {
+                task,
+                has_in_progress_attempt: false,
+                has_merged_attempt: false,
+                last_attempt_failed: true,
+                executor: "".to_string(),
+                latest_task_attempt_id: None,
+            }
         }
     };
 
-    deployment
-        .track_if_analytics_allowed(
-            "task_attempt_started",
-            serde_json::json!({
-                "task_id": task.id.to_string(),
-                "executor": &payload.executor_profile_id.executor,
-                "variant": &payload.executor_profile_id.variant,
-                "attempt_id": task_attempt.id.to_string(),
-            }),
-        )
-        .await;
-
-    let task = Task::find_by_id(&deployment.db().pool, task.id)
-        .await?
-        .ok_or(ApiError::Database(SqlxError::RowNotFound))?;
-
-    tracing::info!("Started attempt for task {}", task.id);
-    Ok(ResponseJson(ApiResponse::success(TaskWithAttemptStatus {
-        task,
-        has_in_progress_attempt: is_attempt_running,
-        has_merged_attempt: false,
-        last_attempt_failed: false,
-        executor: task_attempt.executor,
-        latest_task_attempt_id: Some(task_attempt.id),
-    })))
+    Ok(ResponseJson(ApiResponse::success(response)))
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -272,58 +253,33 @@ pub async fn start_task_attempt(
     State(deployment): State<DeploymentImpl>,
     Json(payload): Json<StartTaskAttemptRequest>,
 ) -> Result<ResponseJson<ApiResponse<TaskAttempt>>, ApiError> {
-    let attempt_id = Uuid::new_v4();
-
     let executor_profile_id = ExecutorProfileId::new(payload.executor);
 
-    let git_branch_name = if let Some(custom_branch) = payload.branch {
-        custom_branch
-    } else {
-        deployment
-            .container()
-            .git_branch_from_task_attempt(&attempt_id, &task.title)
-            .await
-    };
-
-    let task_attempt = TaskAttempt::create(
-        &deployment.db().pool,
-        &CreateTaskAttempt {
-            executor: executor_profile_id.executor,
-            base_branch: payload.base_branch.clone(),
-            branch: git_branch_name.clone(),
-            is_orchestrator: false,
-        },
-        attempt_id,
-        task.id,
-    )
-    .await?;
-
-    let start_result = deployment
+    let task_attempt_result = deployment
         .container()
-        .start_attempt(&task_attempt, executor_profile_id.clone())
+        .create_and_start_task_attempt(
+            &task,
+            executor_profile_id.clone(),
+            &payload.base_branch,
+            payload.branch,
+            false, // use_existing_branch
+            None,  // conversation_history
+        )
         .await;
 
-    // Handle errors from starting the attempt
-    if let Err(err) = start_result {
-        tracing::error!("Failed to start task attempt: {}", err);
-
-        // Clean up: delete the task attempt since we can't proceed
-        if let Err(e) = TaskAttempt::delete(&deployment.db().pool, task_attempt.id).await {
-            tracing::error!("Failed to delete task attempt after startup error: {}", e);
+    let task_attempt = match task_attempt_result {
+        Ok(attempt) => attempt,
+        Err(err) => {
+            if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
+                return Err(ApiError::Conflict(format!(
+                    "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
+                    Please select a different branch or create a new branch for this task.",
+                    branch
+                )));
+            }
+            return Err(ApiError::Container(err));
         }
-
-        // Check if this is a "branch already checked out" error for a user-friendly message
-        if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
-            return Err(ApiError::Conflict(format!(
-                "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
-                Please select a different branch or create a new branch for this task.",
-                branch
-            )));
-        }
-
-        // Propagate other errors
-        return Err(ApiError::Container(err));
-    }
+    };
 
     deployment
         .track_if_analytics_allowed(

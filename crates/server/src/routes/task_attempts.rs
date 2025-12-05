@@ -23,7 +23,7 @@ use db::models::{
     project::{Project, ProjectError},
     scratch::{Scratch, ScratchType},
     task::{Task, TaskRelationships, TaskStatus},
-    task_attempt::{CreateTaskAttempt, TaskAttempt, TaskAttemptError},
+    task_attempt::{TaskAttempt, TaskAttemptError},
 };
 use deployment::Deployment;
 use executors::{
@@ -174,63 +174,31 @@ pub async fn create_task_attempt(
         .await?
         .ok_or(SqlxError::RowNotFound)?;
 
-    let attempt_id = Uuid::new_v4();
-    let git_branch_name = if let Some(custom_branch) = &payload.custom_branch {
-        // Use the custom branch name provided by the user
-        custom_branch.clone()
-    } else if payload.use_existing_branch {
-        // Use the existing branch directly instead of creating a new one
-        payload.base_branch.clone()
-    } else {
-        deployment
-            .container()
-            .git_branch_from_task_attempt(&attempt_id, &task.title)
-            .await
-    };
-
-    let task_attempt = TaskAttempt::create(
-        &deployment.db().pool,
-        &CreateTaskAttempt {
-            executor: executor_profile_id.executor,
-            base_branch: payload.base_branch.clone(),
-            branch: git_branch_name.clone(),
-            is_orchestrator: false,
-        },
-        attempt_id,
-        payload.task_id,
-    )
-    .await?;
-
-    let start_result = deployment
+    let task_attempt_result = deployment
         .container()
-        .start_attempt_with_prompt(
-            &task_attempt,
+        .create_and_start_task_attempt(
+            &task,
             executor_profile_id.clone(),
+            &payload.base_branch,
+            payload.custom_branch,
+            payload.use_existing_branch,
             payload.conversation_history,
         )
         .await;
 
-    // Handle errors from starting the attempt
-    if let Err(err) = start_result {
-        tracing::error!("Failed to start task attempt: {}", err);
-
-        // Clean up: delete the task attempt since we can't proceed
-        if let Err(e) = TaskAttempt::delete(&deployment.db().pool, task_attempt.id).await {
-            tracing::error!("Failed to delete task attempt after startup error: {}", e);
+    let task_attempt = match task_attempt_result {
+        Ok(attempt) => attempt,
+        Err(err) => {
+            if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
+                return Err(ApiError::Conflict(format!(
+                    "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
+                    Please select a different branch or create a new branch for this task.",
+                    branch
+                )));
+            }
+            return Err(ApiError::Container(err));
         }
-
-        // Check if this is a "branch already checked out" error for a user-friendly message
-        if let ContainerError::Worktree(WorktreeError::BranchAlreadyCheckedOut(branch)) = err {
-            return Err(ApiError::Conflict(format!(
-                "Cannot start task attempt on branch '{}' because it is already checked out in the main repository. \
-                Please select a different branch or create a new branch for this task.",
-                branch
-            )));
-        }
-
-        // Propagate other errors
-        return Err(ApiError::Container(err));
-    }
+    };
 
     deployment
         .track_if_analytics_allowed(
