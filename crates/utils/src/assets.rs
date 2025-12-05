@@ -1,11 +1,13 @@
 use directories::ProjectDirs;
 use rust_embed::RustEmbed;
 
-const PROJECT_ROOT: &str = env!("CARGO_MANIFEST_DIR");
-
 pub fn asset_dir() -> std::path::PathBuf {
     let path = if cfg!(debug_assertions) {
-        std::path::PathBuf::from(PROJECT_ROOT).join("../../dev_assets")
+        // In debug mode, use dev_assets relative to the current working directory
+        // This allows different worktrees to have separate databases at runtime
+        std::env::current_dir()
+            .expect("Failed to get current working directory")
+            .join("dev_assets")
     } else {
         ProjectDirs::from("ai", "bloop", "vibe-kanban")
             .expect("OS didn't give us a home directory")
