@@ -183,8 +183,8 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
             {t('commit.dialog.noChanges')}
           </div>
         ) : (
-          <div className="flex-1 space-y-4 py-4 overflow-hidden flex flex-col">
-            <div className="space-y-2">
+          <div className="flex-1 space-y-4 py-4 overflow-hidden flex flex-col min-w-0">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="commit-message">
                 {t('commit.dialog.messageLabel')}
               </Label>
@@ -197,13 +197,13 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
               />
             </div>
 
-            <div className="space-y-2 flex-1 overflow-hidden flex flex-col min-h-0">
-              <div className="flex items-center justify-between">
+            <div className="space-y-2 flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
+              <div className="flex items-center justify-between min-w-0">
                 <Label>{t('commit.dialog.filesLabel')}</Label>
                 <button
                   type="button"
                   onClick={toggleAll}
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-xs text-muted-foreground hover:text-foreground shrink-0"
                 >
                   {allSelected
                     ? t('commit.dialog.deselectAll')
@@ -211,25 +211,24 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
                 </button>
               </div>
 
-              <div className="border rounded-md overflow-y-auto flex-1 min-h-[100px] max-h-[200px]">
+              <div className="border rounded-md overflow-y-auto flex-1 min-h-[100px] max-h-[200px] min-w-0">
                 {files.map((file) => (
-                  <div
+                  <label
                     key={file.path}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
-                    onClick={() => toggleFile(file.path)}
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 min-w-0"
                   >
                     <Checkbox
                       checked={selectedFiles.has(file.path)}
                       onCheckedChange={() => toggleFile(file.path)}
                     />
-                    {getFileIcon(file)}
-                    <span className="flex-1 truncate text-sm font-mono">
+                    <span className="shrink-0">{getFileIcon(file)}</span>
+                    <span className="flex-1 truncate text-sm font-mono min-w-0">
                       {file.path}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {getStatusLabel(file)}
                     </span>
-                  </div>
+                  </label>
                 ))}
               </div>
 
