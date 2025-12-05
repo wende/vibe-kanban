@@ -164,9 +164,9 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
           showLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Loading orchestrator...</span>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+          <span>Loading...</span>
         </div>
       </div>
 
