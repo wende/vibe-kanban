@@ -83,6 +83,16 @@ pub trait ContainerService {
 
     async fn create(&self, task_attempt: &TaskAttempt) -> Result<ContainerRef, ContainerError>;
 
+    async fn create_and_start_task_attempt(
+        &self,
+        task: &Task,
+        executor_profile_id: ExecutorProfileId,
+        base_branch: &str,
+        custom_branch: Option<String>,
+        use_existing_branch: bool,
+        conversation_history: Option<String>,
+    ) -> Result<TaskAttempt, ContainerError>;
+
     async fn kill_all_running_processes(&self) -> Result<(), ContainerError>;
 
     /// Signal the worktree cleanup background task to stop.

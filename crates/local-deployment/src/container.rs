@@ -998,6 +998,59 @@ impl ContainerService for LocalContainerService {
         Ok(worktree_path.to_string_lossy().to_string())
     }
 
+    async fn create_and_start_task_attempt(
+        &self,
+        task: &Task,
+        executor_profile_id: ExecutorProfileId,
+        base_branch: &str,
+        custom_branch: Option<String>,
+        use_existing_branch: bool,
+        conversation_history: Option<String>,
+    ) -> Result<TaskAttempt, ContainerError> {
+        let attempt_id = Uuid::new_v4();
+        let git_branch_name = if let Some(custom_branch) = custom_branch {
+            custom_branch
+        } else if use_existing_branch {
+            base_branch.to_string()
+        } else {
+            self.git_branch_from_task_attempt(&attempt_id, &task.title)
+                .await
+        };
+
+        let task_attempt = TaskAttempt::create(
+            &self.db.pool,
+            &db::models::task_attempt::CreateTaskAttempt {
+                executor: executor_profile_id.executor,
+                base_branch: base_branch.to_string(),
+                branch: git_branch_name.clone(),
+                is_orchestrator: false,
+            },
+            attempt_id,
+            task.id,
+        )
+        .await?;
+
+        let start_result = self
+            .start_attempt_with_prompt(
+                &task_attempt,
+                executor_profile_id.clone(),
+                conversation_history,
+            )
+            .await;
+
+        if let Err(err) = start_result {
+            tracing::error!("Failed to start task attempt: {}", err);
+
+            if let Err(e) = TaskAttempt::delete(&self.db.pool, task_attempt.id).await {
+                tracing::error!("Failed to delete task attempt after startup error: {}", e);
+            }
+
+            return Err(err);
+        }
+
+        Ok(task_attempt)
+    }
+
     async fn delete_inner(&self, task_attempt: &TaskAttempt) -> Result<(), ContainerError> {
         // Orchestrator attempts don't have worktrees to clean up
         if task_attempt.is_orchestrator {
