@@ -107,19 +107,27 @@ const VirtualizedList = ({ attempt, task }: VirtualizedListProps) => {
   }, [attempt.id, reset]);
 
   // Show content only after loading is done AND we have data
-  // Use requestAnimationFrame to wait for paint before hiding overlay
+  // Use double RAF + small delay to ensure Virtuoso has fully painted
   useEffect(() => {
     if (loading || channelData.data.length === 0) {
       setReadyToShow(false);
       return;
     }
 
-    // Data is loaded - wait for next frame to ensure paint is complete
+    // Data is loaded - wait for two animation frames + small delay
+    // to ensure Virtuoso has fully rendered and painted its items
     let cancelled = false;
     requestAnimationFrame(() => {
-      if (!cancelled) {
-        setReadyToShow(true);
-      }
+      requestAnimationFrame(() => {
+        if (!cancelled) {
+          // Additional small delay for Virtuoso to finish layout
+          setTimeout(() => {
+            if (!cancelled) {
+              setReadyToShow(true);
+            }
+          }, 50);
+        }
+      });
     });
 
     return () => {
