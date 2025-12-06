@@ -103,6 +103,10 @@ export const useConversationHistory = ({
   const loadedInitialEntries = useRef(false);
   const lastActiveProcessId = useRef<string | null>(null);
   const onEntriesUpdatedRef = useRef<OnEntriesUpdated | null>(null);
+  // Track the current attempt ID to prevent stale callbacks from affecting new attempts
+  const currentAttemptIdRef = useRef<string>(attempt.id);
+  // Track active WebSocket controller to close it when switching attempts
+  const activeStreamControllerRef = useRef<{ close: () => void } | null>(null);
 
   const mergeIntoDisplayed = (
     mutator: (state: ExecutionProcessStateStore) => void
@@ -420,7 +424,13 @@ export const useConversationHistory = ({
 
   // This emits its own events as they are streamed
   const loadRunningAndEmit = useCallback(
-    (executionProcess: ExecutionProcess): Promise<void> => {
+    (executionProcess: ExecutionProcess, attemptIdAtCallTime: string): Promise<void> => {
+      // Close any existing stream before starting a new one
+      if (activeStreamControllerRef.current) {
+        activeStreamControllerRef.current.close();
+        activeStreamControllerRef.current = null;
+      }
+
       return new Promise((resolve, reject) => {
         let url = '';
         if (executionProcess.executor_action.typ.type === 'ScriptRequest') {
@@ -430,6 +440,10 @@ export const useConversationHistory = ({
         }
         const controller = streamJsonPatchEntries<PatchType>(url, {
           onEntries(entries) {
+            // Check if the attempt has changed - if so, ignore this update
+            if (currentAttemptIdRef.current !== attemptIdAtCallTime) {
+              return;
+            }
             const patchesWithKey = entries.map((entry, index) =>
               patchWithKey(entry, executionProcess.id, index)
             );
@@ -442,15 +456,26 @@ export const useConversationHistory = ({
             emitEntries(displayedExecutionProcesses.current, 'running', false);
           },
           onFinished: () => {
-            emitEntries(displayedExecutionProcesses.current, 'running', false);
+            // Check if the attempt has changed before emitting
+            if (currentAttemptIdRef.current === attemptIdAtCallTime) {
+              emitEntries(displayedExecutionProcesses.current, 'running', false);
+            }
             controller.close();
+            if (activeStreamControllerRef.current === controller) {
+              activeStreamControllerRef.current = null;
+            }
             resolve();
           },
           onError: () => {
             controller.close();
+            if (activeStreamControllerRef.current === controller) {
+              activeStreamControllerRef.current = null;
+            }
             reject();
           },
         });
+        // Store the controller so it can be closed when attempt changes
+        activeStreamControllerRef.current = controller;
       });
     },
     [emitEntries]
@@ -458,10 +483,14 @@ export const useConversationHistory = ({
 
   // Sometimes it can take a few seconds for the stream to start, wrap the loadRunningAndEmit method
   const loadRunningAndEmitWithBackoff = useCallback(
-    async (executionProcess: ExecutionProcess) => {
+    async (executionProcess: ExecutionProcess, attemptIdAtCallTime: string) => {
       for (let i = 0; i < 20; i++) {
+        // Check if attempt has changed before each retry
+        if (currentAttemptIdRef.current !== attemptIdAtCallTime) {
+          return;
+        }
         try {
-          await loadRunningAndEmit(executionProcess);
+          await loadRunningAndEmit(executionProcess, attemptIdAtCallTime);
           break;
         } catch (_) {
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -578,7 +607,8 @@ export const useConversationHistory = ({
       lastActiveProcessId.current !== activeProcess.id
     ) {
       lastActiveProcessId.current = activeProcess.id;
-      loadRunningAndEmitWithBackoff(activeProcess);
+      // Pass current attempt ID to detect if attempt changes during streaming
+      loadRunningAndEmitWithBackoff(activeProcess, attempt.id);
     }
   }, [
     attempt.id,
@@ -609,8 +639,17 @@ export const useConversationHistory = ({
   // The initial load effect will emit once data is ready
   const prevAttemptIdForResetRef = useRef<string | null>(null);
   useEffect(() => {
+    // Update the current attempt ID ref immediately - this is critical for preventing
+    // stale callbacks from affecting the new attempt
+    currentAttemptIdRef.current = attempt.id;
+
     // Only reset if this is an actual attempt change (not initial mount)
     if (prevAttemptIdForResetRef.current !== null && prevAttemptIdForResetRef.current !== attempt.id) {
+      // Close any active stream from the previous attempt
+      if (activeStreamControllerRef.current) {
+        activeStreamControllerRef.current.close();
+        activeStreamControllerRef.current = null;
+      }
       displayedExecutionProcesses.current = {};
       loadedInitialEntries.current = false;
       lastActiveProcessId.current = null;
