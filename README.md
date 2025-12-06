@@ -21,84 +21,84 @@ All notable changes to Vibe Kanban.
 
 ### Added
 
+#### Core Features
+
+- **AI-Powered Commit Messages** - Automatically generate commit messages from staged changes using AI. A "Generate" button in the commit dialog creates conventional, descriptive commit messages.
+- **Advanced Executor Profiles** - Completely overhauled profile system for more power and flexibility
+  - **Profile Variants** - Define multiple variants for a single executor (e.g., `plan` for planning, `fast` for quick tasks)
+  - **In-App Profile Editor** - Edit `profiles.json` directly within the settings page
+  - **Fine-Grained Control** - New options like `dangerously_skip_permissions`, `yolo` mode, and `claude_code_router`
+- **Plan Mode with Manual Approvals** - For supported executors, enable "Plan Mode" to have the AI generate step-by-step plans
+  - **Interactive Plan Review** - Plans displayed in conversation view, each step awaiting approval
+  - **Approve or Deny** - Approve/deny individual steps with optional feedback to the AI
+- **Model Selection** - Select which AI model to use for each task
+- **Continue with Different Agent** - Switch AI agents mid-conversation while preserving the full conversation history
+- **Commit with Custom Name** - Provide custom commit messages when committing
+- **Rebase Stash** - Stash changes during a rebase operation
+
 #### Global Orchestrator
-- **Project-wide AI orchestrator** - Coordinate development tasks across your entire codebase
+
+- **Project-wide AI Orchestrator** - Coordinate development tasks across your entire codebase
   - Rainbow "VIBE" button in navbar launches orchestrator for any project
   - Full-page orchestrator view with SSE log streaming
   - Start/stop orchestrator with automatic `ORCHESTRATOR.md` loading on first run
   - Send custom prompts to guide orchestrator focus
   - Green pulse indicator shows when orchestrator is running
-  - Orchestrator tasks get special handling - skip worktree path creation for project-level work
+  - Isolated MCP server for orchestrator sessions
 
 #### Context Usage Tracking
-- **Real-time token usage monitoring** - Track AI agent context window utilization
-  - Progress bar shows current context usage with color-coded warning states (70%+, 85%+)
-  - Expandable details panel showing input/output/cached token breakdown
-  - Support for cache creation and read tokens in calculations
+
+- **Real-time Token Usage Monitoring** - Track AI agent context window utilization
+  - Progress bar with color-coded warning states (70%+, 85%+)
+  - Expandable details showing input/output/cached token breakdown
+  - Support for cache creation and read tokens
   - Model-specific context window sizes (Claude 3.5 Sonnet: 200k, etc.)
 
 #### CLI & HTTP API
+
 - **Python CLI (`vibe-cli.py`)** - Full command-line interface for Vibe Kanban
   - Project and task management commands
   - `tasks wait` command to poll until task completes with `--interval` and `--timeout`
   - Automatic hyphen-to-underscore normalization for command routing
-- **HTTP API help endpoint** - `/api/tools/vibe-cli/help` documents all REST operations
+- **HTTP API Help Endpoint** - `/api/tools/vibe-cli/help` documents all REST operations
   - Self-documenting API with method, endpoint, payload examples
   - Equivalent CLI commands listed for each operation
-  - Orchestrator endpoints: send prompts, stop execution
-
-#### Compact Feature
-- **Compact button for Claude Code** - Minimize conversation context during coding sessions
-  - Sends `/compact` command to running Claude Code processes
-  - Can start a follow-up with `/compact` as prompt when no agent is running
-  - Button only appears when compact is supported (currently Claude Code only)
-  - Fixed JSON parsing for Claude Code's `/compact` response format (field aliasing for `sessionid`, `parenttooluseid`)
 
 #### Task Management
-- **Reuse existing worktrees** - When a branch is already checked out in a worktree (e.g., the main repo), tasks use that existing directory instead of failing with a conflict error
-  - Branch status indicator shows if a branch is already in a worktree
-  - Skips worktree cleanup for directories outside managed worktrees dir
-  - Enables working on branches already checked out in main repo
+
+- **Reuse Existing Worktrees** - When a branch is already checked out, tasks use that existing directory
+  - Branch status indicator shows worktree status
+  - Skip worktree cleanup for directories outside managed worktrees
+- **Copy Path Action** - Copy worktree path to clipboard from Actions dropdown
 
 #### UI Improvements
-- **Mobile-responsive Kanban board** - Columns stack vertically on screens < 1280px
-  - Vertical scrollable layout for status columns on mobile
-  - Enhanced visual distinction between sections
-  - Better touch targets with increased padding
 
-- **Project status badges** - Display "In Progress" and "Pending Review" counts on project cards
-  - Blue badge for tasks in progress
-  - Yellow badge for tasks pending review
-  - New `ProjectWithTaskCounts` type with database query optimization
-
-- **Executor display on task cards** - Show which AI executor (Claude Code, Gemini, etc.) is assigned
-  - Faded text next to task title with brackets and 50% opacity
-
-- **Copy path action** - Copy the current worktree path to clipboard from the Actions dropdown
-
-- **Click-to-open notifications** - Task completion notifications open the task page when clicked
-  - macOS: Uses `terminal-notifier` with `-open` flag
-  - Linux: Uses notify-rust with `xdg-open` action
-  - Windows: Toast notification with launch action
-
-- **Settings for git status visibility** - Configure showing git status on task cards
-
-- **Hot code reloading** - Frontend development with instant updates
+- **New Logo** - Custom Hivemind logo replacing original vibe-kanban branding
+- **Mobile-Responsive Kanban Board** - Columns stack vertically on smaller screens
+- **Clear Button** - Clear completed/cancelled tasks with button above Done and Cancelled columns
+- **Collapse Button Repositioned** - DiffsPanel collapse button moved away from close button
+- **Unread Message Marker** - Visual indicator for unread messages in conversation
+- **Larger Fonts** - All fonts increased by ~10% for better readability
+- **Custom Font** - Changed global font for improved aesthetics
+- **Removed Column Colors** - Cleaner look without colored column headers
+- **Removed Discord Badge** - Cleaner navbar without Discord CTA
 
 ### Fixed
 
-- **Task completion not moving to In Review status** - Claude Code executor using bidirectional SDK protocol now properly sends exit signal when task completes
-  - Added exit signal to `ProtocolPeer::spawn()` that fires when read_loop completes
-  - Fixes exit monitor waiting indefinitely for OS process exit
-
-- **Orchestrator worktree deletion bug** - Critical safety checks prevent orchestrator from deleting main project directory
-  - Skip `ensure_worktree_path` for orchestrator tasks in branch status
-  - Validate worktree paths before any deletion operations
-
-- **File search cache improvements** - Better caching for file search operations
+- **Card Sidebar Flickering** - Fixed flickering in task card sidebar
+- **Orchestrator Worktree Safety** - Critical checks prevent deleting main project directory
+- **Context Zeroing** - Fixed Claude Code context being zeroed incorrectly
+- **Cursor Jumping** - Fixed cursor position jumping in text inputs
+- **Notification Glow** - Restored notification glow animation
+- **Loading History** - Fixed slow loading of conversation history
+- **Failed to Fetch Projects** - Fixed project fetching errors
+- **Double Modals** - Fixed issue with multiple modals appearing
+- **Arrow Key Navigation** - Fixed arrow up not working as intended
 
 ### Changed
 
-- Executor-aware compact logic - `COMPACT_SUPPORTED_EXECUTORS` set determines button visibility
-- Config versioning updated to v9 with new task card display options
-- Reduced debug logging noise for orchestrator tasks
+- **Telemetry Disabled** - Analytics/telemetry turned off by default
+- **Onboarding Demo Disabled** - Skip onboarding demo on first run
+- **Hot Code Reloading** - Improved frontend development experience
+- **Sidebar Loading Optimized** - Faster sidebar loading performance
+- **Rebase Defaults** - Better default settings for rebase operations
