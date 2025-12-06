@@ -77,7 +77,7 @@ export function Navbar() {
   const { query, setQuery, active, clear, registerInputRef } = useSearch();
   const handleOpenInEditor = useOpenProjectInEditor(project || null);
   const { loginStatus, reloadSystem } = useUserSystem();
-  const isXL = useMediaQuery('(min-width: 853px)');
+  const isXL = useMediaQuery('(min-width: 800px)');
   const isMobile = !isXL;
 
   const setSearchBarRef = useCallback(

@@ -20,9 +20,9 @@
   }
 }
 
-@media (min-width: 853px) {
+@media (min-width: 800px) {
   .diff-tailwindcss-wrapper .container {
-    max-width: 853px;
+    max-width: 800px;
   }
 }
 
