@@ -21,6 +21,41 @@ All notable changes to Vibe Kanban.
 
 ### Added
 
+#### Features
+- **AI-Powered Commit Messages** - Automatically generate commit messages from your staged changes using a large language model. A "Generate" button in the commit dialog calls the AI to create a conventional and descriptive commit message.
+- **Advanced Executor Profiles** - The executor profile system has been completely overhauled for more power and flexibility.
+  - **Profile Variants:** Define multiple variants for a single executor profile (e.g., a `plan` variant for planning, a `fast` variant for quick tasks).
+  - **In-App Profile Editor:** Edit the raw `profiles.json` file directly within the Vibe Kanban settings page.
+  - **Fine-Grained Control:** New configuration options for executors, such as `dangerously_skip_permissions`, `yolo` mode, and `claude_code_router`, give you more control over agent behavior.
+- **Plan Mode with Manual Approvals** - For supported executors, you can now enable "Plan Mode" to have the AI generate a step-by-step plan for your task.
+  - **Interactive Plan Review:** Vibe Kanban will present the plan to you in the conversation view, with each step awaiting your approval.
+  - **Approve or Deny:** You can approve or deny each step individually. If you deny a step, you can provide a reason to the AI.
+  - **Safety and Control:** This gives you complete control over the execution of the AI's plan, preventing unintended actions.
+- **Model Selection** - Users can now select the model to be used for a task.
+- **Rebase Stash** - A new feature to stash changes during a rebase.
+
+#### UI Improvements
+- **Collapse button in DiffsPanel** - The collapse button in the DiffsPanel has been moved to a safer position to avoid accidental clicks.
+- **Selected styling** - Styling for selected items has been improved for better visibility.
+- **Mobile View** - The Kanban board is now responsive and usable on mobile devices.
+- **Mobile-responsive Kanban board** - Columns stack vertically on screens < 1280px
+  - Vertical scrollable layout for status columns on mobile
+  - Enhanced visual distinction between sections
+  - Better touch targets with increased padding
+- **Project status badges** - Display "In Progress" and "Pending Review" counts on project cards
+  - Blue badge for tasks in progress
+  - Yellow badge for tasks pending review
+  - New `ProjectWithTaskCounts` type with database query optimization
+- **Executor display on task cards** - Show which AI executor (Claude Code, Gemini, etc.) is assigned
+  - Faded text next to task title with brackets and 50% opacity
+- **Copy path action** - Copy the current worktree path to clipboard from the Actions dropdown
+- **Click-to-open notifications** - Task completion notifications open the task page when clicked
+  - macOS: Uses `terminal-notifier` with `-open` flag
+  - Linux: Uses `notify-rust` with `xdg-open` action
+  - Windows: Toast notification with launch action
+- **Settings for git status visibility** - Configure showing git status on task cards
+- **Hot code reloading** - Frontend development with instant updates
+
 #### Global Orchestrator
 - **Project-wide AI orchestrator** - Coordinate development tasks across your entire codebase
   - Rainbow "VIBE" button in navbar launches orchestrator for any project
@@ -32,7 +67,7 @@ All notable changes to Vibe Kanban.
 
 #### Context Usage Tracking
 - **Real-time token usage monitoring** - Track AI agent context window utilization
-  - Progress bar shows current context usage with color-coded warning states (70%+, 85%+)
+  - Progress bar shows current context usage with color-coded warning states (70%+, 85%+) 
   - Expandable details panel showing input/output/cached token breakdown
   - Support for cache creation and read tokens in calculations
   - Model-specific context window sizes (Claude 3.5 Sonnet: 200k, etc.)
@@ -59,32 +94,6 @@ All notable changes to Vibe Kanban.
   - Branch status indicator shows if a branch is already in a worktree
   - Skips worktree cleanup for directories outside managed worktrees dir
   - Enables working on branches already checked out in main repo
-
-#### UI Improvements
-- **Mobile-responsive Kanban board** - Columns stack vertically on screens < 1280px
-  - Vertical scrollable layout for status columns on mobile
-  - Enhanced visual distinction between sections
-  - Better touch targets with increased padding
-
-- **Project status badges** - Display "In Progress" and "Pending Review" counts on project cards
-  - Blue badge for tasks in progress
-  - Yellow badge for tasks pending review
-  - New `ProjectWithTaskCounts` type with database query optimization
-
-- **Executor display on task cards** - Show which AI executor (Claude Code, Gemini, etc.) is assigned
-  - Faded text next to task title with brackets and 50% opacity
-
-- **Copy path action** - Copy the current worktree path to clipboard from the Actions dropdown
-
-- **Click-to-open notifications** - Task completion notifications open the task page when clicked
-  - macOS: Uses `terminal-notifier` with `-open` flag
-  - Linux: Uses notify-rust with `xdg-open` action
-  - Windows: Toast notification with launch action
-
-- **Settings for git status visibility** - Configure showing git status on task cards
-
-- **Hot code reloading** - Frontend development with instant updates
-
 ### Fixed
 
 - **Task completion not moving to In Review status** - Claude Code executor using bidirectional SDK protocol now properly sends exit signal when task completes
