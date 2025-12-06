@@ -744,6 +744,7 @@ export function ProjectTasks() {
       // Clear orchestrator param if set
       const params = new URLSearchParams(searchParams);
       params.delete('orchestrator');
+      params.delete('view');
       navigate(`/projects/${projectId}/tasks?${params.toString()}`, {
         replace: true,
       });
