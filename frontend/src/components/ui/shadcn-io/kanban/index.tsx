@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from '../../dialog';
 import { useState } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 export type { DragEndEvent } from '@dnd-kit/core';
 
 export type Status = {
@@ -188,6 +189,7 @@ export type KanbanHeaderProps =
 export const KanbanHeader = (props: KanbanHeaderProps) => {
   const { t } = useTranslation('tasks');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const isXL = useMediaQuery('(min-width: 1280px)');
 
   if ('children' in props) {
     return props.children;
@@ -213,19 +215,26 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
     }
 
     if (action.type === 'add') {
+      const button = (
+        <Button
+          variant="ghost"
+          className="m-0 p-0 h-0 text-foreground/50 hover:text-foreground"
+          onClick={action.onAdd}
+          aria-label={t('actions.addTask')}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      );
+
+      // Skip tooltip on mobile to avoid double-tap issue
+      if (!isXL) {
+        return button;
+      }
+
       return (
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className="m-0 p-0 h-0 text-foreground/50 hover:text-foreground"
-                onClick={action.onAdd}
-                aria-label={t('actions.addTask')}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
             <TooltipContent side="top">{t('actions.addTask')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -233,25 +242,31 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
     }
 
     if (action.type === 'clear') {
+      const button = (
+        <Button
+          variant="ghost"
+          className="m-0 p-0 h-0 text-foreground/50 hover:text-destructive"
+          onClick={() => setShowConfirmDialog(true)}
+          aria-label={t('actions.clearColumn')}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      );
+
       return (
         <>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="m-0 p-0 h-0 text-foreground/50 hover:text-destructive"
-                  onClick={() => setShowConfirmDialog(true)}
-                  aria-label={t('actions.clearColumn')}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {t('actions.clearColumn')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {isXL ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipContent side="top">
+                  {t('actions.clearColumn')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            button
+          )}
           {createPortal(
             <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
               <DialogContent className="sm:max-w-[425px]">
