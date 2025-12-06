@@ -53,5 +53,6 @@
   "status": {
     "inProgress": "In Progress",
     "pendingReview": "Pending Review"
-  }
+  },
+  "copyFilesPlaceholderWithSearch": "File paths or glob patterns (e.g., .env, config/*.json)"
 }

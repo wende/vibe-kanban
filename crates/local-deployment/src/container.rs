@@ -153,6 +153,16 @@ impl LocalContainerService {
         map.remove(id)
     }
 
+    async fn add_interrupt_sender(&self, id: Uuid, sender: InterruptSender) {
+        let mut map = self.interrupt_senders.write().await;
+        map.insert(id, sender);
+    }
+
+    async fn take_interrupt_sender(&self, id: &Uuid) -> Option<InterruptSender> {
+        let mut map = self.interrupt_senders.write().await;
+        map.remove(id)
+    }
+
     /// Defensively check for externally deleted worktrees and mark them as deleted in the database
     async fn check_externally_deleted_worktrees(db: &DBService) -> Result<(), DeploymentError> {
         let active_attempts = TaskAttempt::find_by_worktree_deleted(&db.pool).await?;
@@ -1225,6 +1235,12 @@ impl ContainerService for LocalContainerService {
 
         self.add_child_to_store(execution_process.id, spawned.child)
             .await;
+
+        // Store interrupt sender for graceful shutdown
+        if let Some(interrupt_sender) = spawned.interrupt_sender {
+            self.add_interrupt_sender(execution_process.id, interrupt_sender)
+                .await;
+        }
 
         // Store interrupt sender for graceful shutdown
         if let Some(interrupt_sender) = spawned.interrupt_sender {

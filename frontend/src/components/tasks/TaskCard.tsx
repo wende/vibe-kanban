@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
 import { useBranchStatusFromContext } from '@/contexts/BranchStatusContext';
+import { useAuth } from '@/hooks';
 
 type Task = TaskWithAttemptStatus;
 
@@ -147,6 +148,7 @@ export const TaskCard = memo(function TaskCard({
   const [isNavigatingToParent, setIsNavigatingToParent] = useState(false);
   const { isSignedIn } = useAuth();
   const { markAsRead, hasUnread } = useTaskReadStatus();
+  const { isSignedIn } = useAuth();
 
   const taskHasUnread = hasUnread(task.id, task.updated_at);
 
@@ -204,6 +206,7 @@ export const TaskCard = memo(function TaskCard({
       forwardedRef={localRef}
       dragDisabled={(!!sharedTask || !!task.shared_task_id) && !isSignedIn}
       hasUnread={taskHasUnread}
+      dragDisabled={(!!sharedTask || !!task.shared_task_id) && !isSignedIn}
       className={
         sharedTask || task.shared_task_id
           ? 'relative overflow-hidden pl-5 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-card-foreground before:content-[""]'

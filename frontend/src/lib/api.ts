@@ -726,6 +726,34 @@ export const attemptsApi = {
     );
     return handleApiResponse<ExportResult>(response);
   },
+
+  runSetupScript: async (
+    attemptId: string
+  ): Promise<Result<ExecutionProcess, RunScriptError>> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/run-setup-script`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponseAsResult<ExecutionProcess, RunScriptError>(
+      response
+    );
+  },
+
+  runCleanupScript: async (
+    attemptId: string
+  ): Promise<Result<ExecutionProcess, RunScriptError>> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/run-cleanup-script`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponseAsResult<ExecutionProcess, RunScriptError>(
+      response
+    );
+  },
 };
 
 // Extra helpers
