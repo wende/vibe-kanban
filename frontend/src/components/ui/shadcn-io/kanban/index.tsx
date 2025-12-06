@@ -189,7 +189,7 @@ export type KanbanHeaderProps =
 export const KanbanHeader = (props: KanbanHeaderProps) => {
   const { t } = useTranslation('tasks');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const isXL = useMediaQuery('(min-width: 1280px)');
+  const isXL = useMediaQuery('(min-width: 853px)');
 
   if ('children' in props) {
     return props.children;

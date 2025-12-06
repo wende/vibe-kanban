@@ -161,7 +161,7 @@ export function ProjectTasks() {
   const navigate = useNavigate();
   const { enableScope, disableScope, activeScopes } = useHotkeysContext();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isXL = useMediaQuery('(min-width: 1280px)');
+  const isXL = useMediaQuery('(min-width: 853px)');
   const isMobile = !isXL;
   const posthog = usePostHog();
   const [selectedSharedTaskId, setSelectedSharedTaskId] = useState<
