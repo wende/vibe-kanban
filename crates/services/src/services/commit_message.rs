@@ -130,7 +130,17 @@ pub async fn generate_commit_message(diff: &str) -> Result<String, CommitMessage
         )));
     }
 
-    let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let mut message = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    // Strip wrapping backticks if the entire message is wrapped in ```
+    if message.starts_with("```") && message.ends_with("```") {
+        message = message
+            .strip_prefix("```")
+            .and_then(|s| s.strip_suffix("```"))
+            .unwrap_or(&message)
+            .trim()
+            .to_string();
+    }
 
     if message.is_empty() {
         return Err(CommitMessageError::ClaudeCodeFailed(
@@ -143,8 +153,6 @@ pub async fn generate_commit_message(diff: &str) -> Result<String, CommitMessage
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_diff_truncation() {
         let long_diff = "a".repeat(20000);
@@ -159,5 +167,43 @@ mod tests {
             assert!(truncated.contains("truncated"));
             assert!(truncated.contains("5000"));
         }
+    }
+
+    #[test]
+    fn test_backtick_unwrapping() {
+        // Simulate the unwrapping logic
+        let wrapped = "```\nFix authentication bug\n\nResolve issue with token validation\n```";
+        let mut message = wrapped.trim().to_string();
+
+        if message.starts_with("```") && message.ends_with("```") {
+            message = message
+                .strip_prefix("```")
+                .and_then(|s| s.strip_suffix("```"))
+                .unwrap_or(&message)
+                .trim()
+                .to_string();
+        }
+
+        assert_eq!(message, "Fix authentication bug\n\nResolve issue with token validation");
+        assert!(!message.starts_with("```"));
+        assert!(!message.ends_with("```"));
+    }
+
+    #[test]
+    fn test_no_unwrapping_when_not_wrapped() {
+        // Should not unwrap if backticks are part of the message content
+        let not_wrapped = "Fix bug in `parse_commit` function";
+        let mut message = not_wrapped.trim().to_string();
+
+        if message.starts_with("```") && message.ends_with("```") {
+            message = message
+                .strip_prefix("```")
+                .and_then(|s| s.strip_suffix("```"))
+                .unwrap_or(&message)
+                .trim()
+                .to_string();
+        }
+
+        assert_eq!(message, "Fix bug in `parse_commit` function");
     }
 }
