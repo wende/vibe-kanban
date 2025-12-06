@@ -87,70 +87,29 @@ function ContextUsageDetails({
 
   // Convert bigint to number for display
   const inputTokens = Number(usage.input_tokens);
-  const outputTokens = Number(usage.output_tokens);
   const contextWindowSize = Number(usage.context_window_size);
   const contextRemaining = Number(usage.context_remaining);
   const cachedInputTokens = usage.cached_input_tokens
     ? Number(usage.cached_input_tokens)
-    : null;
+    : 0;
   const cacheReadTokens = usage.cache_read_tokens
     ? Number(usage.cache_read_tokens)
-    : null;
+    : 0;
 
   // Calculate context used (input + cache_creation + cache_read)
-  const contextUsed =
-    inputTokens + (cachedInputTokens ?? 0) + (cacheReadTokens ?? 0);
+  const contextUsed = inputTokens + cachedInputTokens + cacheReadTokens;
 
   return (
-    <div className={cn('p-3 rounded-md space-y-3', styles.bgColor)}>
-      <div className="flex justify-between items-center">
-        <span className="text-sm font-medium">Context Usage</span>
-        <span className="text-xs text-muted-foreground">{usage.model}</span>
+    <div className={cn('p-3 rounded-md space-y-2', styles.bgColor)}>
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">Context Used:</span>
+        <span className="font-mono">
+          {formatTokens(contextUsed)} / {formatTokens(contextWindowSize)}
+        </span>
       </div>
-
-      <ContextUsageBar
-        percent={isCompacted ? 0 : usage.context_used_percent}
-        warningLevel={isCompacted ? 'none' : usage.warning_level}
-      />
-
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div>
-          <span className="text-muted-foreground">Input:</span>
-          <span className="ml-2 font-mono">{formatTokens(inputTokens)}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Output:</span>
-          <span className="ml-2 font-mono">{formatTokens(outputTokens)}</span>
-        </div>
-        {cachedInputTokens !== null && (
-          <div>
-            <span className="text-muted-foreground">Cached:</span>
-            <span className="ml-2 font-mono">
-              {formatTokens(cachedInputTokens)}
-            </span>
-          </div>
-        )}
-        {cacheReadTokens !== null && (
-          <div>
-            <span className="text-muted-foreground">Cache Read:</span>
-            <span className="ml-2 font-mono">
-              {formatTokens(cacheReadTokens)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="pt-2 border-t border-border">
-        <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">Context Used:</span>
-          <span className="font-mono">
-            {formatTokens(contextUsed)} / {formatTokens(contextWindowSize)}
-          </span>
-        </div>
-        <div className="flex justify-between text-xs mt-1">
-          <span className="text-muted-foreground">Remaining:</span>
-          <span className="font-mono">{formatTokens(contextRemaining)}</span>
-        </div>
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">Remaining:</span>
+        <span className="font-mono">{formatTokens(contextRemaining)}</span>
       </div>
 
       {!isCompacted && usage.warning_level === 'critical' && (
@@ -164,12 +123,6 @@ function ContextUsageDetails({
         <div className="flex items-center gap-2 text-xs text-yellow-600 dark:text-yellow-400">
           <AlertCircle className="h-3 w-3" />
           <span>Approaching context limit.</span>
-        </div>
-      )}
-
-      {usage.is_estimated && (
-        <div className="text-xs text-muted-foreground italic">
-          * Estimated from text length
         </div>
       )}
 
