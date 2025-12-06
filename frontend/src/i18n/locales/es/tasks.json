@@ -242,7 +242,8 @@
     },
     "tooltips": {
       "quickRebase": "Rebase rápido sobre la rama de destino predeterminada",
-      "advancedRebase": "Elige ramas de destino y upstream antes del rebase"
+      "advancedRebase": "Elige ramas de destino y upstream antes del rebase",
+      "pushToOrigin": "Empujar rama a origin, estableciendo upstream si aún no está configurado"
     },
     "status": {
       "ahead": "adelante",

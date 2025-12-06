@@ -1,7 +1,10 @@
 //! Service for generating commit messages using Claude Code CLI.
 
-use std::path::Path;
-use std::process::{Command, Stdio};
+use std::{
+    path::Path,
+    process::{Command, Stdio},
+};
+
 use thiserror::Error;
 use tokio::io::AsyncWriteExt as _;
 

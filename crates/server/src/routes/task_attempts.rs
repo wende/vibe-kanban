@@ -2091,8 +2091,10 @@ pub enum GenerateCommitMessageError {
 pub async fn generate_commit_message(
     Extension(task_attempt): Extension<TaskAttempt>,
     State(deployment): State<DeploymentImpl>,
-) -> Result<ResponseJson<ApiResponse<GenerateCommitMessageResponse, GenerateCommitMessageError>>, ApiError>
-{
+) -> Result<
+    ResponseJson<ApiResponse<GenerateCommitMessageResponse, GenerateCommitMessageError>>,
+    ApiError,
+> {
     let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
 
     // Get the diff

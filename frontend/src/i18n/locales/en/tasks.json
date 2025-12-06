@@ -247,7 +247,8 @@
     },
     "tooltips": {
       "quickRebase": "Quickly rebase onto the default target branch",
-      "advancedRebase": "Choose a target and upstream branch before rebasing"
+      "advancedRebase": "Choose a target and upstream branch before rebasing",
+      "pushToOrigin": "Push branch to origin, setting upstream if not yet established"
     },
     "errors": {
       "changeTargetBranch": "Failed to change target branch",
