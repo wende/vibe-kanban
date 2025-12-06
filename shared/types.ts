@@ -445,7 +445,15 @@ export type CodingAgentFollowUpRequest = { prompt: string, session_id: string,
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, };
+executor_profile_id: ExecutorProfileId,
+/**
+ * Whether this is an orchestrator execution (enables orchestrator-specific MCP servers)
+ */
+is_orchestrator: boolean, };
+
+export type GeneratePrTitleResponse = { title: string, body: string | null, };
+
+export type GeneratePrTitleError = { "type": "no_changes" } | { "type": "claude_code_failed", message: string, };
 
 export type CommandExitStatus = { "type": "exit_code", code: number, } | { "type": "success", success: boolean, };
 

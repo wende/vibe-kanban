@@ -87,6 +87,8 @@ import {
   ExportResult,
   GenerateCommitMessageResponse,
   GenerateCommitMessageError,
+  GeneratePrTitleResponse,
+  GeneratePrTitleError,
 } from 'shared/types';
 
 export class ApiError<E = unknown> extends Error {
@@ -717,6 +719,21 @@ export const attemptsApi = {
     return handleApiResponseAsResult<
       GenerateCommitMessageResponse,
       GenerateCommitMessageError
+    >(response);
+  },
+
+  generatePrTitle: async (
+    attemptId: string
+  ): Promise<Result<GeneratePrTitleResponse, GeneratePrTitleError>> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/generate-pr-title`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponseAsResult<
+      GeneratePrTitleResponse,
+      GeneratePrTitleError
     >(response);
   },
 

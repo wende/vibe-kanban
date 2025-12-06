@@ -56,6 +56,7 @@ const CreatePRDialogImpl = NiceModal.create<CreatePRDialogProps>(
     );
     const [branches, setBranches] = useState<GitBranch[]>([]);
     const [branchesLoading, setBranchesLoading] = useState(false);
+    const [generatingTitle, setGeneratingTitle] = useState(false);
 
     const getGhCliHelpTitle = (variant: GhCliSupportVariant) =>
       variant === 'homebrew'
@@ -67,7 +68,7 @@ const CreatePRDialogImpl = NiceModal.create<CreatePRDialogProps>(
         return;
       }
 
-      setPrTitle(`${task.title} (vibe-kanban)`);
+      setPrTitle(task.title);
       setPrBody(task.description || '');
 
       // Always fetch branches for dropdown population
@@ -226,6 +227,32 @@ const CreatePRDialogImpl = NiceModal.create<CreatePRDialogProps>(
       setPrBaseBranch('');
     }, [modal]);
 
+    const handleGeneratePrTitle = useCallback(async () => {
+      if (!attempt.id) return;
+
+      setGeneratingTitle(true);
+      setError(null);
+
+      const result = await attemptsApi.generatePrTitle(attempt.id);
+
+      if (result.success) {
+        setPrTitle(result.data.title);
+        if (result.data.body) {
+          setPrBody(result.data.body);
+        }
+      } else {
+        if (result.error?.type === 'no_changes') {
+          setError(t('createPrDialog.errors.noChanges'));
+        } else {
+          setError(
+            result.message || t('createPrDialog.errors.failedToGenerateTitle')
+          );
+        }
+      }
+
+      setGeneratingTitle(false);
+    }, [attempt.id, t]);
+
     return (
       <>
         <Dialog
@@ -246,9 +273,26 @@ const CreatePRDialogImpl = NiceModal.create<CreatePRDialogProps>(
             ) : (
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="pr-title">
-                    {t('createPrDialog.titleLabel')}
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="pr-title">
+                      {t('createPrDialog.titleLabel')}
+                    </Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGeneratePrTitle}
+                      disabled={generatingTitle}
+                    >
+                      {generatingTitle ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t('createPrDialog.generating')}
+                        </>
+                      ) : (
+                        t('createPrDialog.generateButton')
+                      )}
+                    </Button>
+                  </div>
                   <Input
                     id="pr-title"
                     value={prTitle}

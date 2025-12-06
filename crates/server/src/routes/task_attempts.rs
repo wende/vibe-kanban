@@ -2086,6 +2086,20 @@ pub enum GenerateCommitMessageError {
     ClaudeCodeFailed { message: String },
 }
 
+#[derive(Debug, Serialize, TS)]
+pub struct GeneratePrTitleResponse {
+    pub title: String,
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum GeneratePrTitleError {
+    NoChanges,
+    ClaudeCodeFailed { message: String },
+}
+
 /// Generate a commit message using Claude Haiku based on the current diff.
 #[axum::debug_handler]
 pub async fn generate_commit_message(
@@ -2140,6 +2154,74 @@ pub async fn generate_commit_message(
     )))
 }
 
+/// Generate a PR title and body using Claude Haiku based on the current diff.
+#[axum::debug_handler]
+pub async fn generate_pr_title(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<
+    ResponseJson<ApiResponse<GeneratePrTitleResponse, GeneratePrTitleError>>,
+    ApiError,
+> {
+    let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
+    // Get the diff
+    let diff = match commit_message::get_diff_for_commit(&ws_path) {
+        Ok(diff) => diff,
+        Err(CommitMessageError::NoChanges) => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                GeneratePrTitleError::NoChanges,
+            )));
+        }
+        Err(e) => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                GeneratePrTitleError::ClaudeCodeFailed {
+                    message: e.to_string(),
+                },
+            )));
+        }
+    };
+
+    // Generate the PR title and body using Claude Code CLI
+    let message = match commit_message::generate_commit_message(&diff).await {
+        Ok(msg) => msg,
+        Err(e) => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                GeneratePrTitleError::ClaudeCodeFailed {
+                    message: e.to_string(),
+                },
+            )));
+        }
+    };
+
+    // Split the message into title (first line) and body (rest)
+    let mut lines = message.split('\n');
+    let title = lines
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let body_text = lines.collect::<Vec<_>>().join("\n").trim().to_string();
+    let body = if body_text.is_empty() {
+        None
+    } else {
+        Some(body_text)
+    };
+
+    deployment
+        .track_if_analytics_allowed(
+            "pr_title_generated",
+            serde_json::json!({
+                "attempt_id": task_attempt.id.to_string(),
+            }),
+        )
+        .await;
+
+    Ok(ResponseJson(ApiResponse::success(
+        GeneratePrTitleResponse { title, body },
+    )))
+}
+
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let task_attempt_id_router = Router::new()
         .route("/", get(get_task_attempt))
@@ -2158,6 +2240,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/worktree-status", get(get_worktree_status))
         .route("/commit", post(commit_changes))
         .route("/generate-commit-message", post(generate_commit_message))
+        .route("/generate-pr-title", post(generate_pr_title))
         .route("/rebase", post(rebase_task_attempt))
         .route("/conflicts/abort", post(abort_conflicts_task_attempt))
         .route("/pr", post(create_github_pr))

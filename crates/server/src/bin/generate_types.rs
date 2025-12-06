@@ -177,6 +177,8 @@ fn generate_types_content() -> String {
         server::routes::task_attempts::FileStatusEntry::decl(),
         server::routes::task_attempts::GenerateCommitMessageResponse::decl(),
         server::routes::task_attempts::GenerateCommitMessageError::decl(),
+        server::routes::task_attempts::GeneratePrTitleResponse::decl(),
+        server::routes::task_attempts::GeneratePrTitleError::decl(),
         executors::conversation_export::ExportResult::decl(),
         executors::logs::CommandExitStatus::decl(),
         executors::logs::CommandRunResult::decl(),
