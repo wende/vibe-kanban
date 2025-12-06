@@ -344,6 +344,7 @@ impl GitCli {
 
         let args = [
             OsString::from("push"),
+            OsString::from("--set-upstream"),
             OsString::from(remote_url),
             OsString::from(refspec),
         ];

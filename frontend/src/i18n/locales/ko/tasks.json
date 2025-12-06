@@ -242,7 +242,8 @@
     },
     "tooltips": {
       "quickRebase": "기본 대상 브랜치로 바로 리베이스",
-      "advancedRebase": "리베이스 전에 대상과 업스트림 브랜치를 선택"
+      "advancedRebase": "리베이스 전에 대상과 업스트림 브랜치를 선택",
+      "pushToOrigin": "브랜치를 origin으로 푸시하고, 아직 설정되지 않은 경우 업스트림 설정"
     },
     "status": {
       "ahead": "앞서감",

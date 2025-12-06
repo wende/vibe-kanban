@@ -242,7 +242,8 @@
     },
     "tooltips": {
       "quickRebase": "既定のターゲットブランチへすぐにリベース",
-      "advancedRebase": "リベース前にターゲットとアップストリームを選択"
+      "advancedRebase": "リベース前にターゲットとアップストリームを選択",
+      "pushToOrigin": "ブランチをoriginにプッシュし、未設定の場合はupstreamを設定"
     },
     "status": {
       "ahead": "先行",

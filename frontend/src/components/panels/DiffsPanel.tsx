@@ -159,7 +159,7 @@ function DiffsPanelContent({
 }: DiffsPanelContentProps) {
   return (
     <div className="h-full flex flex-col relative">
-      {diffs.length > 0 && (
+      {diffs.length > 0 ? (
         <NewCardHeader
           className="sticky top-0 z-10"
           actions={
@@ -220,6 +220,24 @@ function DiffsPanelContent({
             </div>
           </div>
         </NewCardHeader>
+      ) : (
+        onClose && (
+          <NewCardHeader className="sticky top-0 z-10" actions={
+            <Button
+              variant="icon"
+              aria-label={t('common:buttons.close', {
+                defaultValue: 'Close',
+              })}
+              onClick={onClose}
+            >
+              <X size={16} />
+            </Button>
+          }>
+            <span className="text-sm text-muted-foreground">
+              {t('diff.noChanges')}
+            </span>
+          </NewCardHeader>
+        )
       )}
       {gitOps && selectedAttempt && (
         <div className="px-3">
