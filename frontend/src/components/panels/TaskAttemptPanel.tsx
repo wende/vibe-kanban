@@ -4,32 +4,9 @@ import { TaskFollowUpSection } from '@/components/tasks/TaskFollowUpSection';
 import { EntriesProvider } from '@/contexts/EntriesContext';
 import { RetryUiProvider } from '@/contexts/RetryUiContext';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
-
-// Wrapper that fades in content after mount
-function FadeIn({ children, className }: { children: ReactNode; className?: string }) {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    // Small delay to ensure content is rendered before fading in
-    const timer = setTimeout(() => setIsVisible(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <div
-      className={cn(
-        'transition-opacity duration-200',
-        isVisible ? 'opacity-100' : 'opacity-0',
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
 
 interface TaskAttemptPanelProps {
   attempt: TaskAttempt | undefined;
@@ -113,38 +90,9 @@ const TaskAttemptPanel = ({
     }
   }, [task?.id, task?.updated_at, markAsRead]);
 
-  // Top-level loading state (similar to OrchestratorPanel)
-  const [readyToShow, setReadyToShow] = useState(false);
   const hasContent = !!(displayTask && displayAttempt);
-
-  useEffect(() => {
-    if (!showTopLevelLoading) return; // Only manage loading if enabled
-
-    if (!hasContent) {
-      setReadyToShow(false);
-      return;
-    }
-
-    // Wait for VirtualizedList child to fully load and render
-    let cancelled = false;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!cancelled) {
-          setTimeout(() => {
-            if (!cancelled) {
-              setReadyToShow(true);
-            }
-          }, 250);
-        }
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasContent, showTopLevelLoading]);
-
-  const showLoading = showTopLevelLoading && (!hasContent || !readyToShow);
+  // Show loading only when we truly have no content to display
+  const showLoading = showTopLevelLoading && !hasContent;
 
   const logsContent =
     displayTask && displayAttempt ? (
@@ -158,9 +106,7 @@ const TaskAttemptPanel = ({
     );
   const followUpContent =
     displayTask && displayAttempt ? (
-      <FadeIn className="h-full">
-        <TaskFollowUpSection task={displayTask} selectedAttemptId={displayAttempt.id} />
-      </FadeIn>
+      <TaskFollowUpSection task={displayTask} selectedAttemptId={displayAttempt.id} />
     ) : (
       <FollowUpSkeleton />
     );
@@ -184,23 +130,20 @@ const TaskAttemptPanel = ({
   // Wrap with loading overlay when showTopLevelLoading is enabled
   return (
     <div className="h-full flex flex-col relative">
-      {/* Loading overlay */}
+      {/* Loading overlay - only shown when we have no cached content */}
       <div
-        className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
+        className={cn(
+          'absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-150',
           showLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
+        )}
       >
         <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
           <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
           <span>Loading...</span>
         </div>
       </div>
-      {/* Content */}
-      <div
-        className={`flex-1 min-h-0 flex flex-col transition-opacity duration-200 ${
-          readyToShow ? 'opacity-100 visible' : 'opacity-0 invisible'
-        }`}
-      >
+      {/* Content - always visible, ref-based caching prevents flash */}
+      <div className="flex-1 min-h-0 flex flex-col">
         {content}
       </div>
     </div>
