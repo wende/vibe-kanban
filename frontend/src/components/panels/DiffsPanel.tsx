@@ -232,8 +232,18 @@ function DiffsPanelContent({
             <Loader />
           </div>
         ) : diffs.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            {t('diff.noChanges')}
+          <div className="flex flex-col items-center justify-center h-full text-sm text-muted-foreground">
+            <span>{t('diff.noChanges')}</span>
+            {onClose && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={onClose}
+              >
+                {t('common:buttons.close', { defaultValue: 'Close' })}
+              </Button>
+            )}
           </div>
         ) : (
           diffs.map((diff, idx) => {
