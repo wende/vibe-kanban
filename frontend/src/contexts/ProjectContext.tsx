@@ -9,6 +9,8 @@ import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { projectsApi } from '@/lib/api';
 import type { Project } from 'shared/types';
+import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { useTaskReadStatus } from './TaskReadStatusContext';
 
 interface ProjectContextValue {
   projectId: string | undefined;
@@ -51,14 +53,24 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     [projectId, query.data, query.isLoading, query.error, query.isError]
   );
 
-  // Centralized page title management
+  // Get tasks for the current project to check for unread notifications
+  const { tasks } = useProjectTasks(projectId || '');
+  const { hasUnread } = useTaskReadStatus();
+
+  // Check if there are any unread tasks
+  const hasUnreadTasks = useMemo(() => {
+    return tasks.some((task) => hasUnread(task.id, task.updated_at));
+  }, [tasks, hasUnread]);
+
+  // Centralized page title management with unread indicator
   useEffect(() => {
+    const unreadIndicator = hasUnreadTasks ? '🟠 ' : '';
     if (query.data) {
-      document.title = `${query.data.name} | vibe-kanban`;
+      document.title = `${unreadIndicator}${query.data.name}`;
     } else {
       document.title = 'vibe-kanban';
     }
-  }, [query.data]);
+  }, [query.data, hasUnreadTasks]);
 
   return (
     <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
