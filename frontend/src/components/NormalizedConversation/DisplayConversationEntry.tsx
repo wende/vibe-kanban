@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import WYSIWYGEditor from '@/components/ui/wysiwyg';
 import {
@@ -608,15 +609,15 @@ const getToolStatusAppearance = (status: ToolStatus): ToolStatusAppearance => {
  * Main component  *
  *******************/
 
-export const DisplayConversationEntryMaxWidth = (props: Props) => {
+export const DisplayConversationEntryMaxWidth = memo(function DisplayConversationEntryMaxWidth(props: Props) {
   return (
     <div className="mx-auto w-full max-w-[50rem]">
       <DisplayConversationEntry {...props} />
     </div>
   );
-};
+});
 
-function DisplayConversationEntry({
+const DisplayConversationEntry = memo(function DisplayConversationEntry({
   entry,
   expansionKey,
   executionProcessId,
@@ -833,6 +834,6 @@ function DisplayConversationEntry({
       </div>
     </div>
   );
-}
+});
 
 export default DisplayConversationEntryMaxWidth;
