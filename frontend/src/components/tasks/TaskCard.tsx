@@ -38,7 +38,11 @@ const GitStatusIndicators = memo(function GitStatusIndicators({
 }) {
   // Use batch-fetched branch status from context instead of individual API calls
   const branchStatus = useBranchStatusFromContext(attemptId);
-  const [sticky, setSticky] = useState({ uncommitted: false, untracked: false });
+  const [sticky, setSticky] = useState({
+    uncommitted: false,
+    untracked: false,
+    commitsAhead: false,
+  });
 
   useEffect(() => {
     if (!branchStatus) return;
@@ -51,6 +55,9 @@ const GitStatusIndicators = memo(function GitStatusIndicators({
       (branchStatus.untracked_count ?? 0) > 0 ||
       (branchStatus.has_uncommitted_changes === true &&
         branchStatus.untracked_count === null);
+    const nextCommitsAhead =
+      (branchStatus.remote_commits_ahead ?? 0) > 0 ||
+      (branchStatus.commits_ahead ?? 0) > 0;
 
     // Only clear sticky flag when we have EXPLICIT confirmation of zero changes.
     // Using === 0 (not ?? 0) ensures null/undefined doesn't trigger a clear.
@@ -59,20 +66,26 @@ const GitStatusIndicators = memo(function GitStatusIndicators({
       branchStatus.has_uncommitted_changes === false &&
       (branchStatus.conflicted_files?.length ?? 0) === 0;
     const cleanUntracked = branchStatus.untracked_count === 0;
+    // Only clear commitsAhead when we have explicit confirmation of 0 commits ahead
+    const cleanCommitsAhead =
+      branchStatus.remote_commits_ahead === 0 &&
+      branchStatus.commits_ahead === 0;
 
     setSticky((prev) => ({
       uncommitted: nextUncommitted ? true : cleanUncommitted ? false : prev.uncommitted,
       untracked: nextUntracked ? true : cleanUntracked ? false : prev.untracked,
+      commitsAhead: nextCommitsAhead
+        ? true
+        : cleanCommitsAhead
+          ? false
+          : prev.commitsAhead,
     }));
   }, [branchStatus]);
 
   const indicators = useMemo((): GitIndicator[] => {
     const hasUncommitted = sticky.uncommitted;
     const hasUntracked = sticky.untracked;
-    const commitsAhead =
-      (branchStatus?.remote_commits_ahead ??
-        branchStatus?.commits_ahead ??
-        0) > 0;
+    const hasCommitsAhead = sticky.commitsAhead;
 
     const items: GitIndicator[] = [];
     if (hasUncommitted) {
@@ -89,7 +102,7 @@ const GitStatusIndicators = memo(function GitStatusIndicators({
         label: 'Untracked files present',
       });
     }
-    if (commitsAhead) {
+    if (hasCommitsAhead) {
       items.push({
         symbol: '↑',
         className: 'text-sky-500',
@@ -97,12 +110,7 @@ const GitStatusIndicators = memo(function GitStatusIndicators({
       });
     }
     return items;
-  }, [
-    branchStatus?.commits_ahead,
-    branchStatus?.remote_commits_ahead,
-    sticky.uncommitted,
-    sticky.untracked,
-  ]);
+  }, [sticky.uncommitted, sticky.untracked, sticky.commitsAhead]);
 
   if (!indicators.length) {
     return null;
