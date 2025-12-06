@@ -225,6 +225,14 @@ export function ProjectTasks() {
 
   // Keep track of last valid task to prevent flickering during transitions
   const lastValidTaskRef = useRef<Task | null>(null);
+  const lastTaskIdRef = useRef<string | undefined>(undefined);
+
+  // Clear the ref when switching to a different task
+  if (taskId !== lastTaskIdRef.current) {
+    lastValidTaskRef.current = null;
+    lastTaskIdRef.current = taskId;
+  }
+
   if (selectedTask) {
     lastValidTaskRef.current = selectedTask;
   } else if (!taskId) {
