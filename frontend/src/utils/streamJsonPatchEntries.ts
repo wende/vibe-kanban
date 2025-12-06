@@ -38,9 +38,12 @@ export function streamJsonPatchEntries<E = unknown>(
   opts: StreamOptions<E> = {}
 ): StreamController<E> {
   let connected = false;
-  let snapshot: PatchContainer<E> = structuredClone(
-    opts.initial ?? ({ entries: [] } as PatchContainer<E>)
-  );
+  // Mutable internal state for efficient patch application
+  const mutableSnapshot: PatchContainer<E> = opts.initial
+    ? { entries: [...opts.initial.entries] }
+    : { entries: [] };
+  // Immutable snapshot for external consumers (shallow clone from the start)
+  let snapshot: PatchContainer<E> = { entries: [...mutableSnapshot.entries] };
 
   const subscribers = new Set<(entries: E[]) => void>();
   if (opts.onEntries) subscribers.add(opts.onEntries);
@@ -68,11 +71,10 @@ export function streamJsonPatchEntries<E = unknown>(
         const raw = msg.JsonPatch as Operation[];
         const ops = dedupeOps(raw);
 
-        // Apply to a working copy (applyPatch mutates)
-        const next = structuredClone(snapshot);
-        applyPatch(next as unknown as object, ops);
-
-        snapshot = next;
+        // Apply patches in-place to mutable state (fast)
+        applyPatch(mutableSnapshot as unknown as object, ops);
+        // Create shallow clone for React's immutability requirements
+        snapshot = { entries: [...mutableSnapshot.entries] };
         notify();
       }
 

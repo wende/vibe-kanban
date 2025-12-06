@@ -3,12 +3,7 @@ use std::sync::Arc;
 use anyhow::Error as AnyhowError;
 use async_trait::async_trait;
 use axum::response::sse::Event;
-use db::{
-    DBService,
-    models::{
-        task_attempt::TaskAttemptError,
-    },
-};
+use db::{DBService, models::task_attempt::TaskAttemptError};
 use executors::executors::ExecutorError;
 use futures::{StreamExt, TryStreamExt};
 use git2::Error as Git2Error;
@@ -30,7 +25,7 @@ use services::services::{
     share::{RemoteSync, RemoteSyncHandle, ShareConfig, SharePublisher},
     worktree_manager::WorktreeError,
 };
-use sqlx::{Error as SqlxError};
+use sqlx::Error as SqlxError;
 use thiserror::Error;
 use tokio::sync::{Mutex, RwLock};
 use utils::sentry as sentry_utils;

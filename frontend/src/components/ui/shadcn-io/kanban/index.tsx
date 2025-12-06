@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from '../../dialog';
 import { useState } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 export type { DragEndEvent } from '@dnd-kit/core';
 
 export type Status = {
@@ -130,7 +131,7 @@ export const KanbanCard = ({
       className={cn(
         'p-3 outline-none border-b flex-col space-y-2',
         isDragging && 'cursor-grabbing',
-        isOpen && 'ring-2 ring-secondary-foreground ring-inset',
+        isOpen && 'shadow-[inset_0_0_0_1px_#0869DA] bg-[#DEF3FF]',
         hasUnread &&
           !isOpen &&
           'shadow-[0_0_12px_2px_rgba(251,146,60,0.5)] ring-1 ring-orange-400/50',
@@ -160,7 +161,7 @@ export type KanbanCardsProps = {
 };
 
 export const KanbanCards = ({ children, className }: KanbanCardsProps) => (
-  <div className={cn('flex flex-1 flex-col relative z-10', className)}>
+  <div className={cn('flex flex-1 flex-col relative', className)}>
     {children}
   </div>
 );
@@ -181,11 +182,14 @@ export type KanbanHeaderProps =
       action?: KanbanHeaderAction;
       /** @deprecated Use action prop instead */
       onAddTask?: () => void;
+      /** Whether to use neutral background instead of colored */
+      neutralBackground?: boolean;
     };
 
 export const KanbanHeader = (props: KanbanHeaderProps) => {
   const { t } = useTranslation('tasks');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const isXL = useMediaQuery('(min-width: 1280px)');
 
   if ('children' in props) {
     return props.children;
@@ -211,19 +215,26 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
     }
 
     if (action.type === 'add') {
+      const button = (
+        <Button
+          variant="ghost"
+          className="m-0 p-0 h-0 text-foreground/50 hover:text-foreground"
+          onClick={action.onAdd}
+          aria-label={t('actions.addTask')}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      );
+
+      // Skip tooltip on mobile to avoid double-tap issue
+      if (!isXL) {
+        return button;
+      }
+
       return (
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className="m-0 p-0 h-0 text-foreground/50 hover:text-foreground"
-                onClick={action.onAdd}
-                aria-label={t('actions.addTask')}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
             <TooltipContent side="top">{t('actions.addTask')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -231,25 +242,31 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
     }
 
     if (action.type === 'clear') {
+      const button = (
+        <Button
+          variant="ghost"
+          className="m-0 p-0 h-0 text-foreground/50 hover:text-destructive"
+          onClick={() => setShowConfirmDialog(true)}
+          aria-label={t('actions.clearColumn')}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      );
+
       return (
         <>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="m-0 p-0 h-0 text-foreground/50 hover:text-destructive"
-                  onClick={() => setShowConfirmDialog(true)}
-                  aria-label={t('actions.clearColumn')}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {t('actions.clearColumn')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {isXL ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipContent side="top">
+                  {t('actions.clearColumn')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            button
+          )}
           {createPortal(
             <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
               <DialogContent className="sm:max-w-[425px]">
@@ -299,7 +316,10 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
         props.className
       )}
       style={{
-        backgroundImage: `linear-gradient(hsl(var(${props.color}) / 0.08), hsl(var(${props.color}) / 0.08))`,
+        backgroundColor: props.neutralBackground ? '#F7F8FA' : undefined,
+        backgroundImage: props.neutralBackground
+          ? 'none'
+          : `linear-gradient(hsl(var(${props.color}) / 0.08), hsl(var(${props.color}) / 0.08))`,
       }}
     >
       <span className="flex-1 flex items-center gap-2">

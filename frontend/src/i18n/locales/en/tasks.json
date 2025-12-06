@@ -275,9 +275,13 @@
       "noChanges": "No uncommitted changes",
       "commitButton": "Commit",
       "committing": "Committing...",
+      "generateButton": "Generate",
+      "generating": "Generating...",
       "errors": {
         "loadFailed": "Failed to load file status",
-        "commitFailed": "Failed to commit changes"
+        "commitFailed": "Failed to commit changes",
+        "noChanges": "No changes to generate a message from",
+        "generateFailed": "Failed to generate commit message"
       }
     }
   },

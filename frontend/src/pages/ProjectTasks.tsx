@@ -120,18 +120,21 @@ function DiffsPanelContainer({
   projectId,
   branchStatus,
   branches,
+  onClose,
 }: {
   attempt: TaskAttempt | null;
   selectedTask: TaskWithAttemptStatus | null;
   projectId: string;
   branchStatus: BranchStatus | null;
   branches: GitBranch[];
+  onClose: () => void;
 }) {
   const { isAttemptRunning } = useAttemptExecution(attempt?.id);
 
   return (
     <DiffsPanel
       selectedAttempt={attempt}
+      onClose={onClose}
       gitOps={
         attempt && selectedTask
           ? {
@@ -744,6 +747,7 @@ export function ProjectTasks() {
       // Clear orchestrator param if set
       const params = new URLSearchParams(searchParams);
       params.delete('orchestrator');
+      params.delete('view');
       navigate(`/projects/${projectId}/tasks?${params.toString()}`, {
         replace: true,
       });
@@ -1209,6 +1213,7 @@ export function ProjectTasks() {
             projectId={projectId!}
             branchStatus={branchStatus ?? null}
             branches={branches}
+            onClose={handleClosePanel}
           />
         )}
       </div>
@@ -1232,6 +1237,7 @@ export function ProjectTasks() {
               mode={effectiveMode}
               isMobile={isMobile}
               rightHeader={rightHeader}
+              onClose={handleClosePanel}
             />
           </ExecutionProcessesProvider>
         </ReviewProvider>

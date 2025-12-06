@@ -4,8 +4,10 @@
   "createProject": "Create Project",
   "linkToOrganization": "Link to Remote Project",
   "loading": "Loading projects...",
+  "serverStarting": "Server is starting...",
   "errors": {
-    "fetchFailed": "Failed to fetch projects"
+    "fetchFailed": "Failed to fetch projects",
+    "serverTimeout": "Server failed to start. Please check if the backend is running."
   },
   "empty": {
     "title": "No projects yet",

@@ -451,11 +451,7 @@ impl WorktreeManager {
         // CRITICAL SAFETY CHECK: Verify path is safe to delete (with symlink protection)
         // This prevents accidental deletion of user directories (e.g., main project repos)
         if let Err(e) = Self::verify_path_safe_for_deletion(&worktree.worktree_path) {
-            tracing::warn!(
-                "Refusing to cleanup worktree at '{}': {}",
-                path_str,
-                e
-            );
+            tracing::warn!("Refusing to cleanup worktree at '{}': {}", path_str, e);
             return Ok(()); // Return Ok to avoid breaking callers, but don't delete
         }
 
@@ -668,8 +664,9 @@ impl WorktreeManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     #[test]
     fn test_verify_path_safe_rejects_user_directory() {

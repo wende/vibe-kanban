@@ -5,6 +5,8 @@ pub mod images;
 pub mod queue;
 pub mod util;
 
+use std::{collections::HashMap, path::PathBuf};
+
 use axum::{
     Extension, Json, Router,
     extract::{
@@ -40,6 +42,7 @@ use executors::{
 use git2::BranchType;
 use serde::{Deserialize, Serialize};
 use services::services::{
+    commit_message::{self, CommitMessageError},
     container::{ContainerError, ContainerService},
     git::{ConflictOp, GitCliError, GitServiceError, WorktreeResetOptions},
     github::{CreatePrRequest, GitHubService, GitHubServiceError},
@@ -48,8 +51,6 @@ use services::services::{
 use sqlx::Error as SqlxError;
 use ts_rs::TS;
 use utils::{log_msg::LogMsg, response::ApiResponse};
-use std::collections::HashMap;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::{
@@ -1791,12 +1792,7 @@ pub async fn export_conversation(
     let processes = ExecutionProcess::find_by_task_attempt_id(pool, task_attempt.id, false)
         .await?
         .into_iter()
-        .filter(|p| {
-            matches!(
-                p.run_reason,
-                ExecutionProcessRunReason::CodingAgent
-            )
-        })
+        .filter(|p| matches!(p.run_reason, ExecutionProcessRunReason::CodingAgent))
         .collect::<Vec<_>>();
 
     if processes.is_empty() {
@@ -1818,11 +1814,7 @@ pub async fn export_conversation(
         let messages = match ExecutionProcessLogs::parse_logs(&log_records) {
             Ok(msgs) => msgs,
             Err(e) => {
-                tracing::warn!(
-                    "Failed to parse logs for process {}: {}",
-                    process.id,
-                    e
-                );
+                tracing::warn!("Failed to parse logs for process {}: {}", process.id, e);
                 continue;
             }
         };
@@ -1857,6 +1849,71 @@ pub async fn export_conversation(
     Ok(ResponseJson(ApiResponse::success(result)))
 }
 
+#[derive(Debug, Serialize, TS)]
+pub struct GenerateCommitMessageResponse {
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum GenerateCommitMessageError {
+    NoChanges,
+    ClaudeCodeFailed { message: String },
+}
+
+/// Generate a commit message using Claude Haiku based on the current diff.
+#[axum::debug_handler]
+pub async fn generate_commit_message(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<GenerateCommitMessageResponse, GenerateCommitMessageError>>, ApiError>
+{
+    let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
+    // Get the diff
+    let diff = match commit_message::get_diff_for_commit(&ws_path) {
+        Ok(diff) => diff,
+        Err(CommitMessageError::NoChanges) => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                GenerateCommitMessageError::NoChanges,
+            )));
+        }
+        Err(e) => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                GenerateCommitMessageError::ClaudeCodeFailed {
+                    message: e.to_string(),
+                },
+            )));
+        }
+    };
+
+    // Generate the commit message using Claude Code CLI
+    let message = match commit_message::generate_commit_message(&diff).await {
+        Ok(msg) => msg,
+        Err(e) => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                GenerateCommitMessageError::ClaudeCodeFailed {
+                    message: e.to_string(),
+                },
+            )));
+        }
+    };
+
+    deployment
+        .track_if_analytics_allowed(
+            "commit_message_generated",
+            serde_json::json!({
+                "attempt_id": task_attempt.id.to_string(),
+            }),
+        )
+        .await;
+
+    Ok(ResponseJson(ApiResponse::success(
+        GenerateCommitMessageResponse { message },
+    )))
+}
+
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let task_attempt_id_router = Router::new()
         .route("/", get(get_task_attempt))
@@ -1872,6 +1929,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/push/force", post(force_push_task_attempt_branch))
         .route("/worktree-status", get(get_worktree_status))
         .route("/commit", post(commit_changes))
+        .route("/generate-commit-message", post(generate_commit_message))
         .route("/rebase", post(rebase_task_attempt))
         .route("/conflicts/abort", post(abort_conflicts_task_attempt))
         .route("/pr", post(create_github_pr))

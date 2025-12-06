@@ -22,6 +22,7 @@ import {
   FilePlus,
   FileX,
   FileEdit,
+  Sparkles,
 } from 'lucide-react';
 import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/lib/modals';
@@ -84,6 +85,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [committing, setCommitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -126,6 +128,37 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
     }
   }, [selectedFiles.size, files]);
 
+  const handleGenerateMessage = useCallback(async () => {
+    setGenerating(true);
+    setError(null);
+
+    try {
+      const result = await attemptsApi.generateCommitMessage(attemptId);
+      if (result.success) {
+        setCommitMessage(result.data.message);
+      } else if (result.error) {
+        switch (result.error.type) {
+          case 'no_changes':
+            setError(t('commit.dialog.errors.noChanges'));
+            break;
+          case 'claude_code_failed':
+            setError(result.error.message || t('commit.dialog.errors.generateFailed'));
+            break;
+        }
+      } else {
+        setError(t('commit.dialog.errors.generateFailed'));
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('commit.dialog.errors.generateFailed')
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }, [attemptId, t]);
+
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim() || selectedFiles.size === 0) return;
 
@@ -162,7 +195,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
   const allSelected = files.length > 0 && selectedFiles.size === files.length;
 
   return (
-    <Dialog open={modal.visible} onOpenChange={() => handleCancel()}>
+    <Dialog open={modal.visible} onOpenChange={() => handleCancel()} zIndex={10001}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -183,11 +216,32 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
             {t('commit.dialog.noChanges')}
           </div>
         ) : (
-          <div className="flex-1 space-y-4 py-4 overflow-hidden flex flex-col">
-            <div className="space-y-2">
-              <Label htmlFor="commit-message">
-                {t('commit.dialog.messageLabel')}
-              </Label>
+          <div className="flex-1 space-y-4 py-4 overflow-hidden flex flex-col min-w-0">
+            <div className="space-y-2 min-w-0">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="commit-message">
+                  {t('commit.dialog.messageLabel')}
+                </Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGenerateMessage}
+                  disabled={generating || files.length === 0}
+                  className="h-7 px-2 text-xs"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      {t('commit.dialog.generating')}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-1.5 h-3 w-3" />
+                      {t('commit.dialog.generateButton')}
+                    </>
+                  )}
+                </Button>
+              </div>
               <Textarea
                 id="commit-message"
                 value={commitMessage}
@@ -197,13 +251,13 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
               />
             </div>
 
-            <div className="space-y-2 flex-1 overflow-hidden flex flex-col min-h-0">
-              <div className="flex items-center justify-between">
+            <div className="space-y-2 flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
+              <div className="flex items-center justify-between min-w-0">
                 <Label>{t('commit.dialog.filesLabel')}</Label>
                 <button
                   type="button"
                   onClick={toggleAll}
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-xs text-muted-foreground hover:text-foreground shrink-0"
                 >
                   {allSelected
                     ? t('commit.dialog.deselectAll')
@@ -211,22 +265,24 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
                 </button>
               </div>
 
-              <div className="border rounded-md overflow-y-auto flex-1 min-h-[100px] max-h-[200px]">
+              <div className="border rounded-md overflow-y-auto flex-1 min-h-[100px] max-h-[200px] min-w-0">
                 {files.map((file) => (
                   <div
                     key={file.path}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 min-w-0"
                     onClick={() => toggleFile(file.path)}
                   >
-                    <Checkbox
-                      checked={selectedFiles.has(file.path)}
-                      onCheckedChange={() => toggleFile(file.path)}
-                    />
-                    {getFileIcon(file)}
-                    <span className="flex-1 truncate text-sm font-mono">
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedFiles.has(file.path)}
+                        onCheckedChange={() => toggleFile(file.path)}
+                      />
+                    </div>
+                    <span className="shrink-0">{getFileIcon(file)}</span>
+                    <span className="flex-1 truncate text-sm font-mono min-w-0">
                       {file.path}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {getStatusLabel(file)}
                     </span>
                   </div>

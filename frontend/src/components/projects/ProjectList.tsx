@@ -11,10 +11,16 @@ import { projectsApi } from '@/lib/api';
 import { AlertCircle, Loader2, Plus } from 'lucide-react';
 import ProjectCard from '@/components/projects/ProjectCard.tsx';
 import { useKeyCreate, Scope } from '@/keyboard';
+import { useServerHealth } from '@/hooks';
 
 export function ProjectList() {
   const navigate = useNavigate();
   const { t } = useTranslation('projects');
+  const {
+    isServerReady,
+    isChecking: isServerStarting,
+    hasTimedOut,
+  } = useServerHealth();
   const [projects, setProjects] = useState<ProjectWithTaskCounts[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,8 +67,10 @@ export function ProjectList() {
   }, [projects, focusedProjectId]);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    if (isServerReady) {
+      fetchProjects();
+    }
+  }, [fetchProjects, isServerReady]);
 
   return (
     <div className="space-y-6 p-8 pb-16 md:pb-8 h-full overflow-auto">
@@ -77,14 +85,21 @@ export function ProjectList() {
         </Button>
       </div>
 
-      {error && (
+      {(error || hasTimedOut) && !isServerStarting && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {hasTimedOut ? t('errors.serverTimeout') : error}
+          </AlertDescription>
         </Alert>
       )}
 
-      {loading ? (
+      {isServerStarting ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          {t('serverStarting')}
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           {t('loading')}

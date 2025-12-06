@@ -101,7 +101,7 @@ pub async fn vibe_cli_help() -> ResponseJson<ApiResponse<VibeCliHelpResponse>> {
             payload_example: None,
             equivalent_cli: "vibe tasks wait <uuid> --interval 2.0 --timeout 300",
             notes: Some(
-                "Query params: interval (polling interval in seconds, default: 2.0), timeout (timeout in seconds, optional)"
+                "Query params: interval (polling interval in seconds, default: 2.0), timeout (timeout in seconds, optional)",
             ),
         },
         HelpCommand {

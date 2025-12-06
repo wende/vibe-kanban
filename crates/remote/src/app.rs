@@ -11,8 +11,7 @@ use crate::{
         OAuthTokenValidator, ProviderRegistry,
     },
     config::RemoteServerConfig,
-    db,
-    is_telemetry_enabled,
+    db, is_telemetry_enabled,
     mail::{LoopsMailer, Mailer, NoopMailer},
     routes,
 };
@@ -76,8 +75,9 @@ impl Server {
             Arc::new(OAuthTokenValidator::new(pool.clone(), registry.clone()));
 
         let mailer: Arc<dyn Mailer> = if is_telemetry_enabled() {
-            let api_key = std::env::var("LOOPS_EMAIL_API_KEY")
-                .context("LOOPS_EMAIL_API_KEY environment variable is required when telemetry is enabled")?;
+            let api_key = std::env::var("LOOPS_EMAIL_API_KEY").context(
+                "LOOPS_EMAIL_API_KEY environment variable is required when telemetry is enabled",
+            )?;
             Arc::new(LoopsMailer::new(api_key))
         } else {
             tracing::info!("Telemetry disabled, using no-op mailer");

@@ -80,6 +80,8 @@ import {
   CommitChangesRequest,
   WorktreeStatusResponse,
   ExportResult,
+  GenerateCommitMessageResponse,
+  GenerateCommitMessageError,
 } from 'shared/types';
 
 class ApiError<E = unknown> extends Error {
@@ -219,6 +221,18 @@ const handleApiResponse = async <T, E = T>(response: Response): Promise<T> => {
   }
 
   return result.data as T;
+};
+
+// Health Check API
+export const healthApi = {
+  check: async (): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/health');
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
 };
 
 // Project Management APIs
@@ -640,6 +654,21 @@ export const attemptsApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  generateCommitMessage: async (
+    attemptId: string
+  ): Promise<Result<GenerateCommitMessageResponse, GenerateCommitMessageError>> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/generate-commit-message`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponseAsResult<
+      GenerateCommitMessageResponse,
+      GenerateCommitMessageError
+    >(response);
   },
 
   exportConversation: async (attemptId: string): Promise<ExportResult> => {

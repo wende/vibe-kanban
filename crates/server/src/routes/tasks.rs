@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use anyhow;
 use axum::{
@@ -19,8 +18,7 @@ use db::models::{
     task_attempt::TaskAttempt,
 };
 use deployment::Deployment;
-use executors::executors::BaseCodingAgent;
-use executors::profile::ExecutorProfileId;
+use executors::{executors::BaseCodingAgent, profile::ExecutorProfileId};
 use futures_util::{SinkExt, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use services::services::{

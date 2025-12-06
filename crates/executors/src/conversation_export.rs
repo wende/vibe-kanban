@@ -3,7 +3,9 @@
 //! This module provides functionality to export normalized conversation entries
 //! to a markdown format that can be passed as context to a new agent.
 
-use crate::logs::{ActionType, CommandExitStatus, NormalizedEntry, NormalizedEntryType, ToolStatus};
+use crate::logs::{
+    ActionType, CommandExitStatus, NormalizedEntry, NormalizedEntryType, ToolStatus,
+};
 
 /// Maximum length of the exported conversation in characters.
 /// If exceeded, older entries are truncated to fit.
@@ -74,15 +76,11 @@ pub fn export_to_markdown(entries: &[NormalizedEntry], original_executor: &str) 
 /// Format a single entry to markdown. Returns None if the entry should be skipped.
 fn format_entry(entry: &NormalizedEntry) -> Option<String> {
     match &entry.entry_type {
-        NormalizedEntryType::UserMessage => {
-            Some(format!("**User:** {}\n", entry.content))
-        }
-        NormalizedEntryType::UserFeedback { denied_tool } => {
-            Some(format!(
-                "**User:** [Denied tool: {}] {}\n",
-                denied_tool, entry.content
-            ))
-        }
+        NormalizedEntryType::UserMessage => Some(format!("**User:** {}\n", entry.content)),
+        NormalizedEntryType::UserFeedback { denied_tool } => Some(format!(
+            "**User:** [Denied tool: {}] {}\n",
+            denied_tool, entry.content
+        )),
         NormalizedEntryType::AssistantMessage => {
             Some(format!("**Assistant:** {}\n", entry.content))
         }
@@ -90,13 +88,14 @@ fn format_entry(entry: &NormalizedEntry) -> Option<String> {
             tool_name,
             action_type,
             status,
-        } => Some(format_tool_use(tool_name, action_type, status, &entry.content)),
-        NormalizedEntryType::ErrorMessage { .. } => {
-            Some(format!("**Error:** {}\n", entry.content))
-        }
-        NormalizedEntryType::SystemMessage => {
-            Some(format!("**System:** {}\n", entry.content))
-        }
+        } => Some(format_tool_use(
+            tool_name,
+            action_type,
+            status,
+            &entry.content,
+        )),
+        NormalizedEntryType::ErrorMessage { .. } => Some(format!("**Error:** {}\n", entry.content)),
+        NormalizedEntryType::SystemMessage => Some(format!("**System:** {}\n", entry.content)),
         // Skip these entry types - they don't add value for the new agent
         NormalizedEntryType::Thinking
         | NormalizedEntryType::Loading
@@ -116,7 +115,14 @@ fn format_tool_use(
         ToolStatus::Success | ToolStatus::Created => "",
         ToolStatus::Failed => " [FAILED]",
         ToolStatus::Denied { reason } => match reason {
-            Some(r) => return format!("**Tool:** [{}] {} [DENIED: {}]\n", format_action_type(action_type), content, r),
+            Some(r) => {
+                return format!(
+                    "**Tool:** [{}] {} [DENIED: {}]\n",
+                    format_action_type(action_type),
+                    content,
+                    r
+                );
+            }
             None => " [DENIED]",
         },
         ToolStatus::TimedOut => " [TIMED OUT]",
@@ -125,7 +131,9 @@ fn format_tool_use(
 
     format!(
         "**Tool:** [{}]{} {}\n",
-        format_action_type(action_type), status_marker, content
+        format_action_type(action_type),
+        status_marker,
+        content
     )
 }
 
@@ -265,7 +273,11 @@ mod tests {
 
         let result = export_to_markdown(&entries, "GEMINI");
 
-        assert!(result.markdown.contains("**Assistant:** I'll help you with that"));
+        assert!(
+            result
+                .markdown
+                .contains("**Assistant:** I'll help you with that")
+        );
         assert!(result.markdown.contains("GEMINI"));
     }
 

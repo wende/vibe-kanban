@@ -54,11 +54,11 @@ module.exports = {
         DEFAULT: 'hsl(var(--primary))', // e.g. Tailwind's blue-500
       },
       fontSize: { // These are downshifted by 1
-        xs: ['0.625rem', { lineHeight: '0.875rem' }], // 10px / 14px
-        sm: ['0.75rem', { lineHeight: '1rem' }],     // 12px / 16px
-        base: ['0.875rem', { lineHeight: '1.25rem' }],  // 14px / 20px
-        lg: ['1rem', { lineHeight: '1.5rem' }],   // 16px / 24px
-        xl: ['1.125rem', { lineHeight: '1.75rem' }],  // 18px / 28px
+        xs: ['0.6875rem', { lineHeight: '1rem' }], // 11px / 16px
+        sm: ['0.8125rem', { lineHeight: '1.125rem' }],     // 13px / 18px
+        base: ['0.9375rem', { lineHeight: '1.375rem' }],  // 15px / 22px
+        lg: ['1.125rem', { lineHeight: '1.625rem' }],   // 18px / 26px
+        xl: ['1.25rem', { lineHeight: '1.875rem' }],  // 20px / 30px
       },
       colors: {
         border: "hsl(var(--border))",

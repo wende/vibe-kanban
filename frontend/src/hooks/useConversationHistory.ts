@@ -13,6 +13,10 @@ import { useExecutionProcessesContext } from '@/contexts/ExecutionProcessesConte
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { streamJsonPatchEntries } from '@/utils/streamJsonPatchEntries';
 
+// Module-level cache for historical execution process entries
+// This allows instant reopening of already-viewed executions
+const historicalEntriesCache = new Map<string, PatchType[]>();
+
 export type PatchTypeWithKey = PatchType & {
   patchKey: string;
   executionProcessId: string;
@@ -47,8 +51,6 @@ interface UseConversationHistoryParams {
 
 interface UseConversationHistoryResult {}
 
-const MIN_INITIAL_ENTRIES = 10;
-const REMAINING_BATCH_SIZE = 50;
 
 const loadingPatch: PatchTypeWithKey = {
   type: 'NORMALIZED_ENTRY',
@@ -101,6 +103,10 @@ export const useConversationHistory = ({
   const loadedInitialEntries = useRef(false);
   const lastActiveProcessId = useRef<string | null>(null);
   const onEntriesUpdatedRef = useRef<OnEntriesUpdated | null>(null);
+  // Track the current attempt ID to prevent stale callbacks from affecting new attempts
+  const currentAttemptIdRef = useRef<string>(attempt.id);
+  // Track active WebSocket controller to close it when switching attempts
+  const activeStreamControllerRef = useRef<{ close: () => void } | null>(null);
 
   const mergeIntoDisplayed = (
     mutator: (state: ExecutionProcessStateStore) => void
@@ -124,7 +130,13 @@ export const useConversationHistory = ({
 
   const loadEntriesForHistoricExecutionProcess = (
     executionProcess: ExecutionProcess
-  ) => {
+  ): Promise<PatchType[]> => {
+    // Check cache first for instant reopening
+    const cached = historicalEntriesCache.get(executionProcess.id);
+    if (cached) {
+      return Promise.resolve(cached);
+    }
+
     let url = '';
     if (executionProcess.executor_action.typ.type === 'ScriptRequest') {
       url = `/api/execution-processes/${executionProcess.id}/raw-logs/ws`;
@@ -136,10 +148,12 @@ export const useConversationHistory = ({
       const controller = streamJsonPatchEntries<PatchType>(url, {
         onFinished: (allEntries) => {
           controller.close();
+          // Cache the result for future reopens
+          historicalEntriesCache.set(executionProcess.id, allEntries);
           resolve(allEntries);
         },
         onError: (err) => {
-          console.warn!(
+          console.warn(
             `Error loading entries for historic execution process ${executionProcess.id}`,
             err
           );
@@ -168,27 +182,6 @@ export const useConversationHistory = ({
       patchKey: `${executionProcessId}:${index}`,
       executionProcessId,
     };
-  };
-
-  const flattenEntries = (
-    executionProcessState: ExecutionProcessStateStore
-  ): PatchTypeWithKey[] => {
-    return Object.values(executionProcessState)
-      .filter(
-        (p) =>
-          p.executionProcess.executor_action.typ.type ===
-            'CodingAgentFollowUpRequest' ||
-          p.executionProcess.executor_action.typ.type ===
-            'CodingAgentInitialRequest'
-      )
-      .sort(
-        (a, b) =>
-          new Date(
-            a.executionProcess.created_at as unknown as string
-          ).getTime() -
-          new Date(b.executionProcess.created_at as unknown as string).getTime()
-      )
-      .flatMap((p) => p.entries);
   };
 
   const getActiveAgentProcess = (): ExecutionProcess | null => {
@@ -431,7 +424,13 @@ export const useConversationHistory = ({
 
   // This emits its own events as they are streamed
   const loadRunningAndEmit = useCallback(
-    (executionProcess: ExecutionProcess): Promise<void> => {
+    (executionProcess: ExecutionProcess, attemptIdAtCallTime: string): Promise<void> => {
+      // Close any existing stream before starting a new one
+      if (activeStreamControllerRef.current) {
+        activeStreamControllerRef.current.close();
+        activeStreamControllerRef.current = null;
+      }
+
       return new Promise((resolve, reject) => {
         let url = '';
         if (executionProcess.executor_action.typ.type === 'ScriptRequest') {
@@ -441,6 +440,10 @@ export const useConversationHistory = ({
         }
         const controller = streamJsonPatchEntries<PatchType>(url, {
           onEntries(entries) {
+            // Check if the attempt has changed - if so, ignore this update
+            if (currentAttemptIdRef.current !== attemptIdAtCallTime) {
+              return;
+            }
             const patchesWithKey = entries.map((entry, index) =>
               patchWithKey(entry, executionProcess.id, index)
             );
@@ -453,15 +456,26 @@ export const useConversationHistory = ({
             emitEntries(displayedExecutionProcesses.current, 'running', false);
           },
           onFinished: () => {
-            emitEntries(displayedExecutionProcesses.current, 'running', false);
+            // Check if the attempt has changed before emitting
+            if (currentAttemptIdRef.current === attemptIdAtCallTime) {
+              emitEntries(displayedExecutionProcesses.current, 'running', false);
+            }
             controller.close();
+            if (activeStreamControllerRef.current === controller) {
+              activeStreamControllerRef.current = null;
+            }
             resolve();
           },
           onError: () => {
             controller.close();
+            if (activeStreamControllerRef.current === controller) {
+              activeStreamControllerRef.current = null;
+            }
             reject();
           },
         });
+        // Store the controller so it can be closed when attempt changes
+        activeStreamControllerRef.current = controller;
       });
     },
     [emitEntries]
@@ -469,10 +483,14 @@ export const useConversationHistory = ({
 
   // Sometimes it can take a few seconds for the stream to start, wrap the loadRunningAndEmit method
   const loadRunningAndEmitWithBackoff = useCallback(
-    async (executionProcess: ExecutionProcess) => {
+    async (executionProcess: ExecutionProcess, attemptIdAtCallTime: string) => {
       for (let i = 0; i < 20; i++) {
+        // Check if attempt has changed before each retry
+        if (currentAttemptIdRef.current !== attemptIdAtCallTime) {
+          return;
+        }
         try {
-          await loadRunningAndEmit(executionProcess);
+          await loadRunningAndEmit(executionProcess, attemptIdAtCallTime);
           break;
         } catch (_) {
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -488,74 +506,32 @@ export const useConversationHistory = ({
 
       if (!executionProcesses?.current) return localDisplayedExecutionProcesses;
 
-      for (const executionProcess of [
-        ...executionProcesses.current,
-      ].reverse()) {
-        if (executionProcess.status === ExecutionProcessStatus.running)
-          continue;
+      // Get all non-running processes (these are historical)
+      const historicProcesses = executionProcesses.current.filter(
+        (ep) => ep.status !== ExecutionProcessStatus.running
+      );
 
-        const entries =
-          await loadEntriesForHistoricExecutionProcess(executionProcess);
+      // Load all historic processes in parallel for faster loading
+      const results = await Promise.all(
+        historicProcesses.map(async (ep) => {
+          const entries = await loadEntriesForHistoricExecutionProcess(ep);
+          return { ep, entries };
+        })
+      );
+
+      // Build the state store from results (preserving original order)
+      for (const { ep, entries } of results) {
         const entriesWithKey = entries.map((e, idx) =>
-          patchWithKey(e, executionProcess.id, idx)
+          patchWithKey(e, ep.id, idx)
         );
-
-        localDisplayedExecutionProcesses[executionProcess.id] = {
-          executionProcess,
+        localDisplayedExecutionProcesses[ep.id] = {
+          executionProcess: ep,
           entries: entriesWithKey,
         };
-
-        if (
-          flattenEntries(localDisplayedExecutionProcesses).length >
-          MIN_INITIAL_ENTRIES
-        ) {
-          break;
-        }
       }
 
       return localDisplayedExecutionProcesses;
     }, [executionProcesses]);
-
-  const loadRemainingEntriesInBatches = useCallback(
-    async (batchSize: number): Promise<boolean> => {
-      if (!executionProcesses?.current) return false;
-
-      let anyUpdated = false;
-      for (const executionProcess of [
-        ...executionProcesses.current,
-      ].reverse()) {
-        const current = displayedExecutionProcesses.current;
-        if (
-          current[executionProcess.id] ||
-          executionProcess.status === ExecutionProcessStatus.running
-        )
-          continue;
-
-        const entries =
-          await loadEntriesForHistoricExecutionProcess(executionProcess);
-        const entriesWithKey = entries.map((e, idx) =>
-          patchWithKey(e, executionProcess.id, idx)
-        );
-
-        mergeIntoDisplayed((state) => {
-          state[executionProcess.id] = {
-            executionProcess,
-            entries: entriesWithKey,
-          };
-        });
-
-        if (
-          flattenEntries(displayedExecutionProcesses.current).length > batchSize
-        ) {
-          anyUpdated = true;
-          break;
-        }
-        anyUpdated = true;
-      }
-      return anyUpdated;
-    },
-    [executionProcesses]
-  );
 
   const ensureProcessVisible = useCallback((p: ExecutionProcess) => {
     mergeIntoDisplayed((state) => {
@@ -594,7 +570,7 @@ export const useConversationHistory = ({
       )
         return;
 
-      // Initial entries
+      // Load all historic entries in parallel (cached entries return instantly)
       const allInitialEntries = await loadInitialEntries();
       if (cancelled) return;
       mergeIntoDisplayed((state) => {
@@ -602,16 +578,6 @@ export const useConversationHistory = ({
       });
       emitEntries(displayedExecutionProcesses.current, 'initial', false);
       loadedInitialEntries.current = true;
-
-      // Then load the remaining in batches
-      while (
-        !cancelled &&
-        (await loadRemainingEntriesInBatches(REMAINING_BATCH_SIZE))
-      ) {
-        if (cancelled) return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      emitEntries(displayedExecutionProcesses.current, 'historic', false);
     })();
     return () => {
       cancelled = true;
@@ -620,7 +586,6 @@ export const useConversationHistory = ({
     attempt.id,
     idListKey,
     loadInitialEntries,
-    loadRemainingEntriesInBatches,
     emitEntries,
   ]); // include idListKey so new processes trigger reload
 
@@ -642,7 +607,8 @@ export const useConversationHistory = ({
       lastActiveProcessId.current !== activeProcess.id
     ) {
       lastActiveProcessId.current = activeProcess.id;
-      loadRunningAndEmitWithBackoff(activeProcess);
+      // Pass current attempt ID to detect if attempt changes during streaming
+      loadRunningAndEmitWithBackoff(activeProcess, attempt.id);
     }
   }, [
     attempt.id,
@@ -673,8 +639,17 @@ export const useConversationHistory = ({
   // The initial load effect will emit once data is ready
   const prevAttemptIdForResetRef = useRef<string | null>(null);
   useEffect(() => {
+    // Update the current attempt ID ref immediately - this is critical for preventing
+    // stale callbacks from affecting the new attempt
+    currentAttemptIdRef.current = attempt.id;
+
     // Only reset if this is an actual attempt change (not initial mount)
     if (prevAttemptIdForResetRef.current !== null && prevAttemptIdForResetRef.current !== attempt.id) {
+      // Close any active stream from the previous attempt
+      if (activeStreamControllerRef.current) {
+        activeStreamControllerRef.current.close();
+        activeStreamControllerRef.current = null;
+      }
       displayedExecutionProcesses.current = {};
       loadedInitialEntries.current = false;
       lastActiveProcessId.current = null;
