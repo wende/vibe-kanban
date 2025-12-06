@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CheckCircle,
   ExternalLink,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import {
@@ -141,10 +142,12 @@ function GitOperations({
     if (rebasing) return t('git.states.rebasing');
     return t('git.states.rebase');
   }, [rebasing, t]);
-  const rebaseAdvancedButtonLabel = useMemo(() => {
-    if (rebasing) return t('git.states.rebasing');
-    return `${t('git.states.rebase')}*`;
-  }, [rebasing, t]);
+
+  const pushButtonLabel = useMemo(() => {
+    if (pushSuccess) return t('git.states.pushed');
+    if (pushing) return t('git.states.pushing');
+    return t('git.states.push');
+  }, [pushSuccess, pushing, t]);
 
   const prButtonLabel = useMemo(() => {
     if (mergeInfo.hasOpenPR) {
@@ -513,21 +516,28 @@ function GitOperations({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={handleRebaseDialogOpen}
-                    disabled={isActionDisabled || rebasing}
+                    onClick={handlePushClick}
+                    disabled={
+                      isActionDisabled ||
+                      pushing ||
+                      ((branchStatus.commits_ahead ?? 0) === 0 &&
+                        (branchStatus.remote_commits_ahead ?? 0) === 0 &&
+                        !pushSuccess &&
+                        !mergeSuccess)
+                    }
                     variant="outline"
                     size="xs"
-                    className="border-warning text-warning hover:bg-warning gap-1 shrink-0"
-                    aria-label={t('rebase.dialog.title')}
+                    className="border-info text-info hover:bg-info gap-1 shrink-0"
+                    aria-label={pushButtonLabel}
                   >
-                    <RefreshCw className="h-3.5 w-3.5" />
+                    <Upload className="h-3.5 w-3.5" />
                     <span className="truncate max-w-[10ch]">
-                      {rebaseAdvancedButtonLabel}
+                      {pushButtonLabel}
                     </span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  {t('git.tooltips.advancedRebase')}
+                  {t('git.tooltips.pushToOrigin')}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
