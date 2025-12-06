@@ -156,8 +156,6 @@ function DiffsPanelContent({
           className="sticky top-0 z-10"
           actions={
             <>
-              <DiffViewSwitch />
-              <div className="h-4 w-px bg-border" />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -183,6 +181,8 @@ function DiffsPanelContent({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <div className="h-4 w-px bg-border" />
+              <DiffViewSwitch />
             </>
           }
         >
