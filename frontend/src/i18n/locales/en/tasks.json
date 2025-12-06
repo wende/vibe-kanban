@@ -400,13 +400,17 @@
     "selectBaseBranch": "Select base branch",
     "creating": "Creating...",
     "createButton": "Create PR",
+    "generateButton": "Generate",
+    "generating": "Generating...",
     "errors": {
       "insufficientPermissions": "Insufficient permissions. Please ensure the GitHub CLI has the necessary permissions.",
       "repoNotFoundOrNoAccess": "Repository not found or no access. Please check your repository access and ensure you are authenticated.",
       "failedToCreate": "Failed to create GitHub PR",
       "gitCliNotLoggedIn": "Git is not authenticated. Run \"gh auth login\" (or configure Git credentials) and try again.",
       "gitCliNotInstalled": "Git CLI is not installed. Install Git to create a PR.",
-      "targetBranchNotFound": "Target branch '{{branch}}' does not exist on remote. Please ensure the branch exists before creating a pull request."
+      "targetBranchNotFound": "Target branch '{{branch}}' does not exist on remote. Please ensure the branch exists before creating a pull request.",
+      "noChanges": "No changes to generate a title from",
+      "failedToGenerateTitle": "Failed to generate PR title"
     },
     "loginRequired": {
       "title": "Sign in to create a pull request",
