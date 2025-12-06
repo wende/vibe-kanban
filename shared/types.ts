@@ -22,11 +22,11 @@ export type SearchResult = { path: string, is_file: boolean, match_type: SearchM
 
 export type SearchMatchType = "FileName" | "DirectoryName" | "FullPath";
 
-export type BranchWorktreeStatus = {
+export type BranchWorktreeStatus = { 
 /**
  * Whether the branch is currently checked out in a worktree
  */
-in_worktree: boolean,
+in_worktree: boolean, 
 /**
  * Path to the worktree if the branch is checked out
  */
@@ -241,7 +241,7 @@ export type ImageResponse = { id: string, file_path: string, original_name: stri
 
 export type ImageMetadata = { exists: boolean, file_name: string | null, path: string | null, size_bytes: bigint | null, format: string | null, proxy_url: string | null, };
 
-export type CreateTaskAttemptBody = { task_id: string,
+export type CreateTaskAttemptBody = { task_id: string, 
 /**
  * Executor profile specification
  */
