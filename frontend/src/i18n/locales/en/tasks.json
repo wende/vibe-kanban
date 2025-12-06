@@ -202,7 +202,7 @@
     "diffs": "Diffs",
     "gitActions": "Git Actions",
     "tryAgain": "Try Again",
-    "tryDifferentAgent": "Try Different Agent",
+    "tryDifferentAgent": "Change Agent",
     "tryDifferentAgentTooltip": "Continue with a different coding agent, passing conversation history",
     "runSetup": "Run Setup",
     "setupHelpText": "{{agent}} isn't setup correctly. Click 'Run Setup' to install it and login.",
