@@ -24,11 +24,11 @@ export type SearchResult = { path: string, is_file: boolean, match_type: SearchM
 
 export type SearchMatchType = "FileName" | "DirectoryName" | "FullPath";
 
-export type BranchWorktreeStatus = {
+export type BranchWorktreeStatus = { 
 /**
  * Whether the branch is currently checked out in a worktree
  */
-in_worktree: boolean,
+in_worktree: boolean, 
 /**
  * Path to the worktree if the branch is checked out
  */
@@ -68,7 +68,7 @@ export type Image = { id: string, file_path: string, original_name: string, mime
 
 export type CreateImage = { file_path: string, original_name: string, mime_type: string | null, size_bytes: bigint, hash: string, };
 
-export type TaskAttempt = { id: string, task_id: string, container_ref: string | null, branch: string, target_branch: string, executor: string, worktree_deleted: boolean, setup_completed_at: string | null, created_at: string, updated_at: string, };
+export type TaskAttempt = { id: string, task_id: string, container_ref: string | null, branch: string, target_branch: string, executor: string, worktree_deleted: boolean, setup_completed_at: string | null, is_orchestrator: boolean, created_at: string, updated_at: string, };
 
 export type ExecutionProcess = { id: string, task_attempt_id: string, run_reason: ExecutionProcessRunReason, executor_action: ExecutorAction, 
 /**
@@ -243,11 +243,25 @@ export type ImageResponse = { id: string, file_path: string, original_name: stri
 
 export type ImageMetadata = { exists: boolean, file_name: string | null, path: string | null, size_bytes: bigint | null, format: string | null, proxy_url: string | null, };
 
-export type CreateTaskAttemptBody = { task_id: string,
+export type CreateTaskAttemptBody = { task_id: string, 
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, base_branch: string, };
+executor_profile_id: ExecutorProfileId, base_branch: string, 
+/**
+ * If true, use base_branch as the working branch instead of creating a new one
+ */
+use_existing_branch: boolean, 
+/**
+ * Custom branch name to use instead of auto-generating one.
+ * Takes precedence over use_existing_branch when set.
+ */
+custom_branch: string | null, 
+/**
+ * Conversation history from a previous attempt to prepend to the prompt.
+ * Used when continuing a task with a different agent.
+ */
+conversation_history: string | null, };
 
 export type RunAgentSetupRequest = { executor_profile_id: ExecutorProfileId, };
 
@@ -263,15 +277,15 @@ export type PushError = { "type": "force_push_required" };
 
 export type CreatePrError = { "type": "github_cli_not_installed" } | { "type": "github_cli_not_logged_in" } | { "type": "git_cli_not_logged_in" } | { "type": "git_cli_not_installed" } | { "type": "target_branch_not_found", branch: string, };
 
-export type BranchStatus = { commits_behind: number | null, commits_ahead: number | null, has_uncommitted_changes: boolean | null, head_oid: string | null, uncommitted_count: number | null, untracked_count: number | null, target_branch_name: string, remote_commits_behind: number | null, remote_commits_ahead: number | null, merges: Array<Merge>,
+export type BranchStatus = { commits_behind: number | null, commits_ahead: number | null, has_uncommitted_changes: boolean | null, head_oid: string | null, uncommitted_count: number | null, untracked_count: number | null, target_branch_name: string, remote_commits_behind: number | null, remote_commits_ahead: number | null, merges: Array<Merge>, 
 /**
  * True if a `git rebase` is currently in progress in this worktree
  */
-is_rebase_in_progress: boolean,
+is_rebase_in_progress: boolean, 
 /**
  * Current conflict operation if any
  */
-conflict_op: ConflictOp | null,
+conflict_op: ConflictOp | null, 
 /**
  * List of files currently in conflicted (unmerged) state
  */
@@ -423,11 +437,11 @@ executor_profile_id: ExecutorProfileId,
  */
 is_orchestrator: boolean, };
 
-export type CommitChangesRequest = {
+export type CommitChangesRequest = { 
 /**
  * Files to stage before committing. If empty, stages all changes.
  */
-files: Array<string>,
+files: Array<string>, 
 /**
  * Commit message.
  */
@@ -435,23 +449,23 @@ message: string, };
 
 export type WorktreeStatusResponse = { entries: Array<FileStatusEntry>, };
 
-export type FileStatusEntry = {
+export type FileStatusEntry = { 
 /**
  * Single-letter staged status (X column) - ' ' means unchanged, 'M' modified, 'A' added, etc.
  */
-staged: string,
+staged: string, 
 /**
  * Single-letter unstaged status (Y column)
  */
-unstaged: string,
+unstaged: string, 
 /**
  * File path
  */
-path: string,
+path: string, 
 /**
  * Original path for renames
  */
-orig_path: string | null,
+orig_path: string | null, 
 /**
  * True if this is an untracked file
  */
@@ -461,15 +475,15 @@ export type GenerateCommitMessageResponse = { message: string, };
 
 export type GenerateCommitMessageError = { "type": "no_changes" } | { "type": "claude_code_failed", message: string, };
 
-export type ExportResult = {
+export type ExportResult = { 
 /**
  * The exported markdown text.
  */
-markdown: string,
+markdown: string, 
 /**
  * Number of messages included in the export.
  */
-message_count: number,
+message_count: number, 
 /**
  * Whether the export was truncated due to length.
  */
