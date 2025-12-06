@@ -84,7 +84,8 @@ async function verifyPorts(ports) {
  */
 async function allocatePorts() {
   // If PORT env is set, use it for frontend and PORT+1 for backend
-  if (process.env.PORT) {
+  // PORT=0 means "find random available ports"
+  if (process.env.PORT && process.env.PORT !== "0") {
     const frontendPort = parseInt(process.env.PORT, 10);
     const backendPort = frontendPort + 1;
 
@@ -103,8 +104,9 @@ async function allocatePorts() {
     return ports;
   }
 
-  // Try to load existing ports first
-  const existingPorts = loadPorts();
+  // Try to load existing ports first (unless PORT=0 which forces fresh allocation)
+  const forceNew = process.env.PORT === "0";
+  const existingPorts = forceNew ? null : loadPorts();
 
   if (existingPorts) {
     // Verify existing ports are still available
@@ -134,7 +136,10 @@ async function allocatePorts() {
     timestamp: new Date().toISOString(),
   };
 
-  savePorts(ports);
+  // Don't save when PORT=0 (fresh ports each time)
+  if (!forceNew) {
+    savePorts(ports);
+  }
 
   if (process.argv[2] === "get") {
     console.log("Allocated new dev ports:");
