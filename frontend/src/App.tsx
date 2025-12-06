@@ -1,22 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/i18n';
-import { Projects } from '@/pages/Projects';
-import { ProjectTasks } from '@/pages/ProjectTasks';
-import { FullAttemptLogsPage } from '@/pages/FullAttemptLogs';
-import { NormalLayout } from '@/components/layout/NormalLayout';
 import { usePostHog } from 'posthog-js/react';
 import { useAuth } from '@/hooks';
 
-import {
-  AgentSettings,
-  GeneralSettings,
-  McpSettings,
-  OrganizationSettings,
-  ProjectSettings,
-  SettingsLayout,
-} from '@/pages/settings/';
 import { UserSystemProvider, useUserSystem } from '@/components/ConfigProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { SearchProvider } from '@/contexts/SearchContext';
@@ -34,6 +22,20 @@ import { ReleaseNotesDialog } from '@/components/dialogs/global/ReleaseNotesDial
 import { ClickedElementsProvider } from './contexts/ClickedElementsProvider';
 import { TaskReadStatusProvider } from './contexts/TaskReadStatusContext';
 import NiceModal from '@ebay/nice-modal-react';
+
+// Lazy load page components
+const Projects = lazy(() => import('@/pages/Projects').then(m => ({ default: m.Projects })));
+const ProjectTasks = lazy(() => import('@/pages/ProjectTasks').then(m => ({ default: m.ProjectTasks })));
+const FullAttemptLogsPage = lazy(() => import('@/pages/FullAttemptLogs').then(m => ({ default: m.FullAttemptLogsPage })));
+const NormalLayout = lazy(() => import('@/components/layout/NormalLayout').then(m => ({ default: m.NormalLayout })));
+
+// Lazy load settings pages
+const SettingsLayout = lazy(() => import('@/pages/settings/').then(m => ({ default: m.SettingsLayout })));
+const AgentSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.AgentSettings })));
+const GeneralSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.GeneralSettings })));
+const McpSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.McpSettings })));
+const OrganizationSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.OrganizationSettings })));
+const ProjectSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.ProjectSettings })));
 
 // Use regular Routes in dev to avoid HMR conflicts with Sentry's hook wrapper
 const SentryRoutes =
@@ -121,46 +123,52 @@ function AppContent() {
       <ThemeProvider initialTheme={config?.theme || ThemeMode.SYSTEM}>
         <SearchProvider>
           <div className="h-screen flex flex-col bg-background">
-            <SentryRoutes>
-              {/* VS Code full-page logs route (outside NormalLayout for minimal UI) */}
-              <Route
-                path="/projects/:projectId/tasks/:taskId/attempts/:attemptId/full"
-                element={<FullAttemptLogsPage />}
-              />
+            <Suspense fallback={
+              <div className="min-h-screen bg-background flex items-center justify-center">
+                <Loader message="Loading..." size={32} />
+              </div>
+            }>
+              <SentryRoutes>
+                {/* VS Code full-page logs route (outside NormalLayout for minimal UI) */}
+                <Route
+                  path="/projects/:projectId/tasks/:taskId/attempts/:attemptId/full"
+                  element={<FullAttemptLogsPage />}
+                />
 
-              <Route element={<NormalLayout />}>
-                <Route path="/" element={<Projects />} />
-                <Route path="/projects" element={<Projects />} />
-                <Route path="/projects/:projectId" element={<Projects />} />
-                <Route
-                  path="/projects/:projectId/tasks"
-                  element={<ProjectTasks />}
-                />
-                <Route path="/settings/*" element={<SettingsLayout />}>
-                  <Route index element={<Navigate to="general" replace />} />
-                  <Route path="general" element={<GeneralSettings />} />
-                  <Route path="projects" element={<ProjectSettings />} />
+                <Route element={<NormalLayout />}>
+                  <Route path="/" element={<Projects />} />
+                  <Route path="/projects" element={<Projects />} />
+                  <Route path="/projects/:projectId" element={<Projects />} />
                   <Route
-                    path="organizations"
-                    element={<OrganizationSettings />}
+                    path="/projects/:projectId/tasks"
+                    element={<ProjectTasks />}
                   />
-                  <Route path="agents" element={<AgentSettings />} />
-                  <Route path="mcp" element={<McpSettings />} />
+                  <Route path="/settings/*" element={<SettingsLayout />}>
+                    <Route index element={<Navigate to="general" replace />} />
+                    <Route path="general" element={<GeneralSettings />} />
+                    <Route path="projects" element={<ProjectSettings />} />
+                    <Route
+                      path="organizations"
+                      element={<OrganizationSettings />}
+                    />
+                    <Route path="agents" element={<AgentSettings />} />
+                    <Route path="mcp" element={<McpSettings />} />
+                  </Route>
+                  <Route
+                    path="/mcp-servers"
+                    element={<Navigate to="/settings/mcp" replace />}
+                  />
+                  <Route
+                    path="/projects/:projectId/tasks/:taskId"
+                    element={<ProjectTasks />}
+                  />
+                  <Route
+                    path="/projects/:projectId/tasks/:taskId/attempts/:attemptId"
+                    element={<ProjectTasks />}
+                  />
                 </Route>
-                <Route
-                  path="/mcp-servers"
-                  element={<Navigate to="/settings/mcp" replace />}
-                />
-                <Route
-                  path="/projects/:projectId/tasks/:taskId"
-                  element={<ProjectTasks />}
-                />
-                <Route
-                  path="/projects/:projectId/tasks/:taskId/attempts/:attemptId"
-                  element={<ProjectTasks />}
-                />
-              </Route>
-            </SentryRoutes>
+              </SentryRoutes>
+            </Suspense>
           </div>
         </SearchProvider>
       </ThemeProvider>
