@@ -249,7 +249,7 @@ function WYSIWYGEditor({
   if (disabled) {
     return (
       <div className="relative group">
-        <div className="sticky top-0 right-2 z-10 pointer-events-none h-0">
+        <div className="absolute top-0 right-0 z-10 pointer-events-none">
           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             {/* Copy button */}
             <Button
