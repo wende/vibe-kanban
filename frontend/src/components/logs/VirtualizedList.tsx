@@ -81,8 +81,6 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
     DataWithScrollModifier<PatchTypeWithKey>
   >({ data: [], scrollModifier: InitialDataScrollModifier });
   const [loading, setLoading] = useState(true);
-  // Track if we're ready to show content (data loaded + paint delay passed)
-  const [readyToShow, setReadyToShow] = useState(false);
   const { setEntries, reset } = useEntries();
   const prevAttemptIdRef = useRef<string | null>(null);
 
@@ -96,46 +94,18 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
       // Just set loading to show indicator - DON'T clear channelData
       // The old content stays visible until onEntriesUpdated brings new data
       setLoading(true);
-      setReadyToShow(false);
       // Reset entries context for the new attempt
       reset();
     } else if (prevAttemptId === null) {
       // Initial mount - set loading
       setLoading(true);
-      setReadyToShow(false);
       reset();
     }
   }, [attempt.id, reset]);
 
-  // Show content only after loading is done AND we have data
-  // Use double RAF + small delay to ensure Virtuoso has fully painted
-  const dataLength = channelData.data?.length ?? 0;
-  useEffect(() => {
-    if (loading || dataLength === 0) {
-      setReadyToShow(false);
-      return;
-    }
-
-    // Data is loaded - wait for two animation frames + small delay
-    // to ensure Virtuoso has fully rendered and painted its items
-    let cancelled = false;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!cancelled) {
-          // Additional small delay for Virtuoso to finish layout
-          setTimeout(() => {
-            if (!cancelled) {
-              setReadyToShow(true);
-            }
-          }, 100);
-        }
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, dataLength]);
+  // Content is ready when we have data and loading is complete
+  const hasData = (channelData.data?.length ?? 0) > 0;
+  const isReady = !loading && hasData;
 
   const onEntriesUpdated = (
     newEntries: PatchTypeWithKey[],
@@ -167,11 +137,11 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
   return (
     <ApprovalFormProvider>
       <div className="h-full flex flex-col relative">
-        {/* Loading overlay with fade out animation - only show if not disabled by parent */}
+        {/* Loading overlay - only show if not disabled by parent */}
         {!disableLoadingOverlay && (
           <div
-            className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-200 ${
-              readyToShow ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            className={`absolute inset-0 z-50 flex items-center justify-center bg-background transition-opacity duration-150 ${
+              isReady ? 'opacity-0 pointer-events-none' : 'opacity-100'
             }`}
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px]">
@@ -180,16 +150,8 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
             </div>
           </div>
         )}
-        {/* Content with fade in animation - when parent controls loading, always show content */}
-        <div
-          className={`h-full ${
-            disableLoadingOverlay
-              ? '' // Parent controls visibility
-              : `transition-opacity duration-200 ${
-                  readyToShow ? 'opacity-100 visible' : 'opacity-0 invisible'
-                }`
-          }`}
-        >
+        {/* Content - always rendered, virtuoso handles visibility efficiently */}
+        <div className="h-full">
           <VirtuosoMessageListLicense
             licenseKey={import.meta.env.VITE_PUBLIC_REACT_VIRTUOSO_LICENSE_KEY}
           >
