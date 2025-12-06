@@ -36,7 +36,7 @@ export const AttemptHeaderActions = ({
 }: AttemptHeaderActionsProps) => {
   const { t } = useTranslation('tasks');
   const posthog = usePostHog();
-  const isXL = useMediaQuery('(min-width: 1280px)');
+  const isXL = useMediaQuery('(min-width: 853px)');
   const [copied, setCopied] = useState(false);
 
   const handleCopyPath = useCallback(async () => {
