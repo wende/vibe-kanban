@@ -215,12 +215,11 @@ impl TaskImage {
         image_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
         let exists = sqlx::query_scalar!(
-            r#"
-            SELECT EXISTS(
+            r#"SELECT EXISTS(
                 SELECT 1
                 FROM task_images
                 WHERE task_id = $1 AND image_id = $2
-            ) as "exists!: bool"
+               ) AS "exists!: bool"
             "#,
             task_id,
             image_id

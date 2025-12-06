@@ -22,12 +22,12 @@ use services::services::{
     image::{ImageError, ImageService},
     pr_monitor::{PrMonitorHandle, PrMonitorService},
     queued_message::QueuedMessageService,
-    share::{RemoteSync, RemoteSyncHandle, ShareConfig, SharePublisher},
+    share::SharePublisher,
     worktree_manager::WorktreeError,
 };
 use sqlx::Error as SqlxError;
 use thiserror::Error;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 use utils::sentry as sentry_utils;
 
 #[derive(Debug, Clone, Copy, Error)]
@@ -99,26 +99,6 @@ pub trait Deployment: Clone + Send + Sync + 'static {
     fn auth_context(&self) -> &AuthContext;
 
     fn share_publisher(&self) -> Result<SharePublisher, RemoteClientNotConfigured>;
-
-    fn share_sync_handle(&self) -> &Arc<Mutex<Option<RemoteSyncHandle>>>;
-
-    fn spawn_remote_sync(&self, config: ShareConfig) {
-        let deployment = self.clone();
-        let handle_slot = self.share_sync_handle().clone();
-        tokio::spawn(async move {
-            tracing::info!("Starting shared task sync");
-
-            let remote_sync_handle = RemoteSync::spawn(
-                deployment.db().clone(),
-                config,
-                deployment.auth_context().clone(),
-            );
-            {
-                let mut guard = handle_slot.lock().await;
-                *guard = Some(remote_sync_handle);
-            }
-        });
-    }
 
     async fn update_sentry_scope(&self) -> Result<(), DeploymentError> {
         let user_id = self.user_id();

@@ -31,7 +31,8 @@ use executors::{
         coding_agent_initial::CodingAgentInitialRequest,
     },
     approvals::{ExecutorApprovalService, NoopExecutorApprovalService},
-    executors::{BaseCodingAgent, BoxedInputSender, ExecutorExitResult, ExecutorExitSignal},
+    env::ExecutionEnv,
+    executors::{BaseCodingAgent, BoxedInputSender, ExecutorExitResult, ExecutorExitSignal, InterruptSender},
     logs::{
         NormalizedEntryType,
         utils::{
@@ -64,13 +65,14 @@ use utils::{
 };
 use uuid::Uuid;
 
-use crate::command;
+use crate::{command, copy};
 
 #[derive(Clone)]
 pub struct LocalContainerService {
     db: DBService,
     child_store: Arc<RwLock<HashMap<Uuid, Arc<RwLock<AsyncGroupChild>>>>>,
     input_senders: Arc<RwLock<HashMap<Uuid, Arc<BoxedInputSender>>>>,
+    interrupt_senders: Arc<RwLock<HashMap<Uuid, InterruptSender>>>,
     msg_stores: Arc<RwLock<HashMap<Uuid, Arc<MsgStore>>>>,
     config: Arc<RwLock<Config>>,
     git: GitService,
@@ -97,6 +99,7 @@ impl LocalContainerService {
     ) -> Self {
         let child_store = Arc::new(RwLock::new(HashMap::new()));
         let input_senders = Arc::new(RwLock::new(HashMap::new()));
+        let interrupt_senders = Arc::new(RwLock::new(HashMap::new()));
         let (worktree_cleanup_shutdown_tx, worktree_cleanup_shutdown_rx) =
             tokio::sync::watch::channel(false);
 
@@ -104,6 +107,7 @@ impl LocalContainerService {
             db,
             child_store,
             input_senders,
+            interrupt_senders,
             msg_stores,
             config,
             git,
@@ -155,6 +159,16 @@ impl LocalContainerService {
     pub async fn remove_input_sender(&self, id: &Uuid) {
         let mut map = self.input_senders.write().await;
         map.remove(id);
+    }
+
+    async fn add_interrupt_sender(&self, id: Uuid, sender: InterruptSender) {
+        let mut map = self.interrupt_senders.write().await;
+        map.insert(id, sender);
+    }
+
+    async fn take_interrupt_sender(&self, id: &Uuid) -> Option<InterruptSender> {
+        let mut map = self.interrupt_senders.write().await;
+        map.remove(id)
     }
 
     /// Defensively check for externally deleted worktrees and mark them as deleted in the database
@@ -1193,10 +1207,31 @@ impl ContainerService for LocalContainerService {
                 _ => Arc::new(NoopExecutorApprovalService {}),
             };
 
+        // Build ExecutionEnv with VK_* variables
+        let mut env = ExecutionEnv::new();
+
+        // Load task and project context for environment variables
+        let task = task_attempt
+            .parent_task(&self.db.pool)
+            .await?
+            .ok_or(ContainerError::Other(anyhow!(
+                "Task not found for task attempt"
+            )))?;
+        let project = task
+            .parent_project(&self.db.pool)
+            .await?
+            .ok_or(ContainerError::Other(anyhow!("Project not found for task")))?;
+
+        env.insert("VK_PROJECT_NAME", &project.name);
+        env.insert("VK_PROJECT_ID", project.id.to_string());
+        env.insert("VK_TASK_ID", task.id.to_string());
+        env.insert("VK_ATTEMPT_ID", task_attempt.id.to_string());
+        env.insert("VK_ATTEMPT_BRANCH", &task_attempt.branch);
+
         // Create the child and stream, add to execution tracker with timeout
         let mut spawned = tokio::time::timeout(
             Duration::from_secs(30),
-            executor_action.spawn(&current_dir, approvals_service),
+            executor_action.spawn(&current_dir, approvals_service, &env),
         )
         .await
         .map_err(|_| {
@@ -1214,6 +1249,12 @@ impl ContainerService for LocalContainerService {
         // Store input sender if available (for sending commands to the process)
         if let Some(input_sender) = spawned.input_sender {
             self.add_input_sender(execution_process.id, input_sender)
+                .await;
+        }
+
+        // Store interrupt sender for graceful shutdown
+        if let Some(interrupt_sender) = spawned.interrupt_sender {
+            self.add_interrupt_sender(execution_process.id, interrupt_sender)
                 .await;
         }
 
@@ -1242,6 +1283,36 @@ impl ContainerService for LocalContainerService {
 
         ExecutionProcess::update_completion(&self.db.pool, execution_process.id, status, exit_code)
             .await?;
+
+        // Try graceful interrupt first, then force kill
+        if let Some(interrupt_sender) = self.take_interrupt_sender(&execution_process.id).await {
+            // Send interrupt signal (ignore error if receiver dropped)
+            let _ = interrupt_sender.send(());
+
+            // Wait for graceful exit with timeout
+            let graceful_exit = {
+                let mut child_guard = child.write().await;
+                tokio::time::timeout(Duration::from_secs(5), child_guard.wait()).await
+            };
+
+            match graceful_exit {
+                Ok(Ok(_)) => {
+                    tracing::debug!(
+                        "Process {} exited gracefully after interrupt",
+                        execution_process.id
+                    );
+                }
+                Ok(Err(e)) => {
+                    tracing::info!("Error waiting for process {}: {}", execution_process.id, e);
+                }
+                Err(_) => {
+                    tracing::debug!(
+                        "Graceful shutdown timed out for process {}, force killing",
+                        execution_process.id
+                    );
+                }
+            }
+        }
 
         // Kill the child process and remove from the store
         {
@@ -1439,40 +1510,19 @@ impl ContainerService for LocalContainerService {
         target_dir: &Path,
         copy_files: &str,
     ) -> Result<(), ContainerError> {
-        let files: Vec<&str> = copy_files
-            .split(',')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .collect();
+        let source_dir = source_dir.to_path_buf();
+        let target_dir = target_dir.to_path_buf();
+        let copy_files = copy_files.to_string();
 
-        for file_path in files {
-            let source_file = source_dir.join(file_path);
-            let target_file = target_dir.join(file_path);
-
-            // Create parent directories if needed
-            if let Some(parent) = target_file.parent()
-                && !parent.exists()
-            {
-                std::fs::create_dir_all(parent).map_err(|e| {
-                    ContainerError::Other(anyhow!("Failed to create directory {parent:?}: {e}"))
-                })?;
-            }
-
-            // Copy the file
-            if source_file.exists() {
-                std::fs::copy(&source_file, &target_file).map_err(|e| {
-                    ContainerError::Other(anyhow!(
-                        "Failed to copy file {source_file:?} to {target_file:?}: {e}"
-                    ))
-                })?;
-                tracing::info!("Copied file {:?} to worktree", file_path);
-            } else {
-                return Err(ContainerError::Other(anyhow!(
-                    "File {source_file:?} does not exist in the project directory"
-                )));
-            }
-        }
-        Ok(())
+        tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            tokio::task::spawn_blocking(move || {
+                copy::copy_project_files_impl(&source_dir, &target_dir, &copy_files)
+            }),
+        )
+        .await
+        .map_err(|_| ContainerError::Other(anyhow!("Copy project files timed out after 30s")))?
+        .map_err(|e| ContainerError::Other(anyhow!("Copy files task failed: {e}")))?
     }
 
     async fn kill_all_running_processes(&self) -> Result<(), ContainerError> {
@@ -1511,7 +1561,6 @@ impl ContainerService for LocalContainerService {
         }
     }
 }
-
 fn success_exit_status() -> std::process::ExitStatus {
     #[cfg(unix)]
     {

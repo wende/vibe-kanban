@@ -16,6 +16,7 @@ use crate::{
     actions::ExecutorAction,
     approvals::ExecutorApprovalService,
     command::CommandBuildError,
+    env::ExecutionEnv,
     executors::{
         amp::Amp, claude::ClaudeCode, codex::Codex, copilot::Copilot, cursor::CursorAgent,
         droid::Droid, gemini::Gemini, opencode::Opencode, qwen::QwenCode,
@@ -217,12 +218,18 @@ pub trait StandardCodingAgentExecutor {
     /// Set orchestrator mode (enables orchestrator-specific features like vibe_kanban MCP)
     fn set_orchestrator_mode(&mut self, _is_orchestrator: bool) {}
 
-    async fn spawn(&self, current_dir: &Path, prompt: &str) -> Result<SpawnedChild, ExecutorError>;
+    async fn spawn(
+        &self,
+        current_dir: &Path,
+        prompt: &str,
+        env: &ExecutionEnv,
+    ) -> Result<SpawnedChild, ExecutorError>;
     async fn spawn_follow_up(
         &self,
         current_dir: &Path,
         prompt: &str,
         session_id: &str,
+        env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError>;
     fn normalize_logs(&self, _raw_logs_event_store: Arc<MsgStore>, _worktree_path: &Path);
 
@@ -271,11 +278,18 @@ pub trait InputSender: Send + Sync {
 /// A boxed input sender that can be stored and used later
 pub type BoxedInputSender = Box<dyn InputSender>;
 
+/// Sender for requesting graceful interrupt of an executor.
+/// When sent, the executor should attempt to interrupt gracefully before being killed.
+pub type InterruptSender = tokio::sync::oneshot::Sender<()>;
+
 pub struct SpawnedChild {
     pub child: AsyncGroupChild,
+    /// Executor → Container: signals when executor wants to exit
     pub exit_signal: Option<ExecutorExitSignal>,
     /// Optional input sender for processes that support receiving user input
     pub input_sender: Option<BoxedInputSender>,
+    /// Container → Executor: signals when container wants to interrupt
+    pub interrupt_sender: Option<InterruptSender>,
 }
 
 impl From<AsyncGroupChild> for SpawnedChild {
@@ -284,6 +298,7 @@ impl From<AsyncGroupChild> for SpawnedChild {
             child,
             exit_signal: None,
             input_sender: None,
+            interrupt_sender: None,
         }
     }
 }

@@ -206,27 +206,26 @@ dependencies = [
 
 [[package]]
 name = "agent-client-protocol"
-version = "0.4.7"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76133c067c37ae7a3641c3ad1ec88f36aac06cea5f9b3b49b5c29f18214f9101"
+checksum = "3e639d6b544ad39f5b4e05802db5eb04e1518284eb05fda1839931003e0244c8"
 dependencies = [
  "agent-client-protocol-schema",
  "anyhow",
  "async-broadcast",
  "async-trait",
+ "derive_more",
  "futures",
  "log",
- "parking_lot",
- "schemars 1.0.4",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "agent-client-protocol-schema"
-version = "0.4.11"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61be4454304d7df1a5b44c4ae55e707ffe72eac4dfb1ef8762510ce8d8f6d924"
+checksum = "f182f5e14bef8232b239719bd99166bb11e986c08fc211f28e392f880d3093ba"
 dependencies = [
  "anyhow",
  "derive_more",
@@ -295,7 +294,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -306,7 +305,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -427,28 +426,6 @@ dependencies = [
  "signal-hook-registry",
  "slab",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "async-stream"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b5a71a6f37880a80d1d7f19efd781e4b5de42c88f0722cc13bcb6cc2cfe8476"
-dependencies = [
- "async-stream-impl",
- "futures-core",
- "pin-project-lite",
-]
-
-[[package]]
-name = "async-stream-impl"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7c24de15d275a1ecfd47a380fb4d5ec9bfe0933f309ed5e705b775596a3574d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.108",
 ]
 
 [[package]]
@@ -1275,7 +1252,7 @@ checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 
 [[package]]
 name = "db"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1304,7 +1281,7 @@ dependencies = [
 
 [[package]]
 name = "deployment"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1655,7 +1632,7 @@ dependencies = [
 
 [[package]]
 name = "executors"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
  "agent-client-protocol",
  "async-trait",
@@ -2061,6 +2038,17 @@ dependencies = [
  "log",
  "regex-automata",
  "regex-syntax",
+]
+
+[[package]]
+name = "globwalk"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bf760ebf69878d9fd8f110c89703d90ce35095324d1f1edcb595c63945ee757"
+dependencies = [
+ "bitflags 2.10.0",
+ "ignore",
+ "walkdir",
 ]
 
 [[package]]
@@ -2922,10 +2910,9 @@ dependencies = [
 
 [[package]]
 name = "local-deployment"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
  "anyhow",
- "async-stream",
  "async-trait",
  "bytes",
  "command-group",
@@ -2933,6 +2920,7 @@ dependencies = [
  "deployment",
  "executors",
  "futures",
+ "globwalk",
  "json-patch",
  "nix 0.29.0",
  "notify",
@@ -2943,6 +2931,7 @@ dependencies = [
  "serde_json",
  "services",
  "sqlx",
+ "tempfile",
  "thiserror 2.0.17",
  "tokio",
  "tokio-util",
@@ -4027,7 +4016,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "remote"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4056,6 +4045,7 @@ dependencies = [
  "tracing",
  "tracing-error",
  "tracing-subscriber",
+ "ts-rs 11.0.1",
  "url",
  "utils",
  "uuid",
@@ -4097,12 +4087,14 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-rustls",
+ "tokio-util",
  "tower",
  "tower-http 0.6.6",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "webpki-roots 1.0.4",
 ]
@@ -4717,7 +4709,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
  "anyhow",
  "axum 0.8.6",
@@ -4736,6 +4728,7 @@ dependencies = [
  "openssl-sys",
  "os_info",
  "rand 0.8.5",
+ "remote",
  "reqwest",
  "rmcp",
  "rust-embed",
@@ -4763,7 +4756,7 @@ dependencies = [
 
 [[package]]
 name = "services"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -5977,14 +5970,11 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utils"
-version = "0.0.126"
+version = "0.0.129"
 dependencies = [
- "async-stream",
- "async-trait",
  "axum 0.8.6",
  "bytes",
  "chrono",
- "dashmap",
  "directories",
  "dirs 5.0.1",
  "futures",
@@ -6154,6 +6144,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76f218a38c84bcb33c25ec7059b07847d465ce0e0a76b995e134a45adcb6af76"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

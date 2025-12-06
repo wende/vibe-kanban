@@ -489,7 +489,7 @@ impl TaskServer {
                 Ok(s) => Some(s),
                 Err(_) => {
                     return Self::err(
-                        "Invalid status filter. Valid values: 'todo', 'in-progress', 'in-review', 'done', 'cancelled'".to_string(),
+                        "Invalid status filter. Valid values: 'todo', 'inprogress', 'inreview', 'done', 'cancelled'".to_string(),
                         Some(status_str.to_string()),
                     );
                 }
@@ -619,7 +619,7 @@ impl TaskServer {
                 Ok(s) => Some(s),
                 Err(_) => {
                     return Self::err(
-                        "Invalid status filter. Valid values: 'todo', 'in-progress', 'in-review', 'done', 'cancelled'".to_string(),
+                        "Invalid status filter. Valid values: 'todo', 'inprogress', 'inreview', 'done', 'cancelled'".to_string(),
                         Some(status_str.to_string()),
                     );
                 }

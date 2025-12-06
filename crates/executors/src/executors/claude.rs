@@ -22,6 +22,7 @@ use self::{client::ClaudeAgentClient, protocol::ProtocolPeer, types::PermissionM
 use crate::{
     approvals::ExecutorApprovalService,
     command::{CmdOverrides, CommandBuilder, CommandParts, apply_overrides},
+    env::ExecutionEnv,
     executors::{
         AppendPrompt, AvailabilityInfo, ExecutorError, SpawnedChild, StandardCodingAgentExecutor,
         codex::client::LogWriter,
@@ -250,10 +251,15 @@ impl StandardCodingAgentExecutor for ClaudeCode {
         self.is_orchestrator = is_orchestrator;
     }
 
-    async fn spawn(&self, current_dir: &Path, prompt: &str) -> Result<SpawnedChild, ExecutorError> {
+    async fn spawn(
+        &self,
+        current_dir: &Path,
+        prompt: &str,
+        env: &ExecutionEnv,
+    ) -> Result<SpawnedChild, ExecutorError> {
         let command_builder = self.build_command_builder().await;
         let command_parts = command_builder.build_initial()?;
-        self.spawn_internal(current_dir, prompt, command_parts)
+        self.spawn_internal(current_dir, prompt, command_parts, env)
             .await
     }
 
@@ -262,6 +268,7 @@ impl StandardCodingAgentExecutor for ClaudeCode {
         current_dir: &Path,
         prompt: &str,
         session_id: &str,
+        env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
         let command_builder = self.build_command_builder().await;
         let command_parts = command_builder.build_follow_up(&[
@@ -269,7 +276,7 @@ impl StandardCodingAgentExecutor for ClaudeCode {
             "--resume".to_string(),
             session_id.to_string(),
         ])?;
-        self.spawn_internal(current_dir, prompt, command_parts)
+        self.spawn_internal(current_dir, prompt, command_parts, env)
             .await
     }
 
@@ -317,6 +324,7 @@ impl ClaudeCode {
         current_dir: &Path,
         prompt: &str,
         command_parts: CommandParts,
+        env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
         let (program_path, args) = command_parts.into_resolved().await?;
         let combined_prompt = self.append_prompt.combine_prompt(prompt);
@@ -329,6 +337,9 @@ impl ClaudeCode {
             .stderr(Stdio::piped())
             .current_dir(current_dir)
             .args(&args);
+
+        // Apply environment variables
+        env.apply_to_command(&mut command);
 
         // Remove ANTHROPIC_API_KEY if disable_api_key is enabled
         if self.disable_api_key.unwrap_or(false) {
@@ -349,10 +360,14 @@ impl ClaudeCode {
         let permission_mode = self.permission_mode();
         let hooks = self.get_hooks();
 
+        // Create interrupt channel for graceful shutdown
+        let (interrupt_tx, interrupt_rx) = tokio::sync::oneshot::channel::<()>();
+
         // Create protocol peer and log writer
         let log_writer = LogWriter::new(new_stdout);
         let client = ClaudeAgentClient::new(log_writer.clone(), self.approvals_service.clone());
-        let spawn_result = ProtocolPeer::spawn(child_stdin, child_stdout, client.clone());
+        let spawn_result =
+            ProtocolPeer::spawn(child_stdin, child_stdout, client.clone(), interrupt_rx);
         let protocol_peer = spawn_result.peer;
         let exit_signal = spawn_result.exit_signal;
 
@@ -391,6 +406,7 @@ impl ClaudeCode {
             child,
             exit_signal: Some(exit_signal),
             input_sender: Some(Box::new(protocol_peer)),
+            interrupt_sender: Some(interrupt_tx),
         })
     }
 }
@@ -548,13 +564,13 @@ impl ClaudeLogProcessor {
     /// Extract session ID from Claude JSON
     fn extract_session_id(claude_json: &ClaudeJson) -> Option<String> {
         match claude_json {
-            ClaudeJson::System { session_id, .. } => session_id.clone(),
+            ClaudeJson::System { .. } => None, // session might not have been initialized yet
             ClaudeJson::Assistant { session_id, .. } => session_id.clone(),
             ClaudeJson::User { session_id, .. } => session_id.clone(),
             ClaudeJson::ToolUse { session_id, .. } => session_id.clone(),
             ClaudeJson::ToolResult { session_id, .. } => session_id.clone(),
-            ClaudeJson::StreamEvent { session_id, .. } => session_id.clone(),
             ClaudeJson::Result { session_id, .. } => session_id.clone(),
+            ClaudeJson::StreamEvent { .. } => None, // session might not have been initialized yet
             ClaudeJson::ApprovalResponse { .. } => None,
             ClaudeJson::Unknown { .. } => None,
         }
@@ -2059,10 +2075,8 @@ mod tests {
             r#"{"type":"system","subtype":"init","session_id":"abc123","model":"claude-sonnet-4"}"#;
         let parsed: ClaudeJson = serde_json::from_str(system_json).unwrap();
 
-        assert_eq!(
-            ClaudeLogProcessor::extract_session_id(&parsed),
-            Some("abc123".to_string())
-        );
+        // System messages no longer extract session_id
+        assert_eq!(ClaudeLogProcessor::extract_session_id(&parsed), None);
 
         let entries = normalize(&parsed, "");
         assert_eq!(entries.len(), 0);
@@ -2258,10 +2272,8 @@ mod tests {
         let system_json = r#"{"type":"system","session_id":"test-session-123"}"#;
         let parsed: ClaudeJson = serde_json::from_str(system_json).unwrap();
 
-        assert_eq!(
-            ClaudeLogProcessor::extract_session_id(&parsed),
-            Some("test-session-123".to_string())
-        );
+        // System messages no longer extract session_id
+        assert_eq!(ClaudeLogProcessor::extract_session_id(&parsed), None);
 
         let tool_use_json =
             r#"{"type":"tool_use","tool_name":"read","input":{},"session_id":"another-session"}"#;
