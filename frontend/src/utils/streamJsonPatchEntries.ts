@@ -42,8 +42,8 @@ export function streamJsonPatchEntries<E = unknown>(
   const mutableSnapshot: PatchContainer<E> = opts.initial
     ? { entries: [...opts.initial.entries] }
     : { entries: [] };
-  // Immutable snapshot for external consumers (shallow clone)
-  let snapshot: PatchContainer<E> = { entries: mutableSnapshot.entries };
+  // Immutable snapshot for external consumers (shallow clone from the start)
+  let snapshot: PatchContainer<E> = { entries: [...mutableSnapshot.entries] };
 
   const subscribers = new Set<(entries: E[]) => void>();
   if (opts.onEntries) subscribers.add(opts.onEntries);
