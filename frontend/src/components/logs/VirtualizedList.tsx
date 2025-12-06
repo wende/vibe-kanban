@@ -163,6 +163,7 @@ const VirtualizedList = ({ attempt, task, disableLoadingOverlay = false }: Virtu
               context={messageListContext}
               computeItemKey={computeItemKey}
               ItemContent={ItemContent}
+              increaseViewportBy={{ top: 300, bottom: 300 }}
               Header={() => <div className="h-2"></div>}
               Footer={() => <div className="h-2"></div>}
             />
