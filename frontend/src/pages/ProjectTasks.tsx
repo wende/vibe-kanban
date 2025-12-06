@@ -120,18 +120,21 @@ function DiffsPanelContainer({
   projectId,
   branchStatus,
   branches,
+  onClose,
 }: {
   attempt: TaskAttempt | null;
   selectedTask: TaskWithAttemptStatus | null;
   projectId: string;
   branchStatus: BranchStatus | null;
   branches: GitBranch[];
+  onClose: () => void;
 }) {
   const { isAttemptRunning } = useAttemptExecution(attempt?.id);
 
   return (
     <DiffsPanel
       selectedAttempt={attempt}
+      onClose={onClose}
       gitOps={
         attempt && selectedTask
           ? {
@@ -1206,6 +1209,7 @@ export function ProjectTasks() {
             projectId={projectId!}
             branchStatus={branchStatus ?? null}
             branches={branches}
+            onClose={handleClosePanel}
           />
         )}
       </div>

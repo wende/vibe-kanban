@@ -160,9 +160,11 @@ export const AttemptHeaderActions = ({
           </TooltipProvider>
         )}
       <ActionsDropdown task={task} attempt={attempt} sharedTask={sharedTask} />
-      <Button variant="icon" aria-label="Close" onClick={onClose}>
-        <X size={16} />
-      </Button>
+      {mode !== 'diffs' && (
+        <Button variant="icon" aria-label="Close" onClick={onClose}>
+          <X size={16} />
+        </Button>
+      )}
     </>
   );
 };
