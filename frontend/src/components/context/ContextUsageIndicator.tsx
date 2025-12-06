@@ -100,7 +100,7 @@ function ContextUsageDetails({
   const contextUsed = inputTokens + cachedInputTokens + cacheReadTokens;
 
   return (
-    <div className={cn('p-3 rounded-md space-y-2', styles.bgColor)}>
+    <div className={cn('p-3 pr-8 rounded-md space-y-2', styles.bgColor)}>
       <div className="flex justify-between text-xs">
         <span className="text-muted-foreground">Context Used:</span>
         <span className="font-mono">
