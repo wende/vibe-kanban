@@ -26,7 +26,6 @@ import type {
   TaskWithAttemptStatus,
 } from 'shared/types';
 import { ChangeTargetBranchDialog } from '@/components/dialogs/tasks/ChangeTargetBranchDialog';
-import { RebaseDialog } from '@/components/dialogs/tasks/RebaseDialog';
 import { CreatePRDialog } from '@/components/dialogs/tasks/CreatePRDialog';
 import { CommitDialog } from '@/components/dialogs/tasks/CommitDialog';
 import { useTranslation } from 'react-i18next';
@@ -220,30 +219,6 @@ function GitOperations({
       defaultTargetBranch,
       defaultTargetBranch
     );
-  };
-
-  const handleRebaseDialogOpen = async () => {
-    try {
-      const defaultTargetBranch = selectedAttempt.target_branch;
-      const result = await RebaseDialog.show({
-        branches,
-        isRebasing: rebasing,
-        initialTargetBranch: defaultTargetBranch,
-        initialUpstreamBranch: defaultTargetBranch,
-      });
-      if (
-        result.action === 'confirmed' &&
-        result.branchName &&
-        result.upstreamBranch
-      ) {
-        await handleRebaseWithNewBranchAndUpstream(
-          result.branchName,
-          result.upstreamBranch
-        );
-      }
-    } catch (error) {
-      // User cancelled - do nothing
-    }
   };
 
   const handlePRButtonClick = async () => {
