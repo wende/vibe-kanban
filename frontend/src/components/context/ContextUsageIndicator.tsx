@@ -14,6 +14,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+import { CircularContextUsageBar } from './CircularContextUsageBar';
+
 interface ContextUsageIndicatorProps {
   className?: string;
   compact?: boolean;
@@ -25,7 +27,7 @@ interface CompactOverrideState {
   usageSignature: string | null;
 }
 
-function getWarningStyles(warningLevel: ContextWarningLevel): {
+export function getWarningStyles(warningLevel: ContextWarningLevel): {
   barColor: string;
   textColor: string;
   bgColor: string;
@@ -33,47 +35,23 @@ function getWarningStyles(warningLevel: ContextWarningLevel): {
   switch (warningLevel) {
     case 'critical':
       return {
-        barColor: 'bg-red-500',
+        barColor: 'stroke-red-500',
         textColor: 'text-red-600 dark:text-red-400',
         bgColor: 'bg-red-100 dark:bg-red-950/50',
       };
     case 'approaching':
       return {
-        barColor: 'bg-yellow-500',
+        barColor: 'stroke-yellow-500',
         textColor: 'text-yellow-600 dark:text-yellow-400',
         bgColor: 'bg-yellow-100 dark:bg-yellow-950/50',
       };
     default:
       return {
-        barColor: 'bg-green-500',
+        barColor: 'stroke-green-500',
         textColor: 'text-muted-foreground',
         bgColor: 'bg-muted',
       };
   }
-}
-
-function ContextUsageBar({
-  percent,
-  warningLevel,
-}: {
-  percent: number;
-  warningLevel: ContextWarningLevel;
-}) {
-  const styles = getWarningStyles(warningLevel);
-  const clampedPercent = Math.min(100, Math.max(0, percent));
-
-  return (
-    <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-      <div
-        className={cn(
-          'h-full transition-all duration-300',
-          styles.barColor,
-          warningLevel === 'approaching' && 'animate-pulse'
-        )}
-        style={{ width: `${clampedPercent}%` }}
-      />
-    </div>
-  );
 }
 
 function ContextUsageDetails({
@@ -242,14 +220,13 @@ export function ContextUsageIndicator({
                 className
               )}
             >
-              <Activity className="h-3 w-3" />
               <div className="flex items-center gap-1.5">
-                <div className="w-16">
-                  <ContextUsageBar
-                    percent={displayPercent}
-                    warningLevel={displayWarningLevel}
-                  />
-                </div>
+                <CircularContextUsageBar
+                  percent={displayPercent}
+                  warningLevel={displayWarningLevel}
+                  radius={8}
+                  strokeWidth={2}
+                />
                 <span className="font-mono">{percentLabel}</span>
               </div>
               <ChevronDown className="h-3 w-3" />
