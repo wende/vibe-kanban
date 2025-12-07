@@ -443,18 +443,46 @@ pub async fn delete_task(
         .await?
         .ok_or_else(|| ApiError::Database(SqlxError::RowNotFound))?;
 
-    let cleanup_args: Vec<WorktreeCleanup> = attempts
+    // Collect unique worktree paths from this task's attempts
+    let this_task_worktrees: Vec<String> = attempts
         .iter()
-        .filter_map(|attempt| {
-            attempt
-                .container_ref
-                .as_ref()
-                .map(|worktree_path| WorktreeCleanup {
-                    worktree_path: PathBuf::from(worktree_path),
-                    git_repo_path: Some(project.git_repo_path.clone()),
-                })
-        })
+        .filter_map(|attempt| attempt.container_ref.clone())
         .collect();
+
+    // For each worktree, check if any OTHER task attempts (from different tasks) are still using it
+    // Only schedule cleanup for worktrees that won't be in use after this deletion
+    let mut cleanup_args: Vec<WorktreeCleanup> = Vec::new();
+    for worktree_path in this_task_worktrees {
+        // Check if any other task attempts (not belonging to this task) are using this worktree
+        // We exclude attempts from the current task by checking task_id
+        let other_attempts_count = sqlx::query_scalar!(
+            r#"SELECT COUNT(*) as "count!: i64"
+               FROM task_attempts
+               WHERE container_ref = $1
+                 AND task_id != $2"#,
+            worktree_path,
+            task.id
+        )
+        .fetch_one(&deployment.db().pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to check if worktree is in use: {}", e);
+            ApiError::Database(e)
+        })?;
+
+        if other_attempts_count == 0 {
+            cleanup_args.push(WorktreeCleanup {
+                worktree_path: PathBuf::from(worktree_path),
+                git_repo_path: Some(project.git_repo_path.clone()),
+            });
+        } else {
+            tracing::debug!(
+                "Skipping worktree cleanup for {} - still in use by {} other task attempt(s)",
+                worktree_path,
+                other_attempts_count
+            );
+        }
+    }
 
     if let Some(shared_task_id) = task.shared_task_id {
         let Ok(publisher) = deployment.share_publisher() else {
