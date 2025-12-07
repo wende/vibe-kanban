@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important Rules
+
+**NEVER run the project (`pnpm run dev`, `npm run dev`, etc.) if not on `main` or `dev` branch.** Running the project on other branches may cause database corruption or other issues.
+
 ## Essential Commands
 
 ### Development

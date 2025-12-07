@@ -350,6 +350,8 @@ impl LocalContainerService {
         mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
     ) {
         let db = self.db.clone();
+        let child_store = self.child_store.clone();
+        let git = self.git.clone();
         let mut cleanup_interval = tokio::time::interval(tokio::time::Duration::from_secs(1800)); // 30 minutes
         Self::cleanup_orphaned_worktrees(self.db()).await;
         tokio::spawn(async move {
@@ -373,11 +375,105 @@ impl LocalContainerService {
                             .unwrap_or_else(|e| {
                                 tracing::error!("Failed to clean up expired worktree attempts: {}", e)
                             });
+                        // Cleanup orphaned execution processes that have no live child process
+                        Self::cleanup_orphan_executions_periodic(&db, &child_store, &git)
+                            .await
+                            .unwrap_or_else(|e| {
+                                tracing::error!("Failed to clean up orphaned execution processes: {}", e)
+                            });
                     }
                 }
             }
             tracing::info!("Worktree cleanup stopped");
         });
+    }
+
+    /// Periodically cleanup execution processes marked as running in the db that have no live child process.
+    /// This catches processes that became orphaned after startup (e.g., due to crashes or unexpected termination).
+    async fn cleanup_orphan_executions_periodic(
+        db: &DBService,
+        child_store: &Arc<RwLock<HashMap<Uuid, Arc<RwLock<AsyncGroupChild>>>>>,
+        git: &GitService,
+    ) -> Result<(), DeploymentError> {
+        use db::models::execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus};
+        use db::models::task::TaskStatus;
+        use db::models::task_attempt::TaskAttempt;
+        use db::models::task::Task;
+
+        let running_processes = ExecutionProcess::find_running(&db.pool).await?;
+        if running_processes.is_empty() {
+            return Ok(());
+        }
+
+        let active_child_ids: std::collections::HashSet<Uuid> = {
+            let map = child_store.read().await;
+            map.keys().cloned().collect()
+        };
+
+        for process in running_processes {
+            // Skip if there's an active child process for this execution
+            if active_child_ids.contains(&process.id) {
+                continue;
+            }
+
+            tracing::info!(
+                "Found orphaned execution process {} for task attempt {} (no live child process)",
+                process.id,
+                process.task_attempt_id
+            );
+
+            // Update the execution process status
+            if let Err(e) = ExecutionProcess::update_completion(
+                &db.pool,
+                process.id,
+                ExecutionProcessStatus::Failed,
+                None,
+            )
+            .await
+            {
+                tracing::error!(
+                    "Failed to update orphaned execution process {} status: {}",
+                    process.id,
+                    e
+                );
+                continue;
+            }
+
+            // Capture after-head commit OID (best-effort)
+            if let Ok(Some(task_attempt)) =
+                TaskAttempt::find_by_id(&db.pool, process.task_attempt_id).await
+                && let Some(container_ref) = task_attempt.container_ref
+            {
+                let wt = std::path::PathBuf::from(container_ref);
+                if let Ok(head) = git.get_head_info(&wt) {
+                    let _ = ExecutionProcess::update_after_head_commit(
+                        &db.pool,
+                        process.id,
+                        &head.oid,
+                    )
+                    .await;
+                }
+            }
+
+            tracing::info!("Marked orphaned execution process {} as failed", process.id);
+
+            // Update task status to InReview for coding agent and setup script failures
+            if matches!(
+                process.run_reason,
+                ExecutionProcessRunReason::CodingAgent
+                    | ExecutionProcessRunReason::SetupScript
+                    | ExecutionProcessRunReason::CleanupScript
+            ) && let Ok(Some(task_attempt)) =
+                TaskAttempt::find_by_id(&db.pool, process.task_attempt_id).await
+                && let Ok(Some(task)) = task_attempt.parent_task(&db.pool).await
+            {
+                if let Err(e) = Task::update_status(&db.pool, task.id, TaskStatus::InReview).await {
+                    tracing::error!("Failed to update task status to InReview: {}", e);
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Spawn a background task that polls the child process for completion and

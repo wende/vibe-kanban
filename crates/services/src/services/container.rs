@@ -433,7 +433,22 @@ pub trait ContainerService {
                     .boxed(),
             );
         } else {
-            // Fallback: load from DB and create direct stream
+            // Check if process is marked as "running" in DB but has no store - this indicates an orphan
+            // Don't load potentially massive logs for orphaned processes; they'll be cleaned up periodically
+            if let Ok(Some(process)) = ExecutionProcess::find_by_id(&self.db().pool, *id).await {
+                if process.status == ExecutionProcessStatus::Running {
+                    tracing::warn!(
+                        "Execution process {} is marked as running but has no live store - likely orphaned. Returning finished.",
+                        id
+                    );
+                    // Return a stream that just signals finished - the periodic cleanup will mark it as failed
+                    return Some(
+                        futures::stream::once(async { Ok(LogMsg::Finished) }).boxed()
+                    );
+                }
+            }
+
+            // Fallback: load from DB and create direct stream (for completed/failed processes)
             let log_records =
                 match ExecutionProcessLogs::find_by_execution_id(&self.db().pool, *id).await {
                     Ok(records) if !records.is_empty() => records,
@@ -483,7 +498,22 @@ pub trait ContainerService {
                     .boxed(),
             )
         } else {
-            // Fallback: load from DB and normalize
+            // Check if process is marked as "running" in DB but has no store - this indicates an orphan
+            // Don't load potentially massive logs for orphaned processes; they'll be cleaned up periodically
+            if let Ok(Some(process)) = ExecutionProcess::find_by_id(&self.db().pool, *id).await {
+                if process.status == ExecutionProcessStatus::Running {
+                    tracing::warn!(
+                        "Execution process {} is marked as running but has no live store for normalized logs - likely orphaned. Returning finished.",
+                        id
+                    );
+                    // Return a stream that just signals finished - the periodic cleanup will mark it as failed
+                    return Some(
+                        futures::stream::once(async { Ok(LogMsg::Finished) }).boxed()
+                    );
+                }
+            }
+
+            // Fallback: load from DB and normalize (for completed/failed processes)
             let log_records =
                 match ExecutionProcessLogs::find_by_execution_id(&self.db().pool, *id).await {
                     Ok(records) if !records.is_empty() => records,
