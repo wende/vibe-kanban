@@ -77,4 +77,32 @@ impl ExecutionProcessLogs {
 
         Ok(())
     }
+
+    /// Append multiple log messages as a single batched JSONL entry
+    /// This is more efficient than calling append_log_line multiple times
+    pub async fn append_log_batch(
+        pool: &SqlitePool,
+        execution_id: Uuid,
+        messages: &[LogMsg],
+    ) -> Result<(), sqlx::Error> {
+        if messages.is_empty() {
+            return Ok(());
+        }
+
+        let jsonl = Self::serialize_logs(messages)
+            .map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
+        let byte_size = jsonl.len() as i64;
+
+        sqlx::query!(
+            r#"INSERT INTO execution_process_logs (execution_id, logs, byte_size, inserted_at)
+               VALUES ($1, $2, $3, datetime('now', 'subsec'))"#,
+            execution_id,
+            jsonl,
+            byte_size
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
 }

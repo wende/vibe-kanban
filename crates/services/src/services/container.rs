@@ -664,10 +664,17 @@ pub trait ContainerService {
         }
     }
 
-    fn spawn_stream_raw_logs_to_db(&self, execution_id: &Uuid) -> JoinHandle<()> {
+    fn spawn_stream_raw_logs_to_db(
+        &self,
+        execution_id: &Uuid,
+        run_reason: ExecutionProcessRunReason,
+    ) -> JoinHandle<()> {
         let execution_id = *execution_id;
         let msg_stores = self.msg_stores().clone();
         let db = self.db().clone();
+
+        // Determine if we should buffer logs (only for coding agents)
+        let should_buffer = matches!(run_reason, ExecutionProcessRunReason::CodingAgent);
 
         tokio::spawn(async move {
             // Get the message store for this execution
@@ -679,40 +686,81 @@ pub trait ContainerService {
             if let Some(store) = store {
                 let mut stream = store.history_plus_stream();
 
+                // Buffer configuration for coding agents
+                const BUFFER_SIZE_MESSAGES: usize = 100;
+                const BUFFER_SIZE_BYTES: usize = 10_000;
+                const BUFFER_FLUSH_INTERVAL: std::time::Duration =
+                    std::time::Duration::from_secs(5);
+
+                let mut log_buffer: Vec<LogMsg> = Vec::new();
+                let mut buffer_bytes = 0;
+                let mut last_flush = std::time::Instant::now();
+
                 while let Some(Ok(msg)) = stream.next().await {
                     match &msg {
                         LogMsg::Stdout(_) | LogMsg::Stderr(_) => {
-                            // Serialize this individual message as a JSONL line
-                            match serde_json::to_string(&msg) {
-                                Ok(jsonl_line) => {
-                                    let jsonl_line_with_newline = format!("{jsonl_line}\n");
+                            if should_buffer {
+                                // Buffer the message for coding agents
+                                let msg_size = serde_json::to_string(&msg)
+                                    .map(|s| s.len())
+                                    .unwrap_or(0);
+                                buffer_bytes += msg_size;
+                                log_buffer.push(msg);
 
-                                    // Append this line to the database
-                                    if let Err(e) = ExecutionProcessLogs::append_log_line(
+                                // Check flush conditions
+                                let should_flush = log_buffer.len() >= BUFFER_SIZE_MESSAGES
+                                    || buffer_bytes >= BUFFER_SIZE_BYTES
+                                    || last_flush.elapsed() >= BUFFER_FLUSH_INTERVAL;
+
+                                if should_flush {
+                                    if let Err(e) = ExecutionProcessLogs::append_log_batch(
                                         &db.pool,
                                         execution_id,
-                                        &jsonl_line_with_newline,
+                                        &log_buffer,
                                     )
                                     .await
                                     {
                                         tracing::error!(
-                                            "Failed to append log line for execution {}: {}",
+                                            "Failed to append log batch for execution {}: {}",
+                                            execution_id,
+                                            e
+                                        );
+                                    }
+                                    log_buffer.clear();
+                                    buffer_bytes = 0;
+                                    last_flush = std::time::Instant::now();
+                                }
+                            } else {
+                                // Write immediately for non-coding-agent executions
+                                match serde_json::to_string(&msg) {
+                                    Ok(jsonl_line) => {
+                                        let jsonl_line_with_newline = format!("{jsonl_line}\n");
+
+                                        if let Err(e) = ExecutionProcessLogs::append_log_line(
+                                            &db.pool,
+                                            execution_id,
+                                            &jsonl_line_with_newline,
+                                        )
+                                        .await
+                                        {
+                                            tracing::error!(
+                                                "Failed to append log line for execution {}: {}",
+                                                execution_id,
+                                                e
+                                            );
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::error!(
+                                            "Failed to serialize log message for execution {}: {}",
                                             execution_id,
                                             e
                                         );
                                     }
                                 }
-                                Err(e) => {
-                                    tracing::error!(
-                                        "Failed to serialize log message for execution {}: {}",
-                                        execution_id,
-                                        e
-                                    );
-                                }
                             }
                         }
                         LogMsg::SessionId(session_id) => {
-                            // Append this line to the database
                             if let Err(e) = ExecutorSession::update_session_id(
                                 &db.pool,
                                 execution_id,
@@ -729,6 +777,22 @@ pub trait ContainerService {
                             }
                         }
                         LogMsg::Finished => {
+                            // Flush any remaining buffered logs before finishing
+                            if should_buffer && !log_buffer.is_empty() {
+                                if let Err(e) = ExecutionProcessLogs::append_log_batch(
+                                    &db.pool,
+                                    execution_id,
+                                    &log_buffer,
+                                )
+                                .await
+                                {
+                                    tracing::error!(
+                                        "Failed to append final log batch for execution {}: {}",
+                                        execution_id,
+                                        e
+                                    );
+                                }
+                            }
                             break;
                         }
                         LogMsg::JsonPatch(_) => continue,
@@ -1029,7 +1093,7 @@ pub trait ContainerService {
             }
         }
 
-        self.spawn_stream_raw_logs_to_db(&execution_process.id);
+        self.spawn_stream_raw_logs_to_db(&execution_process.id, execution_process.run_reason.clone());
         Ok(execution_process)
     }
 
