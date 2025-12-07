@@ -1,5 +1,6 @@
 // streamJsonPatchEntries.ts - WebSocket JSON patch streaming utility
 import { applyPatch, type Operation } from 'rfc6902';
+import { getWsUrl } from '@/lib/wsUrl';
 
 type PatchContainer<E = unknown> = { entries: E[] };
 
@@ -48,8 +49,12 @@ export function streamJsonPatchEntries<E = unknown>(
   const subscribers = new Set<(entries: E[]) => void>();
   if (opts.onEntries) subscribers.add(opts.onEntries);
 
-  // Convert HTTP endpoint to WebSocket endpoint
-  const wsUrl = url.replace(/^http/, 'ws');
+  // Convert endpoint to WebSocket URL
+  // If it's a relative path (starts with /), use getWsUrl to handle remote access
+  // If it's already a full URL, just convert http to ws
+  const wsUrl = url.startsWith('/')
+    ? getWsUrl(url)
+    : url.replace(/^http/, 'ws');
   const ws = new WebSocket(wsUrl);
 
   const notify = () => {

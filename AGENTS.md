@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## Important Rules
+
+**NEVER run the project (`pnpm run dev`, `npm run dev`, etc.) if not on `main` or `dev` branch.** Running the project on other branches may cause database corruption or other issues.
+
 ## Project Structure & Module Organization
 - `crates/`: Rust workspace crates — `server` (API + bins), `db` (SQLx models/migrations), `executors`, `services`, `utils`, `deployment`, `local-deployment`.
 - `frontend/`: React + TypeScript app (Vite, Tailwind). Source in `frontend/src`.

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { applyPatch } from 'rfc6902';
 import type { Operation } from 'rfc6902';
+import { getWsUrl } from '@/lib/wsUrl';
 
 type WsJsonPatchMsg = { JsonPatch: Operation[] };
 type WsFinishedMsg = { finished: boolean };
@@ -91,8 +92,12 @@ export const useJsonPatchWsStream = <T extends object>(
       // Reset finished flag for new connection
       finishedRef.current = false;
 
-      // Convert HTTP endpoint to WebSocket endpoint
-      const wsEndpoint = endpoint.replace(/^http/, 'ws');
+      // Convert endpoint to WebSocket URL
+      // If it's a relative path (starts with /), use getWsUrl to handle remote access
+      // If it's already a full URL, just convert http to ws
+      const wsEndpoint = endpoint.startsWith('/')
+        ? getWsUrl(endpoint)
+        : endpoint.replace(/^http/, 'ws');
       const ws = new WebSocket(wsEndpoint);
 
       ws.onopen = () => {
