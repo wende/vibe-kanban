@@ -5,7 +5,7 @@ pub mod images;
 pub mod queue;
 pub mod util;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use axum::{
     Extension, Json, Router,
@@ -35,7 +35,7 @@ use executors::{
         script::{ScriptContext, ScriptRequest, ScriptRequestLanguage},
     },
     conversation_export::{self, ExportResult},
-    executors::{CodingAgent, ExecutorError},
+    executors::{CodingAgent, ExecutorError, StandardCodingAgentExecutor},
     logs::utils::patch::extract_normalized_entry_from_patch,
     profile::{ExecutorConfigs, ExecutorProfileId},
 };
@@ -49,7 +49,7 @@ use services::services::{
 };
 use sqlx::Error as SqlxError;
 use ts_rs::TS;
-use utils::{log_msg::LogMsg, response::ApiResponse};
+use utils::{log_msg::LogMsg, msg_store::MsgStore, response::ApiResponse};
 use uuid::Uuid;
 
 use crate::{
@@ -2027,6 +2027,9 @@ pub async fn export_conversation(
         })));
     }
 
+    // Get worktree path for path normalization during log processing
+    let worktree_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
     // Collect all normalized entries from all processes
     let mut all_entries = Vec::new();
 
@@ -2034,8 +2037,8 @@ pub async fn export_conversation(
         // Load logs for this process
         let log_records = ExecutionProcessLogs::find_by_execution_id(pool, process.id).await?;
 
-        // Parse the JSONL logs
-        let messages = match ExecutionProcessLogs::parse_logs(&log_records) {
+        // Parse the JSONL logs (these contain Stdout/Stderr, not JsonPatch)
+        let raw_messages = match ExecutionProcessLogs::parse_logs(&log_records) {
             Ok(msgs) => msgs,
             Err(e) => {
                 tracing::warn!("Failed to parse logs for process {}: {}", process.id, e);
@@ -2043,13 +2046,77 @@ pub async fn export_conversation(
             }
         };
 
-        // Extract NormalizedEntry from JsonPatch messages
-        for msg in messages {
-            if let LogMsg::JsonPatch(patch) = msg {
-                if let Some((_idx, entry)) = extract_normalized_entry_from_patch(&patch) {
-                    all_entries.push(entry);
-                }
+        // Get the executor action to determine which normalizer to use
+        let executor_action = match process.executor_action() {
+            Ok(action) => action,
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to parse executor action for process {}: {}",
+                    process.id,
+                    e
+                );
+                continue;
             }
+        };
+
+        // Get the executor profile from the action
+        let executor_profile_id = match executor_action.typ() {
+            ExecutorActionType::CodingAgentInitialRequest(req) => req.executor_profile_id.clone(),
+            ExecutorActionType::CodingAgentFollowUpRequest(req) => req.executor_profile_id.clone(),
+            _ => continue, // Skip non-coding-agent actions
+        };
+
+        // Create a temporary message store and populate with raw logs
+        let temp_store = Arc::new(MsgStore::new());
+        for msg in raw_messages {
+            if matches!(msg, LogMsg::Stdout(_) | LogMsg::Stderr(_)) {
+                temp_store.push(msg);
+            }
+        }
+        // Signal end of raw logs
+        temp_store.push_finished();
+
+        // Run the normalizer to convert stdout/stderr to JsonPatch entries
+        let executor =
+            ExecutorConfigs::get_cached().get_coding_agent_or_default(&executor_profile_id);
+        executor.normalize_logs(temp_store.clone(), &worktree_path);
+
+        // Wait for normalizer to produce JsonPatch entries (similar to stream_normalized_logs)
+        let mut poll_count = 0usize;
+        loop {
+            let history = temp_store.get_history();
+            let json_patch_count = history
+                .iter()
+                .filter(|msg| matches!(msg, LogMsg::JsonPatch(_)))
+                .count();
+
+            if json_patch_count > 0 {
+                // Wait a bit more to ensure normalizer is done
+                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+                // Extract all NormalizedEntry from JsonPatch messages
+                let final_history = temp_store.get_history();
+                for msg in final_history {
+                    if let LogMsg::JsonPatch(patch) = msg {
+                        if let Some((_idx, entry)) = extract_normalized_entry_from_patch(&patch) {
+                            all_entries.push(entry);
+                        }
+                    }
+                }
+                break;
+            }
+
+            poll_count += 1;
+            // Timeout after ~5 seconds if no JsonPatch entries appear
+            if poll_count > 100 {
+                tracing::warn!(
+                    "Timeout waiting for normalized logs for process {}",
+                    process.id
+                );
+                break;
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         }
     }
 
