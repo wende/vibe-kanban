@@ -36,7 +36,7 @@ use executors::{
     },
     conversation_export::{self, ExportResult},
     executors::{CodingAgent, ExecutorError, StandardCodingAgentExecutor},
-    logs::utils::patch::extract_normalized_entry_from_patch,
+    logs::{NormalizedEntry, utils::patch::extract_normalized_entry_from_patch},
     profile::{ExecutorConfigs, ExecutorProfileId},
 };
 use git2::BranchType;
@@ -2031,7 +2031,9 @@ pub async fn export_conversation(
     let worktree_path = ensure_worktree_path(&deployment, &task_attempt).await?;
 
     // Collect all normalized entries from all processes
-    let mut all_entries = Vec::new();
+    // Use a HashMap to track entries by index so Replace patches overwrite previous entries
+    // This ensures we only get the final state of each entry, not intermediate streaming states
+    let mut all_entries: Vec<NormalizedEntry> = Vec::new();
 
     for process in &processes {
         // Load logs for this process
@@ -2094,15 +2096,22 @@ pub async fn export_conversation(
                 // Wait a bit more to ensure normalizer is done
                 tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
-                // Extract all NormalizedEntry from JsonPatch messages
+                // Extract NormalizedEntry from JsonPatch messages, using a HashMap to track
+                // entries by index. This ensures Replace patches overwrite earlier entries
+                // at the same index, giving us only the final state of each entry.
                 let final_history = temp_store.get_history();
+                let mut entries_by_index: HashMap<usize, NormalizedEntry> = HashMap::new();
                 for msg in final_history {
                     if let LogMsg::JsonPatch(patch) = msg {
-                        if let Some((_idx, entry)) = extract_normalized_entry_from_patch(&patch) {
-                            all_entries.push(entry);
+                        if let Some((idx, entry)) = extract_normalized_entry_from_patch(&patch) {
+                            entries_by_index.insert(idx, entry);
                         }
                     }
                 }
+                // Convert to sorted vector and append to all_entries
+                let mut sorted_entries: Vec<_> = entries_by_index.into_iter().collect();
+                sorted_entries.sort_by_key(|(idx, _)| *idx);
+                all_entries.extend(sorted_entries.into_iter().map(|(_, entry)| entry));
                 break;
             }
 
