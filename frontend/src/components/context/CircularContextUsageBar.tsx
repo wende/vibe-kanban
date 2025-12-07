@@ -34,7 +34,7 @@ export function CircularContextUsageBar({
         r={radius - strokeWidth / 2}
         fill="none"
         strokeWidth={strokeWidth}
-        className="text-secondary"
+        className="stroke-muted"
       />
       <circle
         cx={radius}
