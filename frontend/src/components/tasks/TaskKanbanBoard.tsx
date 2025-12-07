@@ -14,6 +14,7 @@ import { statusBoardColors, statusLabels } from '@/utils/statusLabels';
 import type { SharedTaskRecord } from '@/hooks/useProjectTasks';
 import { SharedTaskCard } from './SharedTaskCard';
 import { BranchStatusProvider } from '@/contexts/BranchStatusContext';
+import { DevServerStatusProvider } from '@/contexts/DevServerStatusContext';
 
 export type KanbanColumnItem =
   | {
@@ -121,65 +122,67 @@ function TaskKanbanBoard({
 
   return (
     <BranchStatusProvider attemptIds={attemptIds}>
-      <KanbanProvider onDragEnd={onDragEnd}>
-        {Object.entries(columns).map(([status, items]) => {
-          const statusKey = status as TaskStatus;
-          const action = getHeaderAction(statusKey, items);
-          return (
-            <KanbanBoard key={status} id={statusKey}>
-              <KanbanHeader
-                name={statusLabels[statusKey]}
-                color={statusBoardColors[statusKey]}
-                action={action}
-                neutralBackground={
-                  statusKey === 'inprogress' ||
-                  statusKey === 'inreview' ||
-                  statusKey === 'done' ||
-                  statusKey === 'cancelled'
-                }
-              />
-              <KanbanCards>
-                {items.map((item, index) => {
-                  const isOwnTask =
-                    item.type === 'task' &&
-                    (!item.sharedTask?.assignee_user_id ||
-                      !userId ||
-                      item.sharedTask?.assignee_user_id === userId);
+      <DevServerStatusProvider attemptIds={attemptIds}>
+        <KanbanProvider onDragEnd={onDragEnd}>
+          {Object.entries(columns).map(([status, items]) => {
+            const statusKey = status as TaskStatus;
+            const action = getHeaderAction(statusKey, items);
+            return (
+              <KanbanBoard key={status} id={statusKey}>
+                <KanbanHeader
+                  name={statusLabels[statusKey]}
+                  color={statusBoardColors[statusKey]}
+                  action={action}
+                  neutralBackground={
+                    statusKey === 'inprogress' ||
+                    statusKey === 'inreview' ||
+                    statusKey === 'done' ||
+                    statusKey === 'cancelled'
+                  }
+                />
+                <KanbanCards>
+                  {items.map((item, index) => {
+                    const isOwnTask =
+                      item.type === 'task' &&
+                      (!item.sharedTask?.assignee_user_id ||
+                        !userId ||
+                        item.sharedTask?.assignee_user_id === userId);
 
-                  if (isOwnTask) {
+                    if (isOwnTask) {
+                      return (
+                        <TaskCard
+                          key={item.task.id}
+                          task={item.task}
+                          index={index}
+                          status={statusKey}
+                          onViewDetails={onViewTaskDetails}
+                          isOpen={selectedTaskId === item.task.id}
+                          projectId={projectId}
+                          sharedTask={item.sharedTask}
+                        />
+                      );
+                    }
+
+                    const sharedTask =
+                      item.type === 'shared' ? item.task : item.sharedTask!;
+
                     return (
-                      <TaskCard
-                        key={item.task.id}
-                        task={item.task}
+                      <SharedTaskCard
+                        key={`shared-${item.task.id}`}
+                        task={sharedTask}
                         index={index}
                         status={statusKey}
-                        onViewDetails={onViewTaskDetails}
-                        isOpen={selectedTaskId === item.task.id}
-                        projectId={projectId}
-                        sharedTask={item.sharedTask}
+                        isSelected={selectedSharedTaskId === item.task.id}
+                        onViewDetails={onViewSharedTask}
                       />
                     );
-                  }
-
-                  const sharedTask =
-                    item.type === 'shared' ? item.task : item.sharedTask!;
-
-                  return (
-                    <SharedTaskCard
-                      key={`shared-${item.task.id}`}
-                      task={sharedTask}
-                      index={index}
-                      status={statusKey}
-                      isSelected={selectedSharedTaskId === item.task.id}
-                      onViewDetails={onViewSharedTask}
-                    />
-                  );
-                })}
-              </KanbanCards>
-            </KanbanBoard>
-          );
-        })}
-      </KanbanProvider>
+                  })}
+                </KanbanCards>
+              </KanbanBoard>
+            );
+          })}
+        </KanbanProvider>
+      </DevServerStatusProvider>
     </BranchStatusProvider>
   );
 }

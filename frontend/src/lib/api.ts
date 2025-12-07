@@ -795,6 +795,19 @@ export const executionProcessesApi = {
     return handleApiResponse<ExecutionProcess>(response);
   },
 
+  getExecutionProcessesForAttempts: async (
+    attemptIds: string[]
+  ): Promise<ExecutionProcess[]> => {
+    const response = await makeRequest(
+      '/api/execution-processes/batch',
+      {
+        method: 'POST',
+        body: JSON.stringify({ attempt_ids: attemptIds }),
+      }
+    );
+    return handleApiResponse<ExecutionProcess[]>(response);
+  },
+
   stopExecutionProcess: async (processId: string): Promise<void> => {
     const response = await makeRequest(
       `/api/execution-processes/${processId}/stop`,

@@ -29,6 +29,24 @@ pub struct ExecutionProcessQuery {
     pub show_soft_deleted: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct BatchRequestBody {
+    pub attempt_ids: Vec<Uuid>,
+}
+
+pub async fn get_execution_processes_for_attempts(
+    State(deployment): State<DeploymentImpl>,
+    ResponseJson(body): ResponseJson<BatchRequestBody>,
+) -> Result<ResponseJson<ApiResponse<Vec<ExecutionProcess>>>, ApiError> {
+    let processes = ExecutionProcess::find_by_attempt_ids(
+        &deployment.db().pool,
+        &body.attempt_ids,
+    )
+    .await?;
+
+    Ok(ResponseJson(ApiResponse::success(processes)))
+}
+
 pub async fn get_execution_process_by_id(
     Extension(execution_process): Extension<ExecutionProcess>,
     State(_deployment): State<DeploymentImpl>,
@@ -270,6 +288,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
 
     let task_attempts_router = Router::new()
         .route("/stream/ws", get(stream_execution_processes_ws))
+        .route("/batch", post(get_execution_processes_for_attempts))
         .nest("/{id}", task_attempt_id_router);
 
     Router::new().nest("/execution-processes", task_attempts_router)

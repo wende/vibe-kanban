@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KanbanCard } from '@/components/ui/shadcn-io/kanban';
-import { CheckCircle, Link, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle, Link, Loader2, Play, XCircle } from 'lucide-react';
 import type { TaskWithAttemptStatus } from 'shared/types';
 import { ActionsDropdown } from '@/components/ui/actions-dropdown';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
 import { useBranchStatusFromContext } from '@/contexts/BranchStatusContext';
 import { useAuth } from '@/hooks';
+import { useDevServerStatusFromContext } from '@/contexts/DevServerStatusContext';
 
 type Task = TaskWithAttemptStatus;
 
@@ -32,6 +33,25 @@ type GitIndicator = {
   className: string;
   label: string;
 };
+
+const DevServerIndicator = memo(function DevServerIndicator({
+  attemptId,
+}: {
+  attemptId?: string | null;
+}) {
+  const devServerStatus = useDevServerStatusFromContext(attemptId);
+
+  if (!devServerStatus) {
+    return null;
+  }
+
+  return (
+    <Play
+      className="h-3.5 w-3.5 text-green-500"
+      aria-label="Dev server is running"
+    />
+  );
+});
 
 const GitStatusIndicators = memo(function GitStatusIndicators({
   attemptId,
@@ -228,6 +248,7 @@ export const TaskCard = memo(function TaskCard({
           }
           right={
             <>
+              <DevServerIndicator attemptId={task.latest_task_attempt_id} />
               <GitStatusIndicators attemptId={task.latest_task_attempt_id} />
               {task.has_in_progress_attempt && (
                 <Loader2 className="h-4 w-4 animate-spin text-blue-500" />

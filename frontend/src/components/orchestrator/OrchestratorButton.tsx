@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { orchestratorApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { paths } from '@/lib/paths';
+import { ExecutionProcessStatus } from 'shared/types';
 
 // Rainbow gradient text component for VIBE
 function RainbowVibe({ className }: { className?: string }) {
@@ -48,7 +49,7 @@ export function OrchestratorButton({
     staleTime: 2000,
   });
 
-  const isRunning = orchestrator?.latest_process?.status === 'running';
+  const isRunning = orchestrator?.latest_process?.status === ExecutionProcessStatus.running;
 
   const handleClick = () => {
     // Navigate to project tasks (clears any selected task) with orchestrator open

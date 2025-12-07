@@ -201,6 +201,43 @@ impl ExecutionProcess {
         .await
     }
 
+    /// Find all execution processes for a list of task attempts
+    pub async fn find_by_attempt_ids(
+        pool: &SqlitePool,
+        attempt_ids: &[Uuid],
+    ) -> Result<Vec<Self>, sqlx::Error> {
+        if attempt_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let placeholders = attempt_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let query = format!(
+            r#"SELECT id,
+                    task_attempt_id,
+                    run_reason,
+                    executor_action,
+                    before_head_commit,
+                    after_head_commit,
+                    status,
+                    exit_code,
+                    dropped,
+                    started_at,
+                    completed_at,
+                    created_at,
+                    updated_at
+            FROM execution_processes
+            WHERE task_attempt_id IN ({})
+            ORDER BY created_at ASC"#,
+            placeholders
+        );
+
+        let mut query = sqlx::query_as::<_, ExecutionProcess>(&query);
+        for id in attempt_ids {
+            query = query.bind(id);
+        }
+
+        query.fetch_all(pool).await
+    }
+
     /// Find all execution processes for a task attempt (optionally include soft-deleted)
     pub async fn find_by_task_attempt_id(
         pool: &SqlitePool,

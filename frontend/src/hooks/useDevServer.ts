@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { attemptsApi, executionProcessesApi } from '@/lib/api';
 import { useAttemptExecution } from '@/hooks/useAttemptExecution';
 import type { ExecutionProcess } from 'shared/types';
+import { ExecutionProcessStatus } from 'shared/types';
 
 interface UseDevServerOptions {
   onStartSuccess?: () => void;
@@ -22,7 +23,7 @@ export function useDevServer(
   const runningDevServer = useMemo<ExecutionProcess | undefined>(() => {
     return attemptData.processes.find(
       (process) =>
-        process.run_reason === 'devserver' && process.status === 'running'
+        process.run_reason === 'devserver' && process.status === ExecutionProcessStatus.running
     );
   }, [attemptData.processes]);
 
@@ -44,8 +45,10 @@ export function useDevServer(
       await attemptsApi.startDevServer(attemptId);
     },
     onSuccess: async () => {
+      // Invalidate both individual and batch execution process queries
       await queryClient.invalidateQueries({
-        queryKey: ['executionProcesses', attemptId],
+        predicate: (query) =>
+          query.queryKey[0] === 'executionProcesses',
       });
       options?.onStartSuccess?.();
     },
@@ -63,9 +66,11 @@ export function useDevServer(
       await executionProcessesApi.stopExecutionProcess(runningDevServer.id);
     },
     onSuccess: async () => {
+      // Invalidate both individual and batch execution process queries
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ['executionProcesses', attemptId],
+          predicate: (query) =>
+            query.queryKey[0] === 'executionProcesses',
         }),
         runningDevServer
           ? queryClient.invalidateQueries({

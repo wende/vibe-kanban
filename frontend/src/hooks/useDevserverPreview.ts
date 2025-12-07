@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useExecutionProcessesContext } from '@/contexts/ExecutionProcessesContext';
+import { ExecutionProcessStatus } from 'shared/types';
 
 export interface DevserverPreviewState {
   status: 'idle' | 'searching' | 'ready' | 'error';
@@ -39,7 +40,7 @@ export function useDevserverPreview(
   const selectedProcess = useMemo(() => {
     const devserverProcesses = executionProcesses.filter(
       (process) =>
-        process.run_reason === 'devserver' && process.status === 'running'
+        process.run_reason === 'devserver' && process.status === ExecutionProcessStatus.running
     );
 
     if (devserverProcesses.length === 0) return null;

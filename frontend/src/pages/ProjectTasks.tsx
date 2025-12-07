@@ -13,6 +13,7 @@ import type {
   BranchStatus,
   TaskStatus,
 } from 'shared/types';
+import { ExecutionProcessStatus } from 'shared/types';
 import { openTaskForm } from '@/lib/openTaskForm';
 import { FeatureShowcaseDialog } from '@/components/dialogs/global/FeatureShowcaseDialog';
 import { showcases } from '@/config/showcases';
@@ -276,7 +277,7 @@ export function ProjectTasks() {
     },
   });
   const isOrchestratorRunning =
-    orchestrator?.latest_process?.status === 'running';
+    orchestrator?.latest_process?.status === ExecutionProcessStatus.running;
 
   // Close shared task selection when orchestrator is opened
   useEffect(() => {
