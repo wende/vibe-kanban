@@ -152,7 +152,7 @@ export function Terminal({
     }, 100);
 
     // Handle terminal input -> send to WebSocket
-    const dataDisposable = terminal.onData((data) => {
+    const dataDisposable = terminal.onData((data: string) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         // Send as binary
         wsRef.current.send(new TextEncoder().encode(data));
@@ -160,7 +160,7 @@ export function Terminal({
     });
 
     // Handle terminal resize -> send to WebSocket
-    const resizeDisposable = terminal.onResize(({ cols, rows }) => {
+    const resizeDisposable = terminal.onResize(({ cols, rows }: { cols: number; rows: number }) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'resize', cols, rows }));
       }
