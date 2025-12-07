@@ -5,6 +5,34 @@ import ProcessLogsViewer, {
 } from '../ProcessLogsViewer';
 import { ExecutionProcess } from 'shared/types';
 
+interface DevServerLogsContentProps {
+  processId?: string;
+  logs?: Array<{ type: 'STDOUT' | 'STDERR'; content: string }>;
+  error?: string | null;
+  className?: string;
+}
+
+export function DevServerLogsContent({
+  processId,
+  logs,
+  error,
+  className,
+}: DevServerLogsContentProps) {
+  return (
+    <div className={className}>
+      {logs ? (
+        <ProcessLogsViewerContent logs={logs} error={error ?? null} />
+      ) : processId ? (
+        <ProcessLogsViewer processId={processId} />
+      ) : (
+        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+          No logs available
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface DevServerLogsViewProps {
   latestDevServerProcess: ExecutionProcess | undefined;
   showLogs: boolean;

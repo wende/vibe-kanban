@@ -23,6 +23,7 @@ use services::services::{
     pr_monitor::{PrMonitorHandle, PrMonitorService},
     queued_message::QueuedMessageService,
     share::SharePublisher,
+    terminal::TerminalService,
     worktree_manager::WorktreeError,
 };
 use sqlx::Error as SqlxError;
@@ -99,6 +100,8 @@ pub trait Deployment: Clone + Send + Sync + 'static {
     fn auth_context(&self) -> &AuthContext;
 
     fn share_publisher(&self) -> Result<SharePublisher, RemoteClientNotConfigured>;
+
+    fn terminal(&self) -> &TerminalService;
 
     async fn update_sentry_scope(&self) -> Result<(), DeploymentError> {
         let user_id = self.user_id();

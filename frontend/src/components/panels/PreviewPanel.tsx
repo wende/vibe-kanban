@@ -1,20 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Loader2, X } from 'lucide-react';
+import {
+  Loader2,
+  X,
+  Terminal as TerminalIcon,
+  ScrollText,
+  ChevronDown,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDevserverPreview } from '@/hooks/useDevserverPreview';
 import { useDevServer } from '@/hooks/useDevServer';
 import { useLogStream } from '@/hooks/useLogStream';
 import { useDevserverUrlFromLogs } from '@/hooks/useDevserverUrl';
+import { useTaskAttempt } from '@/hooks/useTaskAttempt';
 import { ClickToComponentListener } from '@/utils/previewBridge';
 import { useClickedElements } from '@/contexts/ClickedElementsProvider';
 import { Alert } from '@/components/ui/alert';
 import { useProject } from '@/contexts/ProjectContext';
-import { DevServerLogsView } from '@/components/tasks/TaskDetails/preview/DevServerLogsView';
+import { DevServerLogsContent } from '@/components/tasks/TaskDetails/preview/DevServerLogsView';
 import { PreviewToolbar } from '@/components/tasks/TaskDetails/preview/PreviewToolbar';
 import { NoServerContent } from '@/components/tasks/TaskDetails/preview/NoServerContent';
 import { ReadyContent } from '@/components/tasks/TaskDetails/preview/ReadyContent';
+import { Terminal } from '@/components/Terminal';
 
 export function PreviewPanel() {
   const [iframeError, setIframeError] = useState(false);
@@ -22,7 +31,8 @@ export function PreviewPanel() {
   const [loadingTimeFinished, setLoadingTimeFinished] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showLogs, setShowLogs] = useState(false);
+  const [showBottomPanel, setShowBottomPanel] = useState(false);
+  const [activeTab, setActiveTab] = useState<'logs' | 'terminal'>('logs');
   const listenerRef = useRef<ClickToComponentListener | null>(null);
 
   const { t } = useTranslation('tasks');
@@ -32,6 +42,9 @@ export function PreviewPanel() {
   const attemptId =
     rawAttemptId && rawAttemptId !== 'latest' ? rawAttemptId : undefined;
   const projectHasDevScript = Boolean(project?.dev_script);
+
+  // Get attempt data for terminal working directory
+  const { data: attempt } = useTaskAttempt(attemptId);
 
   const {
     start: startDevServer,
@@ -78,7 +91,7 @@ export function PreviewPanel() {
       },
       onReady: () => {
         setIsReady(true);
-        setShowLogs(false);
+        setShowBottomPanel(false);
         setShowHelp(false);
       },
     });
@@ -111,7 +124,8 @@ export function PreviewPanel() {
       runningDevServer
     ) {
       setShowHelp(true);
-      setShowLogs(true);
+      setShowBottomPanel(true);
+      setActiveTab('logs');
       setLoadingTimeFinished(false);
     }
   }, [loadingTimeFinished, isReady, latestDevServerProcess, runningDevServer]);
@@ -127,8 +141,9 @@ export function PreviewPanel() {
       : runningDevServer
         ? 'searching'
         : 'noServer';
-  const toggleLogs = () => {
-    setShowLogs((v) => !v);
+
+  const toggleBottomPanel = () => {
+    setShowBottomPanel((v) => !v);
   };
 
   const handleStartDevServer = () => {
@@ -234,14 +249,98 @@ export function PreviewPanel() {
             </div>
           </Alert>
         )}
-        <DevServerLogsView
-          latestDevServerProcess={latestDevServerProcess}
-          showLogs={showLogs}
-          onToggle={toggleLogs}
-          showToggleText
-          logs={logStream.logs}
-          error={logStream.error}
-        />
+        {/* Bottom Panel with Tabs */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'logs' | 'terminal')}
+          className="border-t bg-background"
+        >
+          {/* Single Header Bar */}
+          <div className="flex items-center justify-between px-3 py-1 border-b bg-muted/50">
+            <TabsList className="h-7 bg-transparent p-0 gap-1">
+              <TabsTrigger
+                value="logs"
+                className={`gap-1.5 h-6 px-2 text-xs transition-colors ${
+                  activeTab === 'logs'
+                    ? 'bg-background shadow-sm text-foreground font-medium border-b-2 border-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => {
+                  if (!showBottomPanel) {
+                    setShowBottomPanel(true);
+                  }
+                }}
+              >
+                <ScrollText className="h-3 w-3" />
+                {t('preview.logs.title')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="terminal"
+                className={`gap-1.5 h-6 px-2 text-xs transition-colors ${
+                  activeTab === 'terminal'
+                    ? 'bg-background shadow-sm text-foreground font-medium border-b-2 border-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => {
+                  if (!showBottomPanel) {
+                    setShowBottomPanel(true);
+                  }
+                }}
+              >
+                <TerminalIcon className="h-3 w-3" />
+                {t('preview.terminal.title', 'Terminal')}
+              </TabsTrigger>
+            </TabsList>
+            <button
+              onClick={toggleBottomPanel}
+              className="p-1 hover:bg-muted rounded"
+            >
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${showBottomPanel ? '' : 'rotate-180'}`}
+              />
+            </button>
+          </div>
+
+          {/* Panel Content - use CSS to hide instead of unmounting */}
+          <div
+            className={showBottomPanel ? 'h-60' : 'h-0 overflow-hidden'}
+            style={{ position: 'relative' }}
+          >
+            <TabsContent
+              value="logs"
+              className="mt-0 absolute inset-0"
+              forceMount
+              style={{ display: activeTab === 'logs' ? 'block' : 'none' }}
+            >
+              <DevServerLogsContent
+                processId={latestDevServerProcess?.id}
+                logs={logStream.logs}
+                error={logStream.error}
+                className="h-full"
+              />
+            </TabsContent>
+            <TabsContent
+              value="terminal"
+              className="mt-0 absolute inset-0"
+              forceMount
+              style={{ display: activeTab === 'terminal' ? 'block' : 'none' }}
+            >
+              {attempt?.container_ref ? (
+                <Terminal
+                  cwd={attempt.container_ref}
+                  isVisible={showBottomPanel && activeTab === 'terminal'}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  {t(
+                    'preview.terminal.noWorktree',
+                    'No worktree available for this task'
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </div>
   );

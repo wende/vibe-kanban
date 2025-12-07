@@ -24,6 +24,7 @@ pub mod shared_tasks;
 pub mod tags;
 pub mod task_attempts;
 pub mod tasks;
+pub mod terminal;
 pub mod tools;
 
 pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
@@ -45,6 +46,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(approvals::router())
         .merge(scratch::router(&deployment))
         .merge(orchestrator::router(&deployment))
+        .merge(terminal::router(&deployment))
         .merge(tools::router())
         .nest("/images", images::routes())
         .with_state(deployment);

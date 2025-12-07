@@ -19,6 +19,7 @@ use services::services::{
     queued_message::QueuedMessageService,
     remote_client::{RemoteClient, RemoteClientError},
     share::{ShareConfig, SharePublisher},
+    terminal::TerminalService,
 };
 use tokio::sync::RwLock;
 use utils::{
@@ -52,6 +53,7 @@ pub struct LocalDeployment {
     remote_client: Result<RemoteClient, RemoteClientNotConfigured>,
     auth_context: AuthContext,
     oauth_handoffs: Arc<RwLock<HashMap<Uuid, PendingHandoff>>>,
+    terminal: TerminalService,
 }
 
 #[derive(Debug, Clone)]
@@ -159,6 +161,7 @@ impl Deployment for LocalDeployment {
             .map_err(|e| *e);
 
         let oauth_handoffs = Arc::new(RwLock::new(HashMap::new()));
+        let terminal = TerminalService::new();
 
         // We need to make analytics accessible to the ContainerService
         // TODO: Handle this more gracefully
@@ -201,6 +204,7 @@ impl Deployment for LocalDeployment {
             remote_client,
             auth_context,
             oauth_handoffs,
+            terminal,
         };
 
         Ok(deployment)
@@ -260,6 +264,10 @@ impl Deployment for LocalDeployment {
 
     fn auth_context(&self) -> &AuthContext {
         &self.auth_context
+    }
+
+    fn terminal(&self) -> &TerminalService {
+        &self.terminal
     }
 }
 

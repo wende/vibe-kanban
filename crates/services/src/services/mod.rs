@@ -19,4 +19,5 @@ pub mod pr_monitor;
 pub mod queued_message;
 pub mod remote_client;
 pub mod share;
+pub mod terminal;
 pub mod worktree_manager;
