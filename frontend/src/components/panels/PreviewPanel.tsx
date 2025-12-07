@@ -24,6 +24,7 @@ import { PreviewToolbar } from '@/components/tasks/TaskDetails/preview/PreviewTo
 import { NoServerContent } from '@/components/tasks/TaskDetails/preview/NoServerContent';
 import { ReadyContent } from '@/components/tasks/TaskDetails/preview/ReadyContent';
 import { Terminal } from '@/components/Terminal';
+import { VerticalResizeHandle } from '@/components/common/VerticalResizeHandle';
 
 export function PreviewPanel() {
   const [iframeError, setIframeError] = useState(false);
@@ -33,6 +34,7 @@ export function PreviewPanel() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showBottomPanel, setShowBottomPanel] = useState(false);
   const [activeTab, setActiveTab] = useState<'logs' | 'terminal'>('logs');
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(240); // 240px = h-60 in Tailwind
   const listenerRef = useRef<ClickToComponentListener | null>(null);
 
   const { t } = useTranslation('tasks');
@@ -249,11 +251,20 @@ export function PreviewPanel() {
             </div>
           </Alert>
         )}
+        {/* Vertical Resize Handle */}
+        {showBottomPanel && (
+          <VerticalResizeHandle
+            onResize={setBottomPanelHeight}
+            minHeight={100}
+            maxHeight={800}
+          />
+        )}
         {/* Bottom Panel with Tabs */}
         <Tabs
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as 'logs' | 'terminal')}
           className="border-t bg-background"
+          data-resizable-container
         >
           {/* Single Header Bar */}
           <div className="flex items-center justify-between px-3 py-1 border-b bg-muted/50">
@@ -303,8 +314,11 @@ export function PreviewPanel() {
 
           {/* Panel Content - use CSS to hide instead of unmounting */}
           <div
-            className={showBottomPanel ? 'h-60' : 'h-0 overflow-hidden'}
-            style={{ position: 'relative' }}
+            className={showBottomPanel ? 'overflow-hidden' : 'h-0 overflow-hidden'}
+            style={{
+              position: 'relative',
+              height: showBottomPanel ? `${bottomPanelHeight}px` : '0px',
+            }}
           >
             <TabsContent
               value="logs"
