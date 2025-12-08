@@ -151,20 +151,15 @@ impl FilesystemService {
         hard_timeout_ms: u64,
         max_depth: Option<usize>,
     ) -> Result<Vec<DirectoryEntry>, FilesystemError> {
-        let search_strings = ["repos", "dev", "work", "code", "projects"];
         let home_dir = Self::get_home_directory();
-        let mut paths: Vec<PathBuf> = search_strings
-            .iter()
-            .map(|s| home_dir.join(s))
-            .filter(|p| p.exists() && p.is_dir())
-            .collect();
-        paths.insert(0, home_dir);
-        if let Some(cwd) = std::env::current_dir().ok()
-            && cwd.exists()
-            && cwd.is_dir()
-        {
-            paths.insert(0, cwd);
+        let mut paths: Vec<PathBuf> = vec![home_dir.clone()];
+
+        // Only add projects subdirectory if it exists
+        let projects_dir = home_dir.join("projects");
+        if projects_dir.exists() && projects_dir.is_dir() {
+            paths.push(projects_dir);
         }
+
         self.list_git_repos_with_timeout(paths, timeout_ms, hard_timeout_ms, max_depth)
             .await
     }
