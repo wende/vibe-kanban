@@ -768,8 +768,9 @@ export function TaskFollowUpSection({
 
           <div className={cn(
             'flex flex-row flex-wrap gap-2 items-center',
-            isMobile && 'justify-center'
+            isMobile ? 'justify-center' : 'justify-between'
           )}>
+            {/* Left side - variant selector */}
             <div className="flex gap-2 items-center">
               <VariantSelector
                 currentProfile={currentProfile}
@@ -777,221 +778,227 @@ export function TaskFollowUpSection({
                 onChange={setSelectedVariant}
                 disabled={!isEditable}
               />
-              {/* Context usage indicator - hidden on mobile */}
-              {!isMobile && (
-                <ContextUsageIndicator
-                  className="ml-auto"
-                  resetVersion={contextUsageResetVersion}
-                />
-              )}
             </div>
 
-            {/* Hidden file input for attachment - always present */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleFileInputChange}
-            />
+            {/* Right side - all other buttons */}
+            <div className={cn(
+              'flex flex-wrap gap-2 items-center',
+              isMobile && 'justify-center'
+            )}>
+              {/* Context usage indicator - show circle only on mobile */}
+              <ContextUsageIndicator
+                resetVersion={contextUsageResetVersion}
+                compact={!isMobile}
+                mobileCompact={isMobile}
+              />
 
-            {/* Compact button - always visible, disabled when compaction is unavailable */}
-            <Button
-              onClick={compactExecution}
-              disabled={isCompacting || !canCompact}
-              size="sm"
-              variant="outline"
-              title={t('followUp.compact')}
-            >
-              {isCompacting ? (
-                <Loader2 className="animate-spin h-4 w-4" />
-              ) : (
-                <Minimize2 className="h-4 w-4" />
-              )}
-            </Button>
+              {/* Hidden file input for attachment - always present */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFileInputChange}
+              />
 
-            {/* Attach button - always visible */}
-            <Button
-              onClick={handleAttachClick}
-              disabled={!isEditable}
-              size="sm"
-              variant="outline"
-              title="Attach image"
-              aria-label="Attach image"
-            >
-              <Paperclip className="h-4 w-4" />
-            </Button>
-
-            {/* GitHub Comments button */}
-            <Button
-              onClick={handleGitHubCommentClick}
-              disabled={!isEditable}
-              size="sm"
-              variant="outline"
-              title="Insert GitHub comment"
-              aria-label="Insert GitHub comment"
-            >
-              <MessageSquare className="h-4 w-4" />
-            </Button>
-
-            {/* Scripts dropdown - only show if project has any scripts */}
-            {hasAnyScript && (
-              <DropdownMenu>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isAttemptRunning}
-                          aria-label="Run scripts"
-                        >
-                          <Terminal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    {isAttemptRunning && (
-                      <TooltipContent side="bottom">
-                        {t('followUp.scriptsDisabledWhileRunning')}
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
-                <DropdownMenuContent align="end">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
-                          <DropdownMenuItem
-                            disabled={!hasSetupScript}
-                            onClick={handleRunSetupScript}
-                          >
-                            {t('followUp.runSetupScript')}
-                          </DropdownMenuItem>
-                        </span>
-                      </TooltipTrigger>
-                      {!hasSetupScript && (
-                        <TooltipContent side="left">
-                          {t('followUp.noSetupScript')}
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
-                          <DropdownMenuItem
-                            disabled={!hasCleanupScript}
-                            onClick={handleRunCleanupScript}
-                          >
-                            {t('followUp.runCleanupScript')}
-                          </DropdownMenuItem>
-                        </span>
-                      </TooltipTrigger>
-                      {!hasCleanupScript && (
-                        <TooltipContent side="left">
-                          {t('followUp.noCleanupScript')}
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {isAttemptRunning ? (
-              <div className="flex items-center gap-2">
-                {/* Queue/Cancel Queue button when running */}
-                {isQueued ? (
-                  <Button
-                    onClick={cancelQueue}
-                    disabled={isQueueLoading}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {isQueueLoading ? (
-                      <Loader2 className="animate-spin h-4 w-4" />
-                    ) : (
-                      <>
-                        <X className={cn('h-4 w-4', !isMobile && 'mr-2')} />
-                        {!isMobile && t('followUp.cancelQueue', 'Cancel Queue')}
-                      </>
-                    )}
-                  </Button>
+              {/* Compact button - always visible, disabled when compaction is unavailable */}
+              <Button
+                onClick={compactExecution}
+                disabled={isCompacting || !canCompact}
+                size="sm"
+                variant="outline"
+                title={t('followUp.compact')}
+              >
+                {isCompacting ? (
+                  <Loader2 className="animate-spin h-4 w-4" />
                 ) : (
-                  <Button
-                    onClick={handleQueueMessage}
-                    disabled={
-                      isQueueLoading ||
-                      (!localMessage.trim() &&
-                        !conflictResolutionInstructions &&
-                        !reviewMarkdown &&
-                        !clickedMarkdown)
-                    }
-                    size="sm"
-                    variant="secondary"
-                    className="bg-secondary/60 text-foreground hover:bg-secondary/80"
-                  >
-                    {isQueueLoading ? (
-                      <Loader2 className="animate-spin h-4 w-4" />
-                    ) : (
-                      <>
-                        <Clock className={cn('h-4 w-4', !isMobile && 'mr-2')} />
-                        {!isMobile && t('followUp.queue', 'Queue')}
-                      </>
-                    )}
-                  </Button>
+                  <Minimize2 className="h-4 w-4" />
                 )}
-                <Button
-                  onClick={stopExecution}
-                  disabled={isStopping}
-                  size="sm"
-                  variant="destructive"
-                >
-                  {isStopping ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
+              </Button>
+
+              {/* Attach button - always visible */}
+              <Button
+                onClick={handleAttachClick}
+                disabled={!isEditable}
+                size="sm"
+                variant="outline"
+                title="Attach image"
+                aria-label="Attach image"
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+
+              {/* GitHub Comments button */}
+              <Button
+                onClick={handleGitHubCommentClick}
+                disabled={!isEditable}
+                size="sm"
+                variant="outline"
+                title="Insert GitHub comment"
+                aria-label="Insert GitHub comment"
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+
+              {/* Scripts dropdown - only show if project has any scripts */}
+              {hasAnyScript && (
+                <DropdownMenu>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isAttemptRunning}
+                            aria-label="Run scripts"
+                          >
+                            <Terminal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      {isAttemptRunning && (
+                        <TooltipContent side="bottom">
+                          {t('followUp.scriptsDisabledWhileRunning')}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                  <DropdownMenuContent align="end">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <DropdownMenuItem
+                              disabled={!hasSetupScript}
+                              onClick={handleRunSetupScript}
+                            >
+                              {t('followUp.runSetupScript')}
+                            </DropdownMenuItem>
+                          </span>
+                        </TooltipTrigger>
+                        {!hasSetupScript && (
+                          <TooltipContent side="left">
+                            {t('followUp.noSetupScript')}
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <DropdownMenuItem
+                              disabled={!hasCleanupScript}
+                              onClick={handleRunCleanupScript}
+                            >
+                              {t('followUp.runCleanupScript')}
+                            </DropdownMenuItem>
+                          </span>
+                        </TooltipTrigger>
+                        {!hasCleanupScript && (
+                          <TooltipContent side="left">
+                            {t('followUp.noCleanupScript')}
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {isAttemptRunning ? (
+                <div className="flex items-center gap-2">
+                  {/* Queue/Cancel Queue button when running */}
+                  {isQueued ? (
+                    <Button
+                      onClick={cancelQueue}
+                      disabled={isQueueLoading}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {isQueueLoading ? (
+                        <Loader2 className="animate-spin h-4 w-4" />
+                      ) : (
+                        <>
+                          <X className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                          {!isMobile && t('followUp.cancelQueue', 'Cancel Queue')}
+                        </>
+                      )}
+                    </Button>
                   ) : (
-                    <>
-                      <StopCircle className={cn('h-4 w-4', !isMobile && 'mr-2')} />
-                      {!isMobile && t('followUp.stop')}
-                    </>
+                    <Button
+                      onClick={handleQueueMessage}
+                      disabled={
+                        isQueueLoading ||
+                        (!localMessage.trim() &&
+                          !conflictResolutionInstructions &&
+                          !reviewMarkdown &&
+                          !clickedMarkdown)
+                      }
+                      size="sm"
+                      variant="secondary"
+                      className="bg-secondary/60 text-foreground hover:bg-secondary/80"
+                    >
+                      {isQueueLoading ? (
+                        <Loader2 className="animate-spin h-4 w-4" />
+                      ) : (
+                        <>
+                          <Clock className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                          {!isMobile && t('followUp.queue', 'Queue')}
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                {comments.length > 0 && (
                   <Button
-                    onClick={clearComments}
+                    onClick={stopExecution}
+                    disabled={isStopping}
                     size="sm"
                     variant="destructive"
-                    disabled={!isEditable}
                   >
-                    {t('followUp.clearReviewComments')}
+                    {isStopping ? (
+                      <Loader2 className="animate-spin h-4 w-4" />
+                    ) : (
+                      <>
+                        <StopCircle className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                        {!isMobile && t('followUp.stop')}
+                      </>
+                    )}
                   </Button>
-                )}
-                <Button
-                  onClick={onSendFollowUp}
-                  disabled={!canSendFollowUp || !isEditable}
-                  size="sm"
-                >
-                  {isSendingFollowUp ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
-                  ) : (
-                    <>
-                      <Send className={cn('h-4 w-4', !isMobile && 'mr-2')} />
-                      {!isMobile &&
-                        (conflictResolutionInstructions
-                          ? t('followUp.resolveConflicts')
-                          : t('followUp.send'))}
-                    </>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {comments.length > 0 && (
+                    <Button
+                      onClick={clearComments}
+                      size="sm"
+                      variant="destructive"
+                      disabled={!isEditable}
+                    >
+                      {t('followUp.clearReviewComments')}
+                    </Button>
                   )}
-                </Button>
-              </div>
-            )}
+                  <Button
+                    onClick={onSendFollowUp}
+                    disabled={!canSendFollowUp || !isEditable}
+                    size="sm"
+                  >
+                    {isSendingFollowUp ? (
+                      <Loader2 className="animate-spin h-4 w-4" />
+                    ) : (
+                      <>
+                        <Send className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                        {!isMobile &&
+                          (conflictResolutionInstructions
+                            ? t('followUp.resolveConflicts')
+                            : t('followUp.send'))}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -20,6 +20,8 @@ interface ContextUsageIndicatorProps {
   className?: string;
   compact?: boolean;
   resetVersion?: number;
+  /** On mobile, show only the circular indicator without percentage text or chevron */
+  mobileCompact?: boolean;
 }
 
 interface CompactOverrideState {
@@ -145,6 +147,7 @@ export function ContextUsageIndicator({
   className,
   compact = true,
   resetVersion,
+  mobileCompact = false,
 }: ContextUsageIndicatorProps) {
   const { usage, hasData } = useContextUsage();
   const [expanded, setExpanded] = useState(false);
@@ -208,6 +211,47 @@ export function ContextUsageIndicator({
     : formatPercent(usage.context_used_percent);
 
   if (compact && !expanded) {
+    // Mobile compact: just show the circle, no text or chevron
+    if (mobileCompact) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={cn(
+                  'flex items-center p-1 rounded-md',
+                  styles.textColor,
+                  className
+                )}
+              >
+                <CircularContextUsageBar
+                  percent={displayPercent}
+                  warningLevel={displayWarningLevel}
+                  radius={8}
+                  strokeWidth={2}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              {isCompacted ? (
+                <>
+                  <p>Context reset after /compact.</p>
+                  <p className="text-muted-foreground">
+                    Waiting for updated usage metrics.
+                  </p>
+                </>
+              ) : (
+                <p>
+                  Context: {formatTokens(contextUsed)} /{' '}
+                  {formatTokens(contextWindowSize)} tokens
+                </p>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
     return (
       <TooltipProvider>
         <Tooltip>
