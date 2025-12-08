@@ -29,7 +29,7 @@ use services::services::container::ContainerService;
 use sqlx::Error as SqlxError;
 use tokio::sync::Mutex;
 use ts_rs::TS;
-use utils::response::ApiResponse;
+use utils::{port_file::read_port_file, response::ApiResponse};
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
@@ -229,6 +229,17 @@ pub async fn orchestrator_send(
                 }
             }
         }
+    };
+
+    // Substitute placeholders in the prompt
+    let prompt = prompt
+        .replace("{project_name}", &project.name)
+        .replace("{project_id}", &project.id.to_string());
+    let prompt = if let Ok(port) = read_port_file("vibe-kanban").await {
+        prompt.replace("{port}", &port.to_string())
+    } else {
+        tracing::warn!("Failed to read port file, {{port}} placeholder will not be substituted");
+        prompt
     };
 
     let action_type = if let Some(session_id) = latest_session_id {

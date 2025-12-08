@@ -1366,6 +1366,13 @@ impl ContainerService for LocalContainerService {
         env.insert("VK_ATTEMPT_ID", task_attempt.id.to_string());
         env.insert("VK_ATTEMPT_BRANCH", &task_attempt.branch);
 
+        // Read and add the port to the environment
+        if let Ok(port) = utils::port_file::read_port_file("vibe-kanban").await {
+            env.insert("VK_PORT", port.to_string());
+        } else {
+            tracing::warn!("Failed to read port file, VK_PORT will not be set");
+        }
+
         // Create the child and stream, add to execution tracker with timeout
         let mut spawned = tokio::time::timeout(
             Duration::from_secs(30),
