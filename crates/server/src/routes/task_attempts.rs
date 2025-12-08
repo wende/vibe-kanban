@@ -529,11 +529,8 @@ pub async fn merge_task_attempt(
     let worktree_path_buf = ensure_worktree_path(&deployment, &task_attempt).await?;
     let worktree_path = worktree_path_buf.as_path();
 
-    let task_uuid_str = task.id.to_string();
-    let first_uuid_section = task_uuid_str.split('-').next().unwrap_or(&task_uuid_str);
-
-    // Create commit message with task title and description
-    let mut commit_message = format!("{} (vibe-kanban {})", ctx.task.title, first_uuid_section);
+    // Create commit message with task title and branch name
+    let mut commit_message = format!("{} ({})", ctx.task.title, ctx.task_attempt.branch);
 
     // Add description on next line if it exists
     if let Some(description) = &ctx.task.description
