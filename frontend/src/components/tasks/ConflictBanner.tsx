@@ -2,6 +2,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ConflictOp } from 'shared/types';
 import { displayConflictOpLabel } from '@/lib/conflicts';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export type Props = Readonly<{
   attemptBranch: string | null;
@@ -54,6 +55,7 @@ export function ConflictBanner({
     total,
     hasMore,
   } = getVisibleFiles(conflictedFiles);
+  const isXL = useMediaQuery('(min-width: 800px)');
 
   const heading = attemptBranch
     ? `${opTitle} in progress: '${attemptBranch}' → '${baseBranch}'.`
@@ -105,14 +107,16 @@ export function ConflictBanner({
             Resolve conflicts
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-warning/40 text-warning-foreground hover:bg-warning/10 dark:text-warning/90"
-          onClick={onOpenEditor}
-        >
-          Open in Editor
-        </Button>
+        {isXL && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-warning/40 text-warning-foreground hover:bg-warning/10 dark:text-warning/90"
+            onClick={onOpenEditor}
+          >
+            Open in Editor
+          </Button>
+        )}
 
         <Button
           size="sm"

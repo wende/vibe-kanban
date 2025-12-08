@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ProjectWithTaskCounts } from 'shared/types';
 import { useEffect, useRef } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useOpenProjectInEditor } from '@/hooks/useOpenProjectInEditor';
 import { Badge } from '@/components/ui/badge.tsx';
 import { useNavigateWithSearch } from '@/hooks';
@@ -50,6 +51,7 @@ function ProjectCard({
   const ref = useRef<HTMLDivElement>(null);
   const handleOpenInEditor = useOpenProjectInEditor(project);
   const { t } = useTranslation('projects');
+  const isXL = useMediaQuery('(min-width: 800px)');
 
   const { unlinkProject } = useProjectMutations({
     onUnlinkSuccess: () => {
@@ -143,15 +145,17 @@ function ProjectCard({
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {t('viewProject')}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenInIDE();
-                  }}
-                >
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  {t('openInIDE')}
-                </DropdownMenuItem>
+                {isXL && (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenInIDE();
+                    }}
+                  >
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                    {t('openInIDE')}
+                  </DropdownMenuItem>
+                )}
                 {project.remote_project_id ? (
                   <DropdownMenuItem
                     onClick={(e) => {

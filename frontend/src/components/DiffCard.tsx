@@ -2,6 +2,7 @@ import { Diff } from 'shared/types';
 import { DiffModeEnum, DiffView, SplitSide } from '@git-diff-view/react';
 import { generateDiffFile, type DiffFile } from '@git-diff-view/file';
 import { useMemo } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useUserSystem } from '@/components/ConfigProvider';
 import { getHighLightLanguageFromPath } from '@/utils/extToLanguage';
 import { getActualTheme } from '@/utils/theme';
@@ -87,6 +88,7 @@ export default function DiffCard({
   const ignoreWhitespace = useIgnoreWhitespaceDiff();
   const wrapText = useWrapTextDiff();
   const { projectId } = useProject();
+  const isXL = useMediaQuery('(min-width: 800px)');
 
   const oldName = diff.oldPath || undefined;
   const newName = diff.newPath || oldName || 'unknown';
@@ -284,19 +286,21 @@ export default function DiffCard({
           </Button>
         )}
         {title}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleOpenInIDE();
-          }}
-          className="h-6 w-6 p-0 ml-2"
-          title="Open in IDE"
-          disabled={diff.change === 'deleted'}
-        >
-          <ExternalLink className="h-3 w-3" aria-hidden />
-        </Button>
+        {isXL && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenInIDE();
+            }}
+            className="h-6 w-6 p-0 ml-2"
+            title="Open in IDE"
+            disabled={diff.change === 'deleted'}
+          >
+            <ExternalLink className="h-3 w-3" aria-hidden />
+          </Button>
+        )}
       </div>
 
       {expanded && diffFile && (

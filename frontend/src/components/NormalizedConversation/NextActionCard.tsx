@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import {
   Play,
   Pause,
@@ -62,6 +63,7 @@ export function NextActionCard({
   const { project } = useProject();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const isXL = useMediaQuery('(min-width: 800px)');
 
   // Use the passed attempt if available, otherwise fetch it
   const { data: fetchedAttempt } = useTaskAttempt(attemptProp ? undefined : attemptId);
@@ -299,28 +301,30 @@ export function NextActionCard({
                 </Tooltip>
               )}
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={handleOpenInEditor}
-                    disabled={!attemptId}
-                    aria-label={t('attempt.openInEditor', {
-                      editor: editorName,
-                    })}
-                  >
-                    <IdeIcon
-                      editorType={config?.editor?.editor_type}
-                      className="h-3.5 w-3.5"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t('attempt.openInEditor', { editor: editorName })}
-                </TooltipContent>
-              </Tooltip>
+              {isXL && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={handleOpenInEditor}
+                      disabled={!attemptId}
+                      aria-label={t('attempt.openInEditor', {
+                        editor: editorName,
+                      })}
+                    >
+                      <IdeIcon
+                        editorType={config?.editor?.editor_type}
+                        className="h-3.5 w-3.5"
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t('attempt.openInEditor', { editor: editorName })}
+                  </TooltipContent>
+                </Tooltip>
+              )}
 
               <Tooltip>
                 <TooltipTrigger asChild>

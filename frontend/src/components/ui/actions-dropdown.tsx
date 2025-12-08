@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import type { TaskWithAttemptStatus, TaskAttempt } from 'shared/types';
 import { useOpenInEditor } from '@/hooks/useOpenInEditor';
 import { DeleteTaskConfirmationDialog } from '@/components/dialogs/tasks/DeleteTaskConfirmationDialog';
@@ -43,6 +44,7 @@ export function ActionsDropdown({
   const openInEditor = useOpenInEditor(attempt?.id);
   const navigate = useNavigate();
   const { userId, isSignedIn } = useAuth();
+  const isXL = useMediaQuery('(min-width: 800px)');
 
   const hasAttemptActions = Boolean(attempt);
   const hasTaskActions = Boolean(task);
@@ -183,12 +185,14 @@ export function ActionsDropdown({
           {hasAttemptActions && (
             <>
               <DropdownMenuLabel>{t('actionsMenu.attempt')}</DropdownMenuLabel>
-              <DropdownMenuItem
-                disabled={!attempt?.id}
-                onClick={handleOpenInEditor}
-              >
-                {t('actionsMenu.openInIde')}
-              </DropdownMenuItem>
+              {isXL && (
+                <DropdownMenuItem
+                  disabled={!attempt?.id}
+                  onClick={handleOpenInEditor}
+                >
+                  {t('actionsMenu.openInIde')}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 disabled={!attempt?.id}
                 onClick={handleViewProcesses}
