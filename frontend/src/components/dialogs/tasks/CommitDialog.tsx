@@ -265,11 +265,11 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
                 </button>
               </div>
 
-              <div className="border rounded-md overflow-y-auto flex-1 min-h-[100px] max-h-[200px] min-w-0">
+              <div className="border rounded-md overflow-y-auto overflow-x-hidden flex-1 min-h-[100px] max-h-[200px] w-full">
                 {files.map((file) => (
                   <div
                     key={file.path}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 min-w-0"
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 min-w-0 overflow-hidden"
                     onClick={() => toggleFile(file.path)}
                   >
                     <div onClick={(e) => e.stopPropagation()}>
