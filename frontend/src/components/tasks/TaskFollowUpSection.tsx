@@ -690,7 +690,7 @@ export function TaskFollowUpSection({
       )}
     >
       {/* Scrollable messages area - fills remaining space, only render if there's content */}
-      {(followUpError || reviewMarkdown || branchStatus || clickedMarkdown || (isQueued && queuedMessage)) && (
+      {(followUpError || reviewMarkdown || branchStatus?.is_rebase_in_progress || branchStatus?.conflicted_files?.length || clickedMarkdown || (isQueued && queuedMessage)) && (
         <div className={cn('flex-1 overflow-y-auto min-h-0', isMobile ? 'p-3' : 'p-4')}>
           <div className="space-y-2">
             {followUpError && (
