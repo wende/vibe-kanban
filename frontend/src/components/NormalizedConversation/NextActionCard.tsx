@@ -166,7 +166,7 @@ export function NextActionCard({
 
   return (
     <TooltipProvider>
-      <div className="pt-4 pb-8">
+      <div className="pt-2 pb-4">
         <div
           className={`px-3 py-1 text-background flex ${failed ? 'bg-destructive' : 'bg-foreground'}`}
         >
