@@ -766,7 +766,10 @@ export function TaskFollowUpSection({
             />
           </div>
 
-          <div className="flex flex-row flex-wrap gap-2 items-center">
+          <div className={cn(
+            'flex flex-row flex-wrap gap-2 items-center',
+            isMobile && 'justify-center'
+          )}>
             <div className="flex gap-2 items-center">
               <VariantSelector
                 currentProfile={currentProfile}
@@ -774,11 +777,13 @@ export function TaskFollowUpSection({
                 onChange={setSelectedVariant}
                 disabled={!isEditable}
               />
-              {/* Context usage indicator */}
-              <ContextUsageIndicator
-                className={cn(!isMobile && 'ml-auto')}
-                resetVersion={contextUsageResetVersion}
-              />
+              {/* Context usage indicator - hidden on mobile */}
+              {!isMobile && (
+                <ContextUsageIndicator
+                  className="ml-auto"
+                  resetVersion={contextUsageResetVersion}
+                />
+              )}
             </div>
 
             {/* Hidden file input for attachment - always present */}
