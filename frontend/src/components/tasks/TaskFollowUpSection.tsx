@@ -685,13 +685,13 @@ export function TaskFollowUpSection({
   return (
     <div
       className={cn(
-        'grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden',
+        'flex flex-col overflow-hidden',
         isMobile ? 'h-[100dvh]' : 'h-full',
         isRetryActive && 'opacity-50'
       )}
     >
-      {/* Scrollable content area */}
-      <div className={cn('overflow-y-auto min-h-0', isMobile ? 'p-3' : 'p-4')}>
+      {/* Scrollable messages area - fills remaining space */}
+      <div className={cn('flex-1 overflow-y-auto min-h-0', isMobile ? 'p-3' : 'p-4')}>
         <div className="space-y-2">
           {followUpError && (
             <Alert variant="destructive">
@@ -699,77 +699,76 @@ export function TaskFollowUpSection({
               <AlertDescription>{followUpError}</AlertDescription>
             </Alert>
           )}
-          <div className="space-y-2">
-            {/* Review comments preview */}
-            {reviewMarkdown && (
-              <div className="mb-4">
-                <div className="text-sm whitespace-pre-wrap break-words rounded-md border bg-muted p-3">
-                  {reviewMarkdown}
-                </div>
+          {/* Review comments preview */}
+          {reviewMarkdown && (
+            <div className="mb-4">
+              <div className="text-sm whitespace-pre-wrap break-words rounded-md border bg-muted p-3">
+                {reviewMarkdown}
               </div>
-            )}
-
-            {/* Conflict notice and actions (optional UI) */}
-            {branchStatus && (
-              <FollowUpConflictSection
-                selectedAttemptId={selectedAttemptId}
-                attemptBranch={attemptBranch}
-                branchStatus={branchStatus}
-                isEditable={isEditable}
-                onResolve={onSendFollowUp}
-                enableResolve={
-                  canSendFollowUp && !isAttemptRunning && isEditable
-                }
-                enableAbort={canSendFollowUp && !isAttemptRunning}
-                conflictResolutionInstructions={conflictResolutionInstructions}
-              />
-            )}
-
-            {/* Clicked elements notice and actions */}
-            <ClickedElementsBanner />
-
-            {/* Queued message indicator */}
-            {isQueued && queuedMessage && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md border">
-                <Clock className="h-4 w-4 flex-shrink-0" />
-                <div className="font-medium">
-                  {t(
-                    'followUp.queuedMessage',
-                    'Message queued - will execute when current run finishes'
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div
-              className="flex flex-col gap-2"
-              onFocus={() => setIsTextareaFocused(true)}
-              onBlur={(e) => {
-                // Only blur if focus is leaving the container entirely
-                if (!e.currentTarget.contains(e.relatedTarget)) {
-                  setIsTextareaFocused(false);
-                }
-              }}
-            >
-              <WYSIWYGEditor
-                placeholder={editorPlaceholder}
-                value={displayMessage}
-                onChange={handleEditorChange}
-                disabled={!isEditable}
-                onPasteFiles={handlePasteFiles}
-                projectId={projectId}
-                taskAttemptId={selectedAttemptId}
-                onCmdEnter={handleSubmitShortcut}
-                className="min-h-[40px]"
-              />
             </div>
-          </div>
+          )}
+
+          {/* Conflict notice and actions (optional UI) */}
+          {branchStatus && (
+            <FollowUpConflictSection
+              selectedAttemptId={selectedAttemptId}
+              attemptBranch={attemptBranch}
+              branchStatus={branchStatus}
+              isEditable={isEditable}
+              onResolve={onSendFollowUp}
+              enableResolve={
+                canSendFollowUp && !isAttemptRunning && isEditable
+              }
+              enableAbort={canSendFollowUp && !isAttemptRunning}
+              conflictResolutionInstructions={conflictResolutionInstructions}
+            />
+          )}
+
+          {/* Clicked elements notice and actions */}
+          <ClickedElementsBanner />
+
+          {/* Queued message indicator */}
+          {isQueued && queuedMessage && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md border">
+              <Clock className="h-4 w-4 flex-shrink-0" />
+              <div className="font-medium">
+                {t(
+                  'followUp.queuedMessage',
+                  'Message queued - will execute when current run finishes'
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Always-visible action bar */}
-      <div className={cn('p-4', isMobile && 'pb-6')}>
-        <div className={cn('flex flex-row gap-2 items-center', isMobile && 'flex-wrap')}>
+      {/* Editor and action bar at bottom - auto-sized to content */}
+      <div className={cn('shrink-0 border-t', isMobile ? 'p-3 pb-6' : 'p-4')}>
+        <div className="space-y-2">
+          <div
+            className="flex flex-col gap-2"
+            onFocus={() => setIsTextareaFocused(true)}
+            onBlur={(e) => {
+              // Only blur if focus is leaving the container entirely
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setIsTextareaFocused(false);
+              }
+            }}
+          >
+            <WYSIWYGEditor
+              placeholder={editorPlaceholder}
+              value={displayMessage}
+              onChange={handleEditorChange}
+              disabled={!isEditable}
+              onPasteFiles={handlePasteFiles}
+              projectId={projectId}
+              taskAttemptId={selectedAttemptId}
+              onCmdEnter={handleSubmitShortcut}
+              className={cn('min-h-[40px]', isMobile && 'max-h-[120px]')}
+            />
+          </div>
+
+          <div className={cn('flex flex-row gap-2 items-center', isMobile && 'flex-wrap')}>
           <div className="flex-1 flex gap-2 items-center">
             <VariantSelector
               currentProfile={currentProfile}
@@ -990,6 +989,7 @@ export function TaskFollowUpSection({
               </Button>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
