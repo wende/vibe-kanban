@@ -196,7 +196,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
 
   return (
     <Dialog open={modal.visible} onOpenChange={() => handleCancel()} zIndex={10001}>
-      <DialogContent className="max-h-[80vh] flex flex-col w-[500px] max-w-[95vw]">
+      <DialogContent className="max-h-[80vh] flex flex-col w-[600px] max-w-[90vw]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCommit className="h-5 w-5" />
