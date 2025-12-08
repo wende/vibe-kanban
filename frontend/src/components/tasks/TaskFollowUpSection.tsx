@@ -742,31 +742,31 @@ export function TaskFollowUpSection({
       </div>
 
       {/* Editor and action bar at bottom - auto-sized to content */}
-      <div className={cn('shrink-0 border-t bg-background', isMobile ? 'p-3 pb-6' : 'p-4')}>
-        <div className="space-y-2">
-          <div
-            onFocus={() => setIsTextareaFocused(true)}
-            onBlur={(e) => {
-              // Only blur if focus is leaving the container entirely
-              if (!e.currentTarget.contains(e.relatedTarget)) {
-                setIsTextareaFocused(false);
-              }
-            }}
-          >
-            <WYSIWYGEditor
-              placeholder={editorPlaceholder}
-              value={displayMessage}
-              onChange={handleEditorChange}
-              disabled={!isEditable}
-              onPasteFiles={handlePasteFiles}
-              projectId={projectId}
-              taskAttemptId={selectedAttemptId}
-              onCmdEnter={handleSubmitShortcut}
-              className={cn('min-h-[40px]', isMobile && 'max-h-[120px]')}
-            />
-          </div>
+      <div className={cn('shrink-0 border-t bg-background p-4', isMobile && 'pb-6')}>
+        <div
+          className="mb-2"
+          onFocus={() => setIsTextareaFocused(true)}
+          onBlur={(e) => {
+            // Only blur if focus is leaving the container entirely
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setIsTextareaFocused(false);
+            }
+          }}
+        >
+          <WYSIWYGEditor
+            placeholder={editorPlaceholder}
+            value={displayMessage}
+            onChange={handleEditorChange}
+            disabled={!isEditable}
+            onPasteFiles={handlePasteFiles}
+            projectId={projectId}
+            taskAttemptId={selectedAttemptId}
+            onCmdEnter={handleSubmitShortcut}
+            className={cn('min-h-[40px]', isMobile && 'max-h-[120px]')}
+          />
+        </div>
 
-          <div className={cn(
+        <div className={cn(
             'flex flex-row flex-wrap gap-2 items-center',
             isMobile ? 'justify-center' : 'justify-between'
           )}>
@@ -788,7 +788,6 @@ export function TaskFollowUpSection({
               {/* Context usage indicator - show circle only on mobile */}
               <ContextUsageIndicator
                 resetVersion={contextUsageResetVersion}
-                compact={!isMobile}
                 mobileCompact={isMobile}
               />
 
