@@ -37,7 +37,8 @@ export function useTaskMutations(projectId?: string) {
         });
       }
       if (projectId) {
-        navigate(`${paths.task(projectId, createdTask.id)}/attempts/latest`);
+        // Navigate to task view (not attempts/latest) since no attempt was created
+        navigate(paths.task(projectId, createdTask.id));
       }
     },
     onError: (err) => {
@@ -59,7 +60,11 @@ export function useTaskMutations(projectId?: string) {
         });
       }
       if (projectId) {
-        navigate(`${paths.task(projectId, createdTask.id)}/attempts/latest`);
+        // Navigate to the specific attempt ID if available, otherwise fall back to /attempts/latest
+        const attemptPath = createdTask.latest_task_attempt_id
+          ? `/attempts/${createdTask.latest_task_attempt_id}`
+          : '/attempts/latest';
+        navigate(`${paths.task(projectId, createdTask.id)}${attemptPath}`);
       }
     },
     onError: (err) => {
