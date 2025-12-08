@@ -196,7 +196,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
 
   return (
     <Dialog open={modal.visible} onOpenChange={() => handleCancel()} zIndex={10001}>
-      <DialogContent className="max-h-[80vh] flex flex-col w-auto max-w-[95vw]">
+      <DialogContent className="max-h-[80vh] flex flex-col w-[500px] max-w-[95vw]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCommit className="h-5 w-5" />
@@ -280,7 +280,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
                     </div>
                     <span className="shrink-0">{getFileIcon(file)}</span>
                     <span
-                      className="flex-1 text-sm font-mono min-w-0 overflow-hidden whitespace-nowrap"
+                      className="flex-1 text-sm font-mono min-w-0 overflow-hidden whitespace-nowrap text-ellipsis"
                       title={file.path}
                       style={{ direction: 'rtl', textAlign: 'left' }}
                     >
