@@ -279,8 +279,12 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
                       />
                     </div>
                     <span className="shrink-0">{getFileIcon(file)}</span>
-                    <span className="flex-1 break-words text-sm font-mono min-w-0">
-                      {file.path}
+                    <span
+                      className="flex-1 text-sm font-mono min-w-0 overflow-hidden whitespace-nowrap"
+                      title={file.path}
+                      style={{ direction: 'rtl', textAlign: 'left' }}
+                    >
+                      <bdi>{file.path}</bdi>
                     </span>
                     <span className="text-xs text-muted-foreground shrink-0">
                       {getStatusLabel(file)}
