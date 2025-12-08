@@ -1001,6 +1001,5 @@ export function TaskFollowUpSection({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
