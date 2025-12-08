@@ -61,6 +61,7 @@ import { useQueueStatus } from '@/hooks/useQueueStatus';
 import { imagesApi, attemptsApi } from '@/lib/api';
 import { GitHubCommentsDialog } from '@/components/dialogs/tasks/GitHubCommentsDialog';
 import type { NormalizedComment } from '@/components/ui/wysiwyg/nodes/github-comment-node';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface TaskFollowUpSectionProps {
   task: TaskWithAttemptStatus;
@@ -73,6 +74,7 @@ export function TaskFollowUpSection({
 }: TaskFollowUpSectionProps) {
   const { t } = useTranslation('tasks');
   const { projectId, project } = useProject();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const {
     isAttemptRunning,
@@ -683,12 +685,13 @@ export function TaskFollowUpSection({
   return (
     <div
       className={cn(
-        'grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden',
+        'grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden',
+        isMobile ? 'h-[100dvh]' : 'h-full',
         isRetryActive && 'opacity-50'
       )}
     >
       {/* Scrollable content area */}
-      <div className="overflow-y-auto min-h-0 p-4">
+      <div className={cn('overflow-y-auto min-h-0', isMobile ? 'p-3' : 'p-4')}>
         <div className="space-y-2">
           {followUpError && (
             <Alert variant="destructive">
@@ -765,8 +768,8 @@ export function TaskFollowUpSection({
       </div>
 
       {/* Always-visible action bar */}
-      <div className="p-4">
-        <div className="flex flex-row gap-2 items-center">
+      <div className={cn('p-4', isMobile && 'pb-6')}>
+        <div className={cn('flex flex-row gap-2 items-center', isMobile && 'flex-wrap')}>
           <div className="flex-1 flex gap-2 items-center">
             <VariantSelector
               currentProfile={currentProfile}
@@ -908,11 +911,11 @@ export function TaskFollowUpSection({
                   variant="outline"
                 >
                   {isQueueLoading ? (
-                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                    <Loader2 className="animate-spin h-4 w-4" />
                   ) : (
                     <>
-                      <X className="h-4 w-4 mr-2" />
-                      {t('followUp.cancelQueue', 'Cancel Queue')}
+                      <X className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                      {!isMobile && t('followUp.cancelQueue', 'Cancel Queue')}
                     </>
                   )}
                 </Button>
@@ -931,11 +934,11 @@ export function TaskFollowUpSection({
                   className="bg-secondary/60 text-foreground hover:bg-secondary/80"
                 >
                   {isQueueLoading ? (
-                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                    <Loader2 className="animate-spin h-4 w-4" />
                   ) : (
                     <>
-                      <Clock className="h-4 w-4 mr-2" />
-                      {t('followUp.queue', 'Queue')}
+                      <Clock className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                      {!isMobile && t('followUp.queue', 'Queue')}
                     </>
                   )}
                 </Button>
@@ -947,11 +950,11 @@ export function TaskFollowUpSection({
                 variant="destructive"
               >
                 {isStopping ? (
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  <Loader2 className="animate-spin h-4 w-4" />
                 ) : (
                   <>
-                    <StopCircle className="h-4 w-4 mr-2" />
-                    {t('followUp.stop')}
+                    <StopCircle className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                    {!isMobile && t('followUp.stop')}
                   </>
                 )}
               </Button>
@@ -974,13 +977,14 @@ export function TaskFollowUpSection({
                 size="sm"
               >
                 {isSendingFollowUp ? (
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  <Loader2 className="animate-spin h-4 w-4" />
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-2" />
-                    {conflictResolutionInstructions
-                      ? t('followUp.resolveConflicts')
-                      : t('followUp.send')}
+                    <Send className={cn('h-4 w-4', !isMobile && 'mr-2')} />
+                    {!isMobile &&
+                      (conflictResolutionInstructions
+                        ? t('followUp.resolveConflicts')
+                        : t('followUp.send'))}
                   </>
                 )}
               </Button>

@@ -15,6 +15,7 @@ import { useBranchStatus } from '@/hooks/useBranchStatus';
 import { useVariant } from '@/hooks/useVariant';
 import { useRetryProcess } from '@/hooks/useRetryProcess';
 import type { ExecutorAction, ExecutorProfileId } from 'shared/types';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export function RetryEditorInline({
   attempt,
@@ -33,6 +34,7 @@ export function RetryEditorInline({
   const { data: branchStatus } = useBranchStatus(attemptId);
   const { profiles } = useUserSystem();
   const { projectId } = useProject();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const [message, setMessage] = useState(initialContent);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export function RetryEditorInline({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className={cn('flex items-center gap-2', isMobile && 'pb-4')}>
         <VariantSelector
           selectedVariant={selectedVariant}
           onChange={setSelectedVariant}
@@ -191,12 +193,12 @@ export function RetryEditorInline({
             <Paperclip className="h-3 w-3" />
           </Button>
           <Button variant="outline" onClick={onCancel} disabled={isSending}>
-            <X className="h-3 w-3 mr-1" />{' '}
-            {t('buttons.cancel', { ns: 'common' })}
+            <X className={cn('h-3 w-3', !isMobile && 'mr-1')} />
+            {!isMobile && t('buttons.cancel', { ns: 'common' })}
           </Button>
           <Button onClick={onSend} disabled={!canSend || isSending}>
-            <Send className="h-3 w-3 mr-1" />{' '}
-            {t('buttons.send', { ns: 'common', defaultValue: 'Send' })}
+            <Send className={cn('h-3 w-3', !isMobile && 'mr-1')} />
+            {!isMobile && t('buttons.send', { ns: 'common', defaultValue: 'Send' })}
           </Button>
         </div>
       </div>
