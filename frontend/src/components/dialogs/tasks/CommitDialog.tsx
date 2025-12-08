@@ -195,8 +195,8 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(({ attemptId }) => 
   const allSelected = files.length > 0 && selectedFiles.size === files.length;
 
   return (
-    <Dialog open={modal.visible} onOpenChange={() => handleCancel()} zIndex={10001}>
-      <DialogContent className="max-h-[80vh] flex flex-col w-[600px] max-w-[90vw]">
+    <Dialog open={modal.visible} onOpenChange={() => handleCancel()} zIndex={10001} className="!w-[600px] !max-w-[90vw]">
+      <DialogContent className="max-h-[80vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCommit className="h-5 w-5" />
