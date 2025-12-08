@@ -90,6 +90,7 @@ impl AcpAgentHarness {
             child,
             exit_signal: Some(exit_rx),
             interrupt_sender: None,
+            input_sender: None,
         })
     }
 
@@ -134,6 +135,7 @@ impl AcpAgentHarness {
             child,
             exit_signal: Some(exit_rx),
             interrupt_sender: None,
+            input_sender: None,
         })
     }
 

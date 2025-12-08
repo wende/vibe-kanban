@@ -46,6 +46,7 @@ use services::services::{
     container::{ContainerError, ContainerService},
     git::{ConflictOp, GitCliError, GitServiceError, WorktreeResetOptions},
     github::{CreatePrRequest, GitHubService, GitHubServiceError, UnifiedPrComment},
+    worktree_manager::WorktreeError,
 };
 use sqlx::Error as SqlxError;
 use ts_rs::TS;
@@ -2241,8 +2242,8 @@ pub async fn generate_pr_title(
 > {
     let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
 
-    // Get the diff
-    let diff = match commit_message::get_diff_for_commit(&ws_path) {
+    // Get the diff between branches (committed changes, not uncommitted)
+    let diff = match commit_message::get_diff_for_pr(&ws_path, &task_attempt.target_branch) {
         Ok(diff) => diff,
         Err(CommitMessageError::NoChanges) => {
             return Ok(ResponseJson(ApiResponse::error_with_data(

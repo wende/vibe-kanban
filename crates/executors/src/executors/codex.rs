@@ -390,6 +390,7 @@ impl Codex {
             child,
             exit_signal: Some(exit_signal_rx),
             interrupt_sender: None,
+            input_sender: None,
         })
     }
 

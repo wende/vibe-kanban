@@ -119,7 +119,8 @@ function getUsageSignature(usage: ContextUsage | null): string | null {
   }
 
   const cached =
-    usage.cached_input_tokens !== undefined && usage.cached_input_tokens !== null
+    usage.cached_input_tokens !== undefined &&
+    usage.cached_input_tokens !== null
       ? usage.cached_input_tokens.toString()
       : 'null';
   const cacheRead =

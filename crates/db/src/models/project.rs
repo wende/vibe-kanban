@@ -156,6 +156,7 @@ impl Project {
                     dev_script: r.dev_script,
                     cleanup_script: r.cleanup_script,
                     copy_files: r.copy_files,
+                    parallel_setup_script: false, // Default for aggregate queries
                     remote_project_id: r.remote_project_id,
                     created_at: r.created_at,
                     updated_at: r.updated_at,

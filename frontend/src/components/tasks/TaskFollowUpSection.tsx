@@ -8,6 +8,7 @@ import {
   Paperclip,
   Terminal,
   MessageSquare,
+  Minimize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -78,6 +79,10 @@ export function TaskFollowUpSection({
     stopExecution,
     isStopping,
     processes,
+    contextUsageResetVersion,
+    compactExecution,
+    isCompacting,
+    canCompact,
   } = useAttemptExecution(selectedAttemptId, task.id);
   const { data: branchStatus, refetch: refetchBranchStatus } =
     useBranchStatus(selectedAttemptId);
@@ -785,6 +790,21 @@ export function TaskFollowUpSection({
             className="hidden"
             onChange={handleFileInputChange}
           />
+
+          {/* Compact button - always visible, disabled when compaction is unavailable */}
+          <Button
+            onClick={compactExecution}
+            disabled={isCompacting || !canCompact}
+            size="sm"
+            variant="outline"
+            title={t('followUp.compact')}
+          >
+            {isCompacting ? (
+              <Loader2 className="animate-spin h-4 w-4" />
+            ) : (
+              <Minimize2 className="h-4 w-4" />
+            )}
+          </Button>
 
           {/* Attach button - always visible */}
           <Button

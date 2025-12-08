@@ -272,6 +272,20 @@ pub type ExecutorExitSignal = tokio::sync::oneshot::Receiver<ExecutorExitResult>
 /// When sent, the executor should attempt to interrupt gracefully before being killed.
 pub type InterruptSender = tokio::sync::oneshot::Sender<()>;
 
+/// Sender for sending user input to a running executor process.
+/// Used for interactive commands like `/compact` that can be sent while the process is running.
+pub type InputSender = tokio::sync::mpsc::Sender<String>;
+
+/// Receiver for user input messages sent to a running executor process.
+pub type InputReceiver = tokio::sync::mpsc::Receiver<String>;
+
+/// Create a new input channel for sending user input to an executor.
+/// Returns (sender, receiver) pair. The sender should be stored by the container,
+/// and the receiver should be passed to the executor's protocol handler.
+pub fn create_input_channel() -> (InputSender, InputReceiver) {
+    tokio::sync::mpsc::channel(16)
+}
+
 #[derive(Debug)]
 pub struct SpawnedChild {
     pub child: AsyncGroupChild,
@@ -279,6 +293,8 @@ pub struct SpawnedChild {
     pub exit_signal: Option<ExecutorExitSignal>,
     /// Container → Executor: signals when container wants to interrupt
     pub interrupt_sender: Option<InterruptSender>,
+    /// Container → Executor: channel for sending user input (e.g., /compact command)
+    pub input_sender: Option<InputSender>,
 }
 
 impl From<AsyncGroupChild> for SpawnedChild {
@@ -287,6 +303,7 @@ impl From<AsyncGroupChild> for SpawnedChild {
             child,
             exit_signal: None,
             interrupt_sender: None,
+            input_sender: None,
         }
     }
 }

@@ -48,7 +48,6 @@ export function ActionsDropdown({
   const hasTaskActions = Boolean(task);
   const isShared = Boolean(sharedTask);
   const canEditShared = (!isShared && !task?.shared_task_id) || isSignedIn;
-  const [copied, setCopied] = useState(false);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();

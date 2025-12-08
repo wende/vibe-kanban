@@ -9,7 +9,7 @@ use tokio::{
 
 use super::types::{CLIMessage, ControlRequestType, ControlResponseMessage, ControlResponseType};
 use crate::executors::{
-    ExecutorError,
+    ExecutorError, InputReceiver,
     claude::{
         client::ClaudeAgentClient,
         types::{Message, PermissionMode, SDKControlRequest, SDKControlRequestType},
@@ -29,13 +29,26 @@ impl ProtocolPeer {
         client: Arc<ClaudeAgentClient>,
         interrupt_rx: oneshot::Receiver<()>,
     ) -> Self {
+        Self::spawn_with_input(stdin, stdout, client, interrupt_rx, None)
+    }
+
+    pub fn spawn_with_input(
+        stdin: ChildStdin,
+        stdout: ChildStdout,
+        client: Arc<ClaudeAgentClient>,
+        interrupt_rx: oneshot::Receiver<()>,
+        input_rx: Option<InputReceiver>,
+    ) -> Self {
         let peer = Self {
             stdin: Arc::new(Mutex::new(stdin)),
         };
 
         let reader_peer = peer.clone();
         tokio::spawn(async move {
-            if let Err(e) = reader_peer.read_loop(stdout, client, interrupt_rx).await {
+            if let Err(e) = reader_peer
+                .read_loop(stdout, client, interrupt_rx, input_rx)
+                .await
+            {
                 tracing::error!("Protocol reader loop error: {}", e);
             }
         });
@@ -48,11 +61,14 @@ impl ProtocolPeer {
         stdout: ChildStdout,
         client: Arc<ClaudeAgentClient>,
         interrupt_rx: oneshot::Receiver<()>,
+        input_rx: Option<InputReceiver>,
     ) -> Result<(), ExecutorError> {
         let mut reader = BufReader::new(stdout);
         let mut buffer = String::new();
         // Fuse the receiver so it returns Pending forever after completing
         let mut interrupt_rx = interrupt_rx.fuse();
+        // Wrap input_rx in Option so we can take ownership once
+        let mut input_rx = input_rx;
 
         loop {
             buffer.clear();
@@ -93,6 +109,18 @@ impl ProtocolPeer {
                 _ = &mut interrupt_rx => {
                     if let Err(e) = self.interrupt().await {
                         tracing::debug!("Failed to send interrupt to Claude: {e}");
+                    }
+                }
+                // Handle user input messages (e.g., /compact command)
+                Some(user_input) = async {
+                    match &mut input_rx {
+                        Some(rx) => rx.recv().await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    tracing::debug!("Received user input: {}", user_input);
+                    if let Err(e) = self.send_user_message(user_input).await {
+                        tracing::warn!("Failed to send user input to Claude: {e}");
                     }
                 }
             }

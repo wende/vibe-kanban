@@ -571,8 +571,32 @@ impl WorktreeManager {
         let worktree_base = Self::get_worktree_base_dir();
         let path_str = worktree_path.to_string_lossy().to_string();
 
-        // First check: path must start with the worktree base (before canonicalization)
-        if !worktree_path.starts_with(&worktree_base) {
+        // First check: path must start with the worktree base
+        // On macOS, /var is a symlink to /private/var, so we need to handle both forms.
+        // Canonicalize the base first (create it if needed so we can canonicalize)
+        let _ = std::fs::create_dir_all(&worktree_base);
+        let canonical_base = worktree_base.canonicalize().unwrap_or(worktree_base.clone());
+
+        let is_inside_base = if let Ok(canonical_path) = worktree_path.canonicalize() {
+            // Path exists - compare canonical forms
+            canonical_path.starts_with(&canonical_base)
+        } else {
+            // Path doesn't exist - normalize /private/var/ to /var/ for comparison (macOS)
+            let base_str = canonical_base.to_string_lossy();
+            let normalized_path = if path_str.starts_with("/private/var/") {
+                path_str.replacen("/private/var/", "/var/", 1)
+            } else {
+                path_str.clone()
+            };
+            let normalized_base = if base_str.starts_with("/private/var/") {
+                base_str.replacen("/private/var/", "/var/", 1)
+            } else {
+                base_str.to_string()
+            };
+            normalized_path.starts_with(&normalized_base)
+        };
+
+        if !is_inside_base {
             tracing::error!(
                 "SAFETY: Path '{}' is not inside worktree base '{}' - refusing to delete",
                 path_str,
@@ -593,14 +617,11 @@ impl WorktreeManager {
             }
         }
 
-        // Third check: If the path exists, canonicalize to resolve symlinks
-        // and verify the REAL path is still inside the base directory
+        // Third check: If the path exists, canonicalize it and verify it's still inside base
+        // This catches symlink attacks where the path resolves to somewhere outside
         if worktree_path.exists() {
-            match (
-                std::fs::canonicalize(worktree_path),
-                std::fs::canonicalize(&worktree_base),
-            ) {
-                (Ok(canonical_path), Ok(canonical_base)) => {
+            match std::fs::canonicalize(worktree_path) {
+                Ok(canonical_path) => {
                     if !canonical_path.starts_with(&canonical_base) {
                         tracing::error!(
                             "SAFETY: Canonical path '{}' (from '{}') is outside canonical base '{}' - \
@@ -617,7 +638,7 @@ impl WorktreeManager {
                         canonical_path.display()
                     );
                 }
-                (Err(e), _) => {
+                Err(e) => {
                     // Path exists but can't be canonicalized - this is suspicious
                     tracing::warn!(
                         "SAFETY: Cannot canonicalize path '{}': {} - proceeding with caution",
@@ -626,15 +647,6 @@ impl WorktreeManager {
                     );
                     // Still allow deletion since it passed the starts_with check
                     // and the path exists (so it's likely just a permissions issue)
-                }
-                (_, Err(e)) => {
-                    // Base doesn't exist or can't be canonicalized
-                    tracing::warn!(
-                        "SAFETY: Cannot canonicalize worktree base '{}': {} - refusing to delete",
-                        worktree_base.display(),
-                        e
-                    );
-                    return Err(WorktreeError::UnsafePath(path_str));
                 }
             }
         }

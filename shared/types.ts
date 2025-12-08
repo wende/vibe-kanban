@@ -14,6 +14,8 @@ export type UserData = { user_id: string, first_name: string | null, last_name: 
 
 export type Project = { id: string, name: string, git_repo_path: string, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, parallel_setup_script: boolean, remote_project_id: string | null, created_at: Date, updated_at: Date, };
 
+export type ProjectWithTaskCounts = { inprogress_count: bigint, inreview_count: bigint, id: string, name: string, git_repo_path: string, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, parallel_setup_script: boolean, remote_project_id: string | null, created_at: Date, updated_at: Date, };
+
 export type CreateProject = { name: string, git_repo_path: string, use_existing_repo: boolean, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, parallel_setup_script: boolean | null, };
 
 export type UpdateProject = { name: string | null, git_repo_path: string | null, setup_script: string | null, dev_script: string | null, cleanup_script: string | null, copy_files: string | null, parallel_setup_script: boolean | null, };
@@ -245,16 +247,16 @@ export type CreateTaskAttemptBody = { task_id: string,
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, base_branch: string,
+executor_profile_id: ExecutorProfileId, base_branch: string, 
 /**
  * If true, use base_branch as the working branch instead of creating a new one
  */
-use_existing_branch: boolean,
+use_existing_branch: boolean, 
 /**
  * Custom branch name to use instead of auto-generating one.
  * Takes precedence over use_existing_branch when set.
  */
-custom_branch: string | null,
+custom_branch: string | null, 
 /**
  * Conversation history from a previous attempt to prepend to the prompt.
  * Used when continuing a task with a different agent.
@@ -303,57 +305,45 @@ export type DirectoryEntry = { name: string, path: string, is_directory: boolean
 
 export type DirectoryListResponse = { entries: Array<DirectoryEntry>, current_path: string, };
 
-export type CommitChangesRequest = {
-/**
- * Files to stage before committing. If empty, stages all changes.
- */
-files: Array<string>,
-/**
- * Commit message.
- */
-message: string, };
+export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, auto_commit_enabled: boolean, };
 
-export type WorktreeStatusResponse = { entries: Array<FileStatusEntry>, };
+export type NotificationConfig = { sound_enabled: boolean, push_enabled: boolean, sound_file: SoundFile, };
 
-export type FileStatusEntry = {
-/**
- * Single-letter staged status (X column) - ' ' means unchanged, 'M' modified, 'A' added, etc.
- */
-staged: string,
-/**
- * Single-letter unstaged status (Y column)
- */
-unstaged: string,
-/**
- * File path
- */
-path: string,
-/**
- * Original path for renames
- */
-orig_path: string | null,
-/**
- * True if this is an untracked file
- */
-is_untracked: boolean, };
+export enum ThemeMode { LIGHT = "LIGHT", DARK = "DARK", SYSTEM = "SYSTEM" }
 
-export type GenerateCommitMessageResponse = { message: string, };
+export type EditorConfig = { editor_type: EditorType, custom_command: string | null, remote_ssh_host: string | null, remote_ssh_user: string | null, };
 
-export type GenerateCommitMessageError = { "type": "no_changes" } | { "type": "claude_code_failed", message: string, };
+export enum EditorType { VS_CODE = "VS_CODE", CURSOR = "CURSOR", WINDSURF = "WINDSURF", INTELLI_J = "INTELLI_J", ZED = "ZED", XCODE = "XCODE", CUSTOM = "CUSTOM" }
 
-export type ExportResult = { 
+export type EditorOpenError = { "type": "executable_not_found", executable: string, editor_type: EditorType, } | { "type": "invalid_command", details: string, editor_type: EditorType, } | { "type": "launch_failed", executable: string, details: string, editor_type: EditorType, };
+
+export type GitHubConfig = { pat: string | null, oauth_token: string | null, username: string | null, primary_email: string | null, default_pr_base: string | null, };
+
+export enum SoundFile { ABSTRACT_SOUND1 = "ABSTRACT_SOUND1", ABSTRACT_SOUND2 = "ABSTRACT_SOUND2", ABSTRACT_SOUND3 = "ABSTRACT_SOUND3", ABSTRACT_SOUND4 = "ABSTRACT_SOUND4", COW_MOOING = "COW_MOOING", PHONE_VIBRATION = "PHONE_VIBRATION", ROOSTER = "ROOSTER" }
+
+export type UiLanguage = "BROWSER" | "EN" | "JA" | "ES" | "KO" | "ZH_HANS";
+
+export type ShowcaseState = { seen_features: Array<string>, };
+
+export type GitBranch = { name: string, is_current: boolean, is_remote: boolean, last_commit_date: Date, };
+
+export type SharedTaskDetails = { id: string, project_id: string, title: string, description: string | null, status: TaskStatus, };
+
+export type QueuedMessage = { 
 /**
- * The exported markdown text.
+ * The task attempt this message is queued for
  */
-markdown: string, 
+task_attempt_id: string, 
 /**
- * Number of messages included in the export.
+ * The follow-up data (message + variant)
  */
-message_count: number, 
+data: DraftFollowUpData, 
 /**
- * Whether the export was truncated due to length.
+ * Timestamp when the message was queued
  */
-truncated: boolean, };
+queued_at: string, };
+
+export type QueueStatus = { "status": "empty" } | { "status": "queued", message: QueuedMessage, };
 
 export type ConflictOp = "rebase" | "merge" | "cherry_pick" | "revert";
 
@@ -439,21 +429,77 @@ export type CodingAgentInitialRequest = { prompt: string,
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, };
-
-export type CodingAgentFollowUpRequest = { prompt: string, session_id: string,
-/**
- * Executor profile specification
- */
-executor_profile_id: ExecutorProfileId,
+executor_profile_id: ExecutorProfileId, 
 /**
  * Whether this is an orchestrator execution (enables orchestrator-specific MCP servers)
  */
 is_orchestrator: boolean, };
 
+export type CodingAgentFollowUpRequest = { prompt: string, session_id: string, 
+/**
+ * Executor profile specification
+ */
+executor_profile_id: ExecutorProfileId, 
+/**
+ * Whether this is an orchestrator execution (enables orchestrator-specific MCP servers)
+ */
+is_orchestrator: boolean, };
+
+export type CommitChangesRequest = { 
+/**
+ * Files to stage before committing. If empty, stages all changes.
+ */
+files: Array<string>, 
+/**
+ * Commit message.
+ */
+message: string, };
+
+export type WorktreeStatusResponse = { entries: Array<FileStatusEntry>, };
+
+export type FileStatusEntry = { 
+/**
+ * Single-letter staged status (X column) - ' ' means unchanged, 'M' modified, 'A' added, etc.
+ */
+staged: string, 
+/**
+ * Single-letter unstaged status (Y column)
+ */
+unstaged: string, 
+/**
+ * File path
+ */
+path: string, 
+/**
+ * Original path for renames
+ */
+orig_path: string | null, 
+/**
+ * True if this is an untracked file
+ */
+is_untracked: boolean, };
+
+export type GenerateCommitMessageResponse = { message: string, };
+
+export type GenerateCommitMessageError = { "type": "no_changes" } | { "type": "claude_code_failed", message: string, };
+
 export type GeneratePrTitleResponse = { title: string, body: string | null, };
 
 export type GeneratePrTitleError = { "type": "no_changes" } | { "type": "claude_code_failed", message: string, };
+
+export type ExportResult = { 
+/**
+ * The exported markdown text.
+ */
+markdown: string, 
+/**
+ * Number of messages included in the export.
+ */
+message_count: number, 
+/**
+ * Whether the export was truncated due to length.
+ */
+truncated: boolean, };
 
 export type CommandExitStatus = { "type": "exit_code", code: number, } | { "type": "success", success: boolean, };
 

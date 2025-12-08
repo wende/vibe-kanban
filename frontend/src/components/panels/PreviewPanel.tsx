@@ -251,14 +251,6 @@ export function PreviewPanel() {
             </div>
           </Alert>
         )}
-        {/* Vertical Resize Handle */}
-        {showBottomPanel && (
-          <VerticalResizeHandle
-            onResize={setBottomPanelHeight}
-            minHeight={100}
-            maxHeight={800}
-          />
-        )}
         {/* Bottom Panel with Tabs */}
         <Tabs
           value={activeTab}
@@ -266,6 +258,14 @@ export function PreviewPanel() {
           className="border-t bg-background"
           data-resizable-container
         >
+          {/* Vertical Resize Handle at top of panel */}
+          {showBottomPanel && (
+            <VerticalResizeHandle
+              onResize={setBottomPanelHeight}
+              minHeight={100}
+              maxHeight={800}
+            />
+          )}
           {/* Single Header Bar */}
           <div className="flex items-center justify-between px-3 py-1 border-b bg-muted/50">
             <TabsList className="h-7 bg-transparent p-0 gap-1">

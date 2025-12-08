@@ -32,7 +32,7 @@ use executors::{
     },
     approvals::{ExecutorApprovalService, NoopExecutorApprovalService},
     env::ExecutionEnv,
-    executors::{BaseCodingAgent, ExecutorExitResult, ExecutorExitSignal, InterruptSender},
+    executors::{BaseCodingAgent, ExecutorExitResult, ExecutorExitSignal, InputSender, InterruptSender},
     logs::{
         NormalizedEntryType,
         utils::{
@@ -68,11 +68,41 @@ use uuid::Uuid;
 
 use crate::{command, copy};
 
+/// Check if a path is within the managed worktree directory, handling macOS symlink differences.
+/// On macOS, /var is a symlink to /private/var, so paths may have different prefixes.
+fn is_path_in_managed_worktree_dir(path: &Path, worktree_base: &Path) -> bool {
+    // Canonicalize the base (should always exist)
+    let canonical_base = worktree_base.canonicalize().unwrap_or(worktree_base.to_path_buf());
+
+    // For the path, try canonical form first, fall back to string comparison
+    if let Ok(canonical_path) = path.canonicalize() {
+        canonical_path.starts_with(&canonical_base)
+    } else {
+        // Path doesn't exist - check string representation for macOS symlink
+        let path_str = path.to_string_lossy();
+        let base_str = canonical_base.to_string_lossy();
+
+        // Normalize /private/var to /var for comparison (macOS)
+        let normalized_path = if path_str.starts_with("/private/var/") {
+            path_str.replacen("/private/var/", "/var/", 1)
+        } else {
+            path_str.to_string()
+        };
+        let normalized_base = if base_str.starts_with("/private/var/") {
+            base_str.replacen("/private/var/", "/var/", 1)
+        } else {
+            base_str.to_string()
+        };
+        normalized_path.starts_with(&normalized_base)
+    }
+}
+
 #[derive(Clone)]
 pub struct LocalContainerService {
     db: DBService,
     child_store: Arc<RwLock<HashMap<Uuid, Arc<RwLock<AsyncGroupChild>>>>>,
     interrupt_senders: Arc<RwLock<HashMap<Uuid, InterruptSender>>>,
+    input_senders: Arc<RwLock<HashMap<Uuid, InputSender>>>,
     msg_stores: Arc<RwLock<HashMap<Uuid, Arc<MsgStore>>>>,
     config: Arc<RwLock<Config>>,
     git: GitService,
@@ -99,6 +129,7 @@ impl LocalContainerService {
     ) -> Self {
         let child_store = Arc::new(RwLock::new(HashMap::new()));
         let interrupt_senders = Arc::new(RwLock::new(HashMap::new()));
+        let input_senders = Arc::new(RwLock::new(HashMap::new()));
         let (worktree_cleanup_shutdown_tx, worktree_cleanup_shutdown_rx) =
             tokio::sync::watch::channel(false);
 
@@ -106,6 +137,7 @@ impl LocalContainerService {
             db,
             child_store,
             interrupt_senders,
+            input_senders,
             msg_stores,
             config,
             git,
@@ -154,14 +186,19 @@ impl LocalContainerService {
         map.remove(id)
     }
 
-    async fn add_interrupt_sender(&self, id: Uuid, sender: InterruptSender) {
-        let mut map = self.interrupt_senders.write().await;
+    async fn add_input_sender(&self, id: Uuid, sender: InputSender) {
+        let mut map = self.input_senders.write().await;
         map.insert(id, sender);
     }
 
-    async fn take_interrupt_sender(&self, id: &Uuid) -> Option<InterruptSender> {
-        let mut map = self.interrupt_senders.write().await;
-        map.remove(id)
+    async fn get_input_sender(&self, id: &Uuid) -> Option<InputSender> {
+        let map = self.input_senders.read().await;
+        map.get(id).cloned()
+    }
+
+    async fn remove_input_sender(&self, id: &Uuid) {
+        let mut map = self.input_senders.write().await;
+        map.remove(id);
     }
 
     /// Defensively check for externally deleted worktrees and mark them as deleted in the database
@@ -250,7 +287,7 @@ impl LocalContainerService {
 
             // CRITICAL SAFETY CHECK: Only delete directories within the managed worktree directory
             // This prevents accidental deletion of user directories (e.g., orchestrator main repos)
-            if !path.starts_with(&worktree_base_dir) {
+            if !is_path_in_managed_worktree_dir(&path, &worktree_base_dir) {
                 tracing::warn!(
                     "Skipping orphan cleanup for path '{}' - not in managed worktree directory {}",
                     path.display(),
@@ -321,7 +358,7 @@ impl LocalContainerService {
 
             let worktree_path_buf = PathBuf::from(&worktree_path);
             let worktree_base = WorktreeManager::get_worktree_base_dir();
-            if !worktree_path_buf.starts_with(&worktree_base) {
+            if !is_path_in_managed_worktree_dir(&worktree_path_buf, &worktree_base) {
                 tracing::warn!(
                     "Skipping cleanup for attempt {} - path '{}' is outside managed worktree directory {}",
                     attempt_id,
@@ -728,8 +765,9 @@ impl LocalContainerService {
                 }
             }
 
-            // Cleanup child handle
+            // Cleanup child handle and input sender
             child_store.write().await.remove(&exec_id);
+            container.remove_input_sender(&exec_id).await;
         })
     }
 
@@ -1182,7 +1220,7 @@ impl ContainerService for LocalContainerService {
         // Only clean up worktrees that are in our managed worktrees directory
         // Don't delete existing worktrees (like the main repo) that we're just using
         let worktree_base = WorktreeManager::get_worktree_base_dir();
-        if !worktree_path.starts_with(&worktree_base) {
+        if !is_path_in_managed_worktree_dir(&worktree_path, &worktree_base) {
             tracing::info!(
                 "Skipping cleanup for task attempt {} - container_ref '{}' is not in managed worktrees directory",
                 task_attempt.id,
@@ -1244,7 +1282,7 @@ impl ContainerService for LocalContainerService {
 
         // For external worktrees (not in managed directory), just verify the path exists
         // Don't try to recreate them - they're managed externally (e.g., use_existing_branch)
-        if !worktree_path.starts_with(&worktree_base) {
+        if !is_path_in_managed_worktree_dir(&worktree_path, &worktree_base) {
             if worktree_path.exists() {
                 return Ok(container_ref.to_string());
             } else {
@@ -1352,9 +1390,9 @@ impl ContainerService for LocalContainerService {
                 .await;
         }
 
-        // Store interrupt sender for graceful shutdown
-        if let Some(interrupt_sender) = spawned.interrupt_sender {
-            self.add_interrupt_sender(execution_process.id, interrupt_sender)
+        // Store input sender for sending user input (e.g., /compact command)
+        if let Some(input_sender) = spawned.input_sender {
+            self.add_input_sender(execution_process.id, input_sender)
                 .await;
         }
 
@@ -1427,6 +1465,7 @@ impl ContainerService for LocalContainerService {
             }
         }
         self.remove_child_from_store(&execution_process.id).await;
+        self.remove_input_sender(&execution_process.id).await;
 
         // Mark the process finished in the MsgStore
         if let Some(msg) = self.msg_stores.write().await.remove(&execution_process.id) {
@@ -1644,6 +1683,40 @@ impl ContainerService for LocalContainerService {
         Ok(())
     }
 
+    async fn send_input_to_process(
+        &self,
+        execution_process_id: Uuid,
+        input: String,
+    ) -> Result<bool, ContainerError> {
+        if let Some(input_sender) = self.get_input_sender(&execution_process_id).await {
+            match input_sender.send(input).await {
+                Ok(()) => {
+                    tracing::debug!(
+                        "Sent input to execution process {}",
+                        execution_process_id
+                    );
+                    Ok(true)
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to send input to execution process {}: {}",
+                        execution_process_id,
+                        e
+                    );
+                    // Channel closed means the process is no longer listening
+                    // Remove the stale sender
+                    self.remove_input_sender(&execution_process_id).await;
+                    Ok(false)
+                }
+            }
+        } else {
+            tracing::debug!(
+                "No input sender found for execution process {}",
+                execution_process_id
+            );
+            Ok(false)
+        }
+    }
 }
 fn success_exit_status() -> std::process::ExitStatus {
     #[cfg(unix)]

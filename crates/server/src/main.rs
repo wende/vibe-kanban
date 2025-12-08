@@ -99,9 +99,22 @@ async fn main() -> Result<(), VibeKanbanError> {
             0
         }); // Use 0 to find free port if no specific port provided
 
+    // Bind to both IPv4 and IPv6 localhost to avoid connection delays.
+    // On macOS, clients using "localhost" try IPv6 (::1) first, then fall back to IPv4 (127.0.0.1).
+    // If we only bind to IPv4, clients experience ~30s delay waiting for IPv6 to timeout.
     let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let listener = tokio::net::TcpListener::bind(format!("{host}:{port}")).await?;
-    let actual_port = listener.local_addr()?.port(); // get → 53427 (example)
+
+    // First bind to IPv4 to get the actual port
+    let ipv4_listener = tokio::net::TcpListener::bind(format!("{host}:{port}")).await?;
+    let actual_port = ipv4_listener.local_addr()?.port();
+
+    // Try to also bind to IPv6 on the same port (best-effort, may fail on some systems)
+    let ipv6_listener = tokio::net::TcpListener::bind(format!("[::1]:{actual_port}")).await.ok();
+    if ipv6_listener.is_some() {
+        tracing::debug!("Bound to both IPv4 and IPv6 on port {}", actual_port);
+    } else {
+        tracing::debug!("IPv6 bind failed (normal on some systems), using IPv4 only");
+    }
 
     // Write port file for discovery if prod, warn on fail
     if let Err(e) = write_port_file(actual_port).await {
@@ -123,9 +136,26 @@ async fn main() -> Result<(), VibeKanbanError> {
         });
     }
 
-    axum::serve(listener, app_router)
+    // Serve on both listeners (IPv6 in background if available)
+    let ipv6_task = if let Some(ipv6_l) = ipv6_listener {
+        let ipv6_router = app_router.clone();
+        Some(tokio::spawn(async move {
+            if let Err(e) = axum::serve(ipv6_l, ipv6_router).await {
+                tracing::warn!("IPv6 server error: {}", e);
+            }
+        }))
+    } else {
+        None
+    };
+
+    axum::serve(ipv4_listener, app_router)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
+
+    // Abort IPv6 server when IPv4 shuts down
+    if let Some(task) = ipv6_task {
+        task.abort();
+    }
 
     perform_cleanup_actions(&deployment, pr_monitor_handle).await;
 

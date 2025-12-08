@@ -82,6 +82,41 @@ pub fn get_diff_for_commit(worktree_path: &Path) -> Result<String, CommitMessage
     Ok(unstaged_diff)
 }
 
+/// Get the diff between the current branch and a target branch (for PR title generation).
+/// This shows committed changes between branches, not uncommitted working directory changes.
+pub fn get_diff_for_pr(
+    worktree_path: &Path,
+    target_branch: &str,
+) -> Result<String, CommitMessageError> {
+    // Use three-dot notation to get changes since the merge base
+    let output = Command::new("git")
+        .args(["diff", &format!("{}...HEAD", target_branch)])
+        .current_dir(worktree_path)
+        .output()
+        .map_err(|e| CommitMessageError::GitDiffFailed(e.to_string()))?;
+
+    let diff = String::from_utf8_lossy(&output.stdout).to_string();
+
+    if !diff.trim().is_empty() {
+        return Ok(diff);
+    }
+
+    // Fallback: try two-dot notation for direct comparison
+    let output = Command::new("git")
+        .args(["diff", &format!("{}..HEAD", target_branch)])
+        .current_dir(worktree_path)
+        .output()
+        .map_err(|e| CommitMessageError::GitDiffFailed(e.to_string()))?;
+
+    let diff = String::from_utf8_lossy(&output.stdout).to_string();
+
+    if diff.trim().is_empty() {
+        return Err(CommitMessageError::NoChanges);
+    }
+
+    Ok(diff)
+}
+
 /// Generate a commit message using Claude Code CLI with Haiku model.
 pub async fn generate_commit_message(diff: &str) -> Result<String, CommitMessageError> {
     // Truncate diff if too long to avoid token limits

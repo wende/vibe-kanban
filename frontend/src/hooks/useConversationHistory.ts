@@ -186,27 +186,6 @@ export const useConversationHistory = ({
     };
   };
 
-  const flattenEntries = (
-    executionProcessState: ExecutionProcessStateStore
-  ): PatchTypeWithKey[] => {
-    return Object.values(executionProcessState)
-      .filter(
-        (p) =>
-          p.executionProcess.executor_action.typ.type ===
-            'CodingAgentFollowUpRequest' ||
-          p.executionProcess.executor_action.typ.type ===
-            'CodingAgentInitialRequest'
-      )
-      .sort(
-        (a, b) =>
-          new Date(
-            a.executionProcess.created_at as unknown as string
-          ).getTime() -
-          new Date(b.executionProcess.created_at as unknown as string).getTime()
-      )
-      .flatMap((p) => p.entries);
-  };
-
   const getActiveAgentProcesses = (): ExecutionProcess[] => {
     return (
       executionProcesses?.current.filter(
@@ -636,6 +615,7 @@ export const useConversationHistory = ({
         // Pass current attempt ID to detect if attempt changes during streaming
         loadRunningAndEmitWithBackoff(activeProcess, attempt.id);
       }
+    }
   }, [
     attempt.id,
     idStatusKey,
