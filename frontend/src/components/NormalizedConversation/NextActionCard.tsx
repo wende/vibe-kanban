@@ -163,13 +163,6 @@ export function NextActionCard({
 
   const editorName = getIdeName(config?.editor?.editor_type);
 
-  // Necessary to prevent this component being displayed beyond fold within Virtualised List
-  if (
-    (!failed || (execution_processes > 2 && !needsSetup)) &&
-    fileCount === 0
-  ) {
-    return <div className="h-24"></div>;
-  }
 
   return (
     <TooltipProvider>

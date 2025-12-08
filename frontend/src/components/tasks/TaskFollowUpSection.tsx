@@ -689,57 +689,59 @@ export function TaskFollowUpSection({
         isRetryActive && 'opacity-50'
       )}
     >
-      {/* Scrollable messages area - fills remaining space */}
-      <div className={cn('flex-1 overflow-y-auto min-h-0', isMobile ? 'p-3' : 'p-4')}>
-        <div className="space-y-2">
-          {followUpError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{followUpError}</AlertDescription>
-            </Alert>
-          )}
-          {/* Review comments preview */}
-          {reviewMarkdown && (
-            <div className="mb-4">
-              <div className="text-sm whitespace-pre-wrap break-words rounded-md border bg-muted p-3">
-                {reviewMarkdown}
+      {/* Scrollable messages area - fills remaining space, only render if there's content */}
+      {(followUpError || reviewMarkdown || branchStatus || clickedMarkdown || (isQueued && queuedMessage)) && (
+        <div className={cn('flex-1 overflow-y-auto min-h-0', isMobile ? 'p-3' : 'p-4')}>
+          <div className="space-y-2">
+            {followUpError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{followUpError}</AlertDescription>
+              </Alert>
+            )}
+            {/* Review comments preview */}
+            {reviewMarkdown && (
+              <div className="mb-4">
+                <div className="text-sm whitespace-pre-wrap break-words rounded-md border bg-muted p-3">
+                  {reviewMarkdown}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Conflict notice and actions (optional UI) */}
-          {branchStatus && (
-            <FollowUpConflictSection
-              selectedAttemptId={selectedAttemptId}
-              attemptBranch={attemptBranch}
-              branchStatus={branchStatus}
-              isEditable={isEditable}
-              onResolve={onSendFollowUp}
-              enableResolve={
-                canSendFollowUp && !isAttemptRunning && isEditable
-              }
-              enableAbort={canSendFollowUp && !isAttemptRunning}
-              conflictResolutionInstructions={conflictResolutionInstructions}
-            />
-          )}
+            {/* Conflict notice and actions (optional UI) */}
+            {branchStatus && (
+              <FollowUpConflictSection
+                selectedAttemptId={selectedAttemptId}
+                attemptBranch={attemptBranch}
+                branchStatus={branchStatus}
+                isEditable={isEditable}
+                onResolve={onSendFollowUp}
+                enableResolve={
+                  canSendFollowUp && !isAttemptRunning && isEditable
+                }
+                enableAbort={canSendFollowUp && !isAttemptRunning}
+                conflictResolutionInstructions={conflictResolutionInstructions}
+              />
+            )}
 
-          {/* Clicked elements notice and actions */}
-          <ClickedElementsBanner />
+            {/* Clicked elements notice and actions */}
+            <ClickedElementsBanner />
 
-          {/* Queued message indicator */}
-          {isQueued && queuedMessage && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md border">
-              <Clock className="h-4 w-4 flex-shrink-0" />
-              <div className="font-medium">
-                {t(
-                  'followUp.queuedMessage',
-                  'Message queued - will execute when current run finishes'
-                )}
+            {/* Queued message indicator */}
+            {isQueued && queuedMessage && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md border">
+                <Clock className="h-4 w-4 flex-shrink-0" />
+                <div className="font-medium">
+                  {t(
+                    'followUp.queuedMessage',
+                    'Message queued - will execute when current run finishes'
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Editor and action bar at bottom - auto-sized to content */}
       <div className={cn('shrink-0 border-t bg-background p-4', isMobile && 'pb-6')}>
