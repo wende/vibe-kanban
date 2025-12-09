@@ -14,6 +14,9 @@ const MAX_EXPORT_LENGTH: usize = 50_000;
 /// Maximum length of command output to include in export.
 const MAX_OUTPUT_LENGTH: usize = 500;
 
+/// Maximum length for smart compact export (more aggressive limit).
+const MAX_SMART_COMPACT_LENGTH: usize = 30_000;
+
 /// Result of exporting a conversation to markdown.
 #[derive(Debug, Clone, serde::Serialize, ts_rs::TS)]
 pub struct ExportResult {
@@ -70,6 +73,150 @@ pub fn export_to_markdown(entries: &[NormalizedEntry], original_executor: &str) 
         markdown,
         message_count,
         truncated,
+    }
+}
+
+/// Export normalized conversation entries to a compact markdown format for context continuation.
+///
+/// This is similar to `export_to_markdown` but strips:
+/// - Tool call results and command outputs
+/// - Detailed file edit diffs
+/// - Search results and web fetch content
+/// - Inner thinking entries
+///
+/// This produces a much more compact summary suitable for restarting a conversation
+/// with minimal context while preserving the key actions and decisions.
+///
+/// # Arguments
+/// * `entries` - The normalized conversation entries to export
+///
+/// # Returns
+/// An `ExportResult` containing the compact markdown text and metadata about the export.
+pub fn export_smart_compact(entries: &[NormalizedEntry]) -> ExportResult {
+    let mut parts: Vec<String> = Vec::new();
+    let mut message_count = 0;
+
+    // Header
+    parts.push("## Conversation Summary (Smart Compact)\n".to_string());
+    parts.push(
+        "The following is a condensed summary of the previous conversation with tool results stripped.\n"
+            .to_string(),
+    );
+
+    // Process each entry
+    for entry in entries {
+        if let Some(formatted) = format_entry_compact(entry) {
+            parts.push(formatted);
+            message_count += 1;
+        }
+    }
+
+    // Footer
+    parts.push("\n---\n".to_string());
+    parts.push("Continue from where the conversation left off.".to_string());
+
+    // Join all parts
+    let mut markdown = parts.join("\n");
+
+    // Check if truncation is needed
+    let truncated = if markdown.len() > MAX_SMART_COMPACT_LENGTH {
+        markdown = truncate_from_start(&markdown, MAX_SMART_COMPACT_LENGTH);
+        true
+    } else {
+        false
+    };
+
+    ExportResult {
+        markdown,
+        message_count,
+        truncated,
+    }
+}
+
+/// Format a single entry to compact markdown. Returns None if the entry should be skipped.
+/// This is more aggressive than `format_entry` - it strips tool results and outputs.
+fn format_entry_compact(entry: &NormalizedEntry) -> Option<String> {
+    match &entry.entry_type {
+        NormalizedEntryType::UserMessage => Some(format!("**User:** {}\n", entry.content)),
+        NormalizedEntryType::UserFeedback { denied_tool } => Some(format!(
+            "**User:** [Denied tool: {}] {}\n",
+            denied_tool, entry.content
+        )),
+        NormalizedEntryType::AssistantMessage => {
+            Some(format!("**Assistant:** {}\n", entry.content))
+        }
+        NormalizedEntryType::ToolUse {
+            action_type,
+            status,
+            ..
+        } => format_tool_use_compact(action_type, status),
+        NormalizedEntryType::ErrorMessage { .. } => Some(format!("**Error:** {}\n", entry.content)),
+        // Skip these entry types - they don't add value
+        NormalizedEntryType::Thinking
+        | NormalizedEntryType::Loading
+        | NormalizedEntryType::NextAction { .. }
+        | NormalizedEntryType::ContextUsage { .. }
+        | NormalizedEntryType::SystemMessage => None,
+    }
+}
+
+/// Format a tool use entry to compact markdown, stripping results and outputs.
+fn format_tool_use_compact(action_type: &ActionType, status: &ToolStatus) -> Option<String> {
+    let status_marker = match status {
+        ToolStatus::Success | ToolStatus::Created => "",
+        ToolStatus::Failed => " [FAILED]",
+        ToolStatus::Denied { .. } => " [DENIED]",
+        ToolStatus::TimedOut => " [TIMED OUT]",
+        ToolStatus::PendingApproval { .. } => " [PENDING]",
+    };
+
+    let action_desc = format_action_type_compact(action_type)?;
+
+    Some(format!("**Tool:** [{}]{}\n", action_desc, status_marker))
+}
+
+/// Format an action type to a compact description, omitting results and outputs.
+fn format_action_type_compact(action_type: &ActionType) -> Option<String> {
+    match action_type {
+        ActionType::FileRead { path } => Some(format!("Read: {}", path)),
+        ActionType::FileEdit { path, changes } => {
+            Some(format!("Edit: {} ({} change(s))", path, changes.len()))
+        }
+        ActionType::CommandRun { command, .. } => {
+            // Strip the output entirely
+            Some(format!("Run: {}", truncate_str(command, 80)))
+        }
+        ActionType::Search { query } => Some(format!("Search: {}", truncate_str(query, 60))),
+        ActionType::WebFetch { url } => Some(format!("Fetch: {}", truncate_str(url, 60))),
+        ActionType::Tool { tool_name, .. } => {
+            // Keep tool name but strip arguments and results
+            Some(format!("Tool: {}", tool_name))
+        }
+        ActionType::TaskCreate { description } => {
+            Some(format!("Task: {}", truncate_str(description, 60)))
+        }
+        ActionType::PlanPresentation { .. } => Some("Plan presented".to_string()),
+        ActionType::TodoManagement { operation, todos } => {
+            // Keep todo state for context
+            let summary: Vec<String> = todos
+                .iter()
+                .take(5)
+                .map(|t| format!("- [{}] {}", t.status, truncate_str(&t.content, 40)))
+                .collect();
+            if todos.len() > 5 {
+                Some(format!(
+                    "Todo {}: {} items (showing first 5):\n{}",
+                    operation,
+                    todos.len(),
+                    summary.join("\n")
+                ))
+            } else {
+                Some(format!("Todo {}:\n{}", operation, summary.join("\n")))
+            }
+        }
+        ActionType::Other { description } => {
+            Some(format!("Other: {}", truncate_str(description, 60)))
+        }
     }
 }
 

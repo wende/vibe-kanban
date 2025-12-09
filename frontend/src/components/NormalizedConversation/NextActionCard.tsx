@@ -14,6 +14,7 @@ import {
   Clock,
   MessageSquare,
   Minimize2,
+  Sparkles,
   Loader2 as Loader2Icon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -85,6 +86,9 @@ export function NextActionCard({
     compactExecution,
     isCompacting,
     canCompact,
+    smartCompactExecution,
+    isSmartCompacting,
+    canSmartCompact,
   } = useAttemptExecution(attemptId, task?.id);
 
   const openInEditor = useOpenInEditor(attemptId);
@@ -470,6 +474,28 @@ export function NextActionCard({
               </TooltipTrigger>
               <TooltipContent>
                 {t('followUp.compactTooltip', 'Compact execution history')}
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Smart Compact button - restarts conversation with stripped tool results */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={smartCompactExecution}
+                  disabled={isSmartCompacting || !canSmartCompact}
+                  aria-label={t('followUp.smartCompact')}
+                >
+                  {isSmartCompacting ? (
+                    <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('followUp.smartCompactTooltip', 'Restart conversation with stripped tool results')}
               </TooltipContent>
             </Tooltip>
 

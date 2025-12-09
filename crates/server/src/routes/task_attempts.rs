@@ -2147,6 +2147,141 @@ pub async fn export_conversation(
     Ok(ResponseJson(ApiResponse::success(result)))
 }
 
+/// Export a smart compact version of the conversation history from a task attempt.
+/// This strips tool call results, command outputs, and other details for a more compact context.
+/// Used for restarting conversations with minimal context overhead.
+#[axum::debug_handler]
+pub async fn export_smart_compact(
+    Extension(task_attempt): Extension<TaskAttempt>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<ExportResult>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    // Get all non-dropped execution processes for this attempt that are CodingAgent type
+    let processes = ExecutionProcess::find_by_task_attempt_id(pool, task_attempt.id, false)
+        .await?
+        .into_iter()
+        .filter(|p| matches!(p.run_reason, ExecutionProcessRunReason::CodingAgent))
+        .collect::<Vec<_>>();
+
+    if processes.is_empty() {
+        return Ok(ResponseJson(ApiResponse::success(ExportResult {
+            markdown: "No conversation history available.".to_string(),
+            message_count: 0,
+            truncated: false,
+        })));
+    }
+
+    // Get worktree path for path normalization during log processing
+    let worktree_path = ensure_worktree_path(&deployment, &task_attempt).await?;
+
+    // Collect all normalized entries from all processes
+    let mut all_entries: Vec<NormalizedEntry> = Vec::new();
+
+    for process in &processes {
+        // Load logs for this process
+        let log_records = ExecutionProcessLogs::find_by_execution_id(pool, process.id).await?;
+
+        // Parse the JSONL logs
+        let raw_messages = match ExecutionProcessLogs::parse_logs(&log_records) {
+            Ok(msgs) => msgs,
+            Err(e) => {
+                tracing::warn!("Failed to parse logs for process {}: {}", process.id, e);
+                continue;
+            }
+        };
+
+        // Get the executor action to determine which normalizer to use
+        let executor_action = match process.executor_action() {
+            Ok(action) => action,
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to parse executor action for process {}: {}",
+                    process.id,
+                    e
+                );
+                continue;
+            }
+        };
+
+        // Get the executor profile from the action
+        let executor_profile_id = match executor_action.typ() {
+            ExecutorActionType::CodingAgentInitialRequest(req) => req.executor_profile_id.clone(),
+            ExecutorActionType::CodingAgentFollowUpRequest(req) => req.executor_profile_id.clone(),
+            _ => continue,
+        };
+
+        // Create a temporary message store and populate with raw logs
+        let temp_store = Arc::new(MsgStore::new());
+        for msg in raw_messages {
+            if matches!(msg, LogMsg::Stdout(_) | LogMsg::Stderr(_)) {
+                temp_store.push(msg);
+            }
+        }
+        temp_store.push_finished();
+
+        // Run the normalizer
+        let executor =
+            ExecutorConfigs::get_cached().get_coding_agent_or_default(&executor_profile_id);
+        executor.normalize_logs(temp_store.clone(), &worktree_path);
+
+        // Wait for normalizer to produce JsonPatch entries
+        let mut poll_count = 0usize;
+        loop {
+            let history = temp_store.get_history();
+            let json_patch_count = history
+                .iter()
+                .filter(|msg| matches!(msg, LogMsg::JsonPatch(_)))
+                .count();
+
+            if json_patch_count > 0 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+                let final_history = temp_store.get_history();
+                let mut entries_by_index: HashMap<usize, NormalizedEntry> = HashMap::new();
+                for msg in final_history {
+                    if let LogMsg::JsonPatch(patch) = msg {
+                        if let Some((idx, entry)) = extract_normalized_entry_from_patch(&patch) {
+                            entries_by_index.insert(idx, entry);
+                        }
+                    }
+                }
+                let mut sorted_entries: Vec<_> = entries_by_index.into_iter().collect();
+                sorted_entries.sort_by_key(|(idx, _)| *idx);
+                all_entries.extend(sorted_entries.into_iter().map(|(_, entry)| entry));
+                break;
+            }
+
+            poll_count += 1;
+            if poll_count > 100 {
+                tracing::warn!(
+                    "Timeout waiting for normalized logs for process {}",
+                    process.id
+                );
+                break;
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        }
+    }
+
+    // Export to smart compact markdown (strips tool results)
+    let result = conversation_export::export_smart_compact(&all_entries);
+
+    deployment
+        .track_if_analytics_allowed(
+            "smart_compact_exported",
+            serde_json::json!({
+                "attempt_id": task_attempt.id.to_string(),
+                "message_count": result.message_count,
+                "truncated": result.truncated,
+            }),
+        )
+        .await;
+
+    Ok(ResponseJson(ApiResponse::success(result)))
+}
+
 #[derive(Debug, Serialize, TS)]
 pub struct GenerateCommitMessageResponse {
     pub message: String,
@@ -2326,6 +2461,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .route("/change-target-branch", post(change_target_branch))
         .route("/rename-branch", post(rename_branch))
         .route("/export-conversation", get(export_conversation))
+        .route("/export-smart-compact", get(export_smart_compact))
         .layer(from_fn_with_state(
             deployment.clone(),
             load_task_attempt_middleware,

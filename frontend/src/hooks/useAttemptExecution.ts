@@ -34,6 +34,7 @@ function supportsCompact(process: ExecutionProcess): boolean {
 export function useAttemptExecution(attemptId?: string, taskId?: string) {
   const { isStopping, setIsStopping } = useTaskStopping(taskId || '');
   const [isCompacting, setIsCompacting] = useState(false);
+  const [isSmartCompacting, setIsSmartCompacting] = useState(false);
   const [contextUsageResetVersion, setContextUsageResetVersion] = useState(0);
 
   const {
@@ -163,6 +164,41 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     }
   }, [attemptId, runningCompactableAgent, isCompacting]);
 
+  // Smart compact execution function - exports conversation with stripped tool results
+  // and starts a new follow-up with that context
+  const smartCompactExecution = useCallback(async () => {
+    if (isSmartCompacting || !attemptId || isAttemptRunning) return;
+
+    try {
+      setIsSmartCompacting(true);
+
+      // Export the conversation with smart compact (strips tool results)
+      const result = await attemptsApi.exportSmartCompact(attemptId);
+
+      if (result.markdown && result.message_count > 0) {
+        // Start a new follow-up with the compacted context
+        await attemptsApi.followUp(attemptId, {
+          prompt: result.markdown + '\n\nContinue from where you left off.',
+          variant: null,
+          retry_process_id: null,
+          force_when_dirty: null,
+          perform_git_reset: null,
+        });
+        setContextUsageResetVersion((version) => version + 1);
+      }
+    } catch (error) {
+      console.error('Failed to smart compact execution:', error);
+      throw error;
+    } finally {
+      setIsSmartCompacting(false);
+    }
+  }, [attemptId, isAttemptRunning, isSmartCompacting]);
+
+  // Can smart compact if there's an attemptId, process is not running, and there's history
+  const canSmartCompact = useMemo(() => {
+    return !!attemptId && !isAttemptRunning && executionProcesses.length > 0;
+  }, [attemptId, isAttemptRunning, executionProcesses.length]);
+
   const isLoading =
     streamLoading || processDetailQueries.some((q) => q.isLoading);
   const isFetching =
@@ -185,6 +221,9 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
     compactExecution,
     isCompacting,
     canCompact,
+    smartCompactExecution,
+    isSmartCompacting,
+    canSmartCompact,
 
     // Context usage
     contextUsageResetVersion,

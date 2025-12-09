@@ -151,6 +151,8 @@
     "stop": "Stop",
     "compact": "Compact conversation",
     "compactTooltip": "Compact execution history",
+    "smartCompact": "Smart compact",
+    "smartCompactTooltip": "Restart conversation with stripped tool results",
     "clearReviewComments": "Clear Review Comments",
     "resolveConflicts": "Resolve conflicts",
     "send": "Send",

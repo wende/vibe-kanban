@@ -745,6 +745,13 @@ export const attemptsApi = {
     );
     return handleApiResponse<ExportResult>(response);
   },
+
+  exportSmartCompact: async (attemptId: string): Promise<ExportResult> => {
+    const response = await makeRequest(
+      `/api/task-attempts/${attemptId}/export-smart-compact`
+    );
+    return handleApiResponse<ExportResult>(response);
+  },
 };
 
 // Extra helpers
