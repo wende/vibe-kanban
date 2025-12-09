@@ -10,6 +10,7 @@ import { useExecutorIdleTimeout } from '@/hooks/useExecutorIdleTimeout';
 import { useExecutionProcessesContext } from '@/contexts/ExecutionProcessesContext';
 import { useEntries } from '@/contexts/EntriesContext';
 import type { ExecutionProcess } from 'shared/types';
+import { setIdleTimeoutState, clearIdleTimeoutState } from '@/stores/idleTimeoutStore';
 
 interface IdleTimeoutContextType {
   timeLeft: number;
@@ -23,6 +24,7 @@ const IdleTimeoutContext = createContext<IdleTimeoutContextType | null>(null);
 
 interface IdleTimeoutProviderProps {
   children: ReactNode;
+  attemptId?: string;
 }
 
 /**
@@ -49,6 +51,7 @@ function getLastActivityFromProcesses(
 
 export function IdleTimeoutProvider({
   children,
+  attemptId,
 }: IdleTimeoutProviderProps) {
   // Get execution processes - these have real timestamps
   const { executionProcessesVisible: processes, isLoading } = useExecutionProcessesContext();
@@ -84,6 +87,18 @@ export function IdleTimeoutProvider({
     }
     prevToolCountRef.current = toolCount;
   }, [entries, reset]);
+
+  // Sync state to global store for TaskCard to access
+  useEffect(() => {
+    if (attemptId && isReady) {
+      setIdleTimeoutState(attemptId, { timeLeft, percent });
+    }
+    return () => {
+      if (attemptId) {
+        clearIdleTimeoutState(attemptId);
+      }
+    };
+  }, [attemptId, timeLeft, percent, isReady]);
 
   const value = useMemo(
     () => ({

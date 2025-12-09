@@ -12,11 +12,13 @@ import {
   Settings,
   RefreshCw,
   Clock,
+  MessageSquare,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ViewProcessesDialog } from '@/components/dialogs/tasks/ViewProcessesDialog';
 import { CreateAttemptDialog } from '@/components/dialogs/tasks/CreateAttemptDialog';
 import { GitActionsDialog } from '@/components/dialogs/tasks/GitActionsDialog';
+import { GitHubCommentsDialog } from '@/components/dialogs/tasks/GitHubCommentsDialog';
 import { useOpenInEditor } from '@/hooks/useOpenInEditor';
 import { useDiffSummary } from '@/hooks/useDiffSummary';
 import { useDevServer } from '@/hooks/useDevServer';
@@ -143,6 +145,11 @@ export function NextActionCard({
     });
   }, [attemptId, task, project?.id]);
 
+  const handleGitHubComments = useCallback(() => {
+    if (!attemptId) return;
+    GitHubCommentsDialog.show({ attemptId });
+  }, [attemptId]);
+
   const handleRunSetup = useCallback(async () => {
     if (!attemptId || !attempt) return;
     try {
@@ -263,29 +270,27 @@ export function NextActionCard({
               )
             ))}
 
-          {/* Try Different Agent button - shows on all completions */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleTryDifferentAgent}
-                disabled={!attempt?.task_id || !attemptId}
-                className="text-sm w-full sm:w-auto"
-                aria-label={t('attempt.tryDifferentAgent')}
-              >
-                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                {t('attempt.tryDifferentAgent')}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {t('attempt.tryDifferentAgentTooltip')}
-            </TooltipContent>
-          </Tooltip>
+          {/* Right: Icon buttons and actions */}
+          <div className="flex items-center gap-1 shrink-0 sm:ml-auto flex-wrap sm:flex-nowrap">
+            {/* GitHub Comments button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={handleGitHubComments}
+                  disabled={!attemptId}
+                  aria-label={t('attempt.selectGitHubComments', 'Select GitHub comments')}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('attempt.selectGitHubComments', 'Select GitHub comments')}</TooltipContent>
+            </Tooltip>
 
-          {/* Right: Icon buttons */}
-          {fileCount > 0 && (
-            <div className="flex items-center gap-1 shrink-0 sm:ml-auto">
+            {fileCount > 0 && (
+              <>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -418,8 +423,29 @@ export function NextActionCard({
                 </TooltipTrigger>
                 <TooltipContent>{t('attempt.gitActions')}</TooltipContent>
               </Tooltip>
-            </div>
-          )}
+              </>
+            )}
+
+            {/* Try Different Agent button - shows on all completions */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTryDifferentAgent}
+                  disabled={!attempt?.task_id || !attemptId}
+                  className="text-sm"
+                  aria-label={t('attempt.tryDifferentAgent')}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  {t('attempt.tryDifferentAgent')}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('attempt.tryDifferentAgentTooltip')}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </div>
     </TooltipProvider>

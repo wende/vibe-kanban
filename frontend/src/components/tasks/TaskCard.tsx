@@ -14,6 +14,8 @@ import { useAuth } from '@/hooks';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
 import { useBranchStatusFromContext } from '@/contexts/BranchStatusContext';
 import { useDevServerStatusFromContext } from '@/contexts/DevServerStatusContext';
+import { useIdleTimeoutForAttempt } from '@/stores/idleTimeoutStore';
+import { cn } from '@/lib/utils';
 
 type Task = TaskWithAttemptStatus;
 
@@ -174,6 +176,10 @@ export const TaskCard = memo(function TaskCard({
 
   const taskHasUnread = hasUnread(task.id, task.updated_at);
 
+  // Get idle timeout state for this task's attempt
+  const idleTimeoutState = useIdleTimeoutForAttempt(task.latest_task_attempt_id);
+  const hasActiveTimer = idleTimeoutState && idleTimeoutState.timeLeft > 0;
+
   const handleClick = useCallback(() => {
     markAsRead(task.id);
     onViewDetails(task);
@@ -228,11 +234,12 @@ export const TaskCard = memo(function TaskCard({
       forwardedRef={localRef}
       dragDisabled={(!!sharedTask || !!task.shared_task_id) && !isSignedIn}
       hasUnread={taskHasUnread}
-      className={
+      className={cn(
         sharedTask || task.shared_task_id
           ? 'relative overflow-hidden pl-5 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-card-foreground before:content-[""]'
-          : undefined
-      }
+          : undefined,
+        hasActiveTimer && 'bg-green-50 dark:bg-green-950/30'
+      )}
     >
       <div className="flex flex-col gap-2">
         <TaskCardHeader

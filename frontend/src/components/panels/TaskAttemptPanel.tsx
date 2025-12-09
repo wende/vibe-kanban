@@ -118,7 +118,7 @@ const TaskAttemptPanel = ({
 
   const content = (
     <EntriesProvider resetKey={providerResetKey}>
-      <IdleTimeoutProvider key={providerResetKey}>
+      <IdleTimeoutProvider key={providerResetKey} attemptId={attempt?.id}>
         <RetryUiProvider attemptId={attempt?.id}>
           {children({
             logs: logsContent,
