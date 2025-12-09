@@ -10,7 +10,7 @@ import { useExecutorIdleTimeout } from '@/hooks/useExecutorIdleTimeout';
 import { useExecutionProcessesContext } from '@/contexts/ExecutionProcessesContext';
 import { useEntries } from '@/contexts/EntriesContext';
 import type { ExecutionProcess } from 'shared/types';
-import { setIdleTimeoutState, clearIdleTimeoutState } from '@/stores/idleTimeoutStore';
+import { setIdleTimeoutState } from '@/stores/idleTimeoutStore';
 
 interface IdleTimeoutContextType {
   timeLeft: number;
@@ -89,15 +89,15 @@ export function IdleTimeoutProvider({
   }, [entries, reset]);
 
   // Sync state to global store for TaskCard to access
+  // NOTE: We intentionally do NOT clear the state on unmount.
+  // This allows TaskCard to continue showing the correct timer state
+  // even when the card is not focused. The state will be overwritten
+  // when the provider mounts again, or naturally expire based on the
+  // stored timeLeft value.
   useEffect(() => {
     if (attemptId && isReady) {
       setIdleTimeoutState(attemptId, { timeLeft, percent });
     }
-    return () => {
-      if (attemptId) {
-        clearIdleTimeoutState(attemptId);
-      }
-    };
   }, [attemptId, timeLeft, percent, isReady]);
 
   const value = useMemo(

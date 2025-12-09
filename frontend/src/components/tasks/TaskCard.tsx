@@ -179,17 +179,34 @@ export const TaskCard = memo(function TaskCard({
   const taskHasUnread = hasUnread(task.id, task.updated_at);
 
   // Get idle timeout state for this task's attempt from the global store
-  // (synced when the card is open), or calculate from task.updated_at as fallback
+  // (synced when the card is open/focused)
   const idleTimeoutState = useIdleTimeoutForAttempt(task.latest_task_attempt_id);
 
-  // Calculate timer from task.updated_at if no active provider
-  // Use state + interval to keep it updated over time
+  // Track when the store state was last updated so we can decrement locally
+  const lastStoreUpdateRef = useRef<{ timeLeft: number; timestamp: number } | null>(null);
+
+  // Calculate timer from task.updated_at as fallback when no store state exists
   const [calculatedTimeLeft, setCalculatedTimeLeft] = useState(() => {
     if (!task.updated_at) return 0;
     const updatedTime = new Date(task.updated_at).getTime();
     const elapsed = Math.floor((Date.now() - updatedTime) / 1000);
     return Math.max(0, IDLE_TIMEOUT_SECONDS - elapsed);
   });
+
+  // Track the locally decremented time (for when store state is stale)
+  const [localTimeLeft, setLocalTimeLeft] = useState<number | null>(null);
+
+  // Update ref when store state changes
+  useEffect(() => {
+    if (idleTimeoutState) {
+      lastStoreUpdateRef.current = {
+        timeLeft: idleTimeoutState.timeLeft,
+        timestamp: Date.now(),
+      };
+      // Reset local time tracking when we get fresh store data
+      setLocalTimeLeft(null);
+    }
+  }, [idleTimeoutState]);
 
   useEffect(() => {
     // Recalculate immediately when updated_at changes
@@ -204,7 +221,7 @@ export const TaskCard = memo(function TaskCard({
     };
     setCalculatedTimeLeft(calculateTimeLeft());
 
-    // Only run interval if there's time remaining and no synced state
+    // Only run fallback interval if there's time remaining and no store state
     const initialTimeLeft = calculateTimeLeft();
     if (initialTimeLeft <= 0 || idleTimeoutState) return;
 
@@ -219,8 +236,35 @@ export const TaskCard = memo(function TaskCard({
     return () => clearInterval(interval);
   }, [task.updated_at, idleTimeoutState]);
 
-  // Use synced state if available, otherwise use calculated value
-  const timeLeft = idleTimeoutState?.timeLeft ?? calculatedTimeLeft;
+  // Run a local countdown when we have store state but the provider is not actively updating
+  // This handles the case where the card was focused, timer was synced, then card unfocused
+  useEffect(() => {
+    // Only needed if we have a stored state snapshot to decrement from
+    if (!lastStoreUpdateRef.current || lastStoreUpdateRef.current.timeLeft <= 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const snapshot = lastStoreUpdateRef.current;
+      if (!snapshot) return;
+
+      const elapsedSinceSnapshot = Math.floor((Date.now() - snapshot.timestamp) / 1000);
+      const newTimeLeft = Math.max(0, snapshot.timeLeft - elapsedSinceSnapshot);
+      setLocalTimeLeft(newTimeLeft);
+
+      if (newTimeLeft <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [idleTimeoutState?.timeLeft]);
+
+  // Determine the effective time left:
+  // 1. If store has fresh data (provider is active), use it directly
+  // 2. If we have local countdown from stale store data, use that
+  // 3. Fall back to calculated time from task.updated_at
+  const timeLeft = localTimeLeft ?? idleTimeoutState?.timeLeft ?? calculatedTimeLeft;
   const hasActiveTimer = timeLeft > 0;
 
   const handleClick = useCallback(() => {
