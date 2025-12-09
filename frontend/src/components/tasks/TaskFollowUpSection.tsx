@@ -62,6 +62,7 @@ import { imagesApi, attemptsApi } from '@/lib/api';
 import { GitHubCommentsDialog } from '@/components/dialogs/tasks/GitHubCommentsDialog';
 import type { NormalizedComment } from '@/components/ui/wysiwyg/nodes/github-comment-node';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useIdleTimeout, useIdleTimeoutReset } from '@/contexts/IdleTimeoutContext';
 
 interface TaskFollowUpSectionProps {
   task: TaskWithAttemptStatus;
@@ -97,6 +98,10 @@ export function TaskFollowUpSection({
     clearElements: clearClickedElements,
   } = useClickedElements();
   const { enableScope, disableScope } = useHotkeysContext();
+
+  // Idle timeout timer (5-minute countdown that resets on interactions)
+  const { formattedTime: idleTimeLeft, percent: idlePercent } = useIdleTimeout();
+  const resetIdleTimeout = useIdleTimeoutReset();
 
   const reviewMarkdown = useMemo(
     () => generateReviewMarkdown(),
@@ -335,6 +340,7 @@ export function TaskFollowUpSection({
       onAfterSendCleanup: () => {
         cancelDebouncedSave(); // Cancel any pending debounced save to avoid race condition
         setLocalMessage(''); // Clear local state immediately
+        resetIdleTimeout(); // Reset the 5-minute idle timer on follow-up send
         // Scratch deletion is handled by the backend when the queued message is consumed
       },
     });
@@ -398,19 +404,21 @@ export function TaskFollowUpSection({
     if (!selectedAttemptId || isAttemptRunning || !hasSetupScript) return;
     try {
       await attemptsApi.runSetupScript(selectedAttemptId);
+      resetIdleTimeout(); // Reset idle timer on script execution
     } catch (error) {
       console.error('Failed to run setup script:', error);
     }
-  }, [selectedAttemptId, isAttemptRunning, hasSetupScript]);
+  }, [selectedAttemptId, isAttemptRunning, hasSetupScript, resetIdleTimeout]);
 
   const handleRunCleanupScript = useCallback(async () => {
     if (!selectedAttemptId || isAttemptRunning || !hasCleanupScript) return;
     try {
       await attemptsApi.runCleanupScript(selectedAttemptId);
+      resetIdleTimeout(); // Reset idle timer on script execution
     } catch (error) {
       console.error('Failed to run cleanup script:', error);
     }
-  }, [selectedAttemptId, isAttemptRunning, hasCleanupScript]);
+  }, [selectedAttemptId, isAttemptRunning, hasCleanupScript, resetIdleTimeout]);
 
   // Handler to queue the current message for execution after agent finishes
   const handleQueueMessage = useCallback(async () => {
@@ -437,6 +445,7 @@ export function TaskFollowUpSection({
     ].filter(Boolean);
     const combinedMessage = parts.join('\n\n');
     await queueMessage(combinedMessage, selectedVariant);
+    resetIdleTimeout(); // Reset idle timer on queue message
   }, [
     localMessage,
     conflictResolutionInstructions,
@@ -446,6 +455,7 @@ export function TaskFollowUpSection({
     queueMessage,
     cancelDebouncedSave,
     saveToScratch,
+    resetIdleTimeout,
   ]);
 
   // Keyboard shortcut handler - send follow-up or queue depending on state
@@ -772,7 +782,7 @@ export function TaskFollowUpSection({
             'flex flex-row flex-wrap gap-2 items-center',
             isMobile ? 'justify-center' : 'justify-between'
           )}>
-            {/* Left side - variant selector */}
+            {/* Left side - variant selector and idle timer */}
             <div className="flex gap-2 items-center">
               <VariantSelector
                 currentProfile={currentProfile}
@@ -780,6 +790,29 @@ export function TaskFollowUpSection({
                 onChange={setSelectedVariant}
                 disabled={!isEditable}
               />
+              {/* Idle timeout indicator - compact display */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-1 rounded text-xs font-mono tabular-nums',
+                        idlePercent > 50
+                          ? 'text-muted-foreground'
+                          : idlePercent > 20
+                            ? 'text-yellow-600 dark:text-yellow-500'
+                            : 'text-red-600 dark:text-red-500'
+                      )}
+                    >
+                      <Clock className="h-3 w-3" />
+                      <span>{idleTimeLeft}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Time until idle timeout. Resets on interaction.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             {/* Right side - all other buttons */}

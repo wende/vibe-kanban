@@ -2,6 +2,7 @@ import type { TaskAttempt, TaskWithAttemptStatus } from 'shared/types';
 import VirtualizedList from '@/components/logs/VirtualizedList';
 import { TaskFollowUpSection } from '@/components/tasks/TaskFollowUpSection';
 import { EntriesProvider } from '@/contexts/EntriesContext';
+import { IdleTimeoutProvider } from '@/contexts/IdleTimeoutContext';
 import { RetryUiProvider } from '@/contexts/RetryUiContext';
 import { useTaskReadStatus } from '@/contexts/TaskReadStatusContext';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -117,12 +118,14 @@ const TaskAttemptPanel = ({
 
   const content = (
     <EntriesProvider resetKey={providerResetKey}>
-      <RetryUiProvider attemptId={attempt?.id}>
-        {children({
-          logs: logsContent,
-          followUp: followUpContent,
-        })}
-      </RetryUiProvider>
+      <IdleTimeoutProvider>
+        <RetryUiProvider attemptId={attempt?.id}>
+          {children({
+            logs: logsContent,
+            followUp: followUpContent,
+          })}
+        </RetryUiProvider>
+      </IdleTimeoutProvider>
     </EntriesProvider>
   );
 

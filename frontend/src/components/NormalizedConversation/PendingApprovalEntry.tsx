@@ -24,6 +24,7 @@ import { TabNavContext } from '@/contexts/TabNavigationContext';
 import { useKeyApproveRequest, useKeyDenyApproval, Scope } from '@/keyboard';
 import { useProject } from '@/contexts/ProjectContext';
 import { useApprovalForm } from '@/contexts/ApprovalFormContext';
+import { useIdleTimeoutReset } from '@/contexts/IdleTimeoutContext';
 
 const DEFAULT_DENIAL_REASON = 'User denied this tool use request.';
 
@@ -186,6 +187,7 @@ const PendingApprovalEntry = ({
   } = useApprovalForm(pendingStatus.approval_id);
 
   const { projectId } = useProject();
+  const resetIdleTimeout = useIdleTimeoutReset();
 
   const { enableScope, disableScope, activeScopes } = useHotkeysContext();
   const tabNav = useContext(TabNavContext);
@@ -262,6 +264,7 @@ const PendingApprovalEntry = ({
         });
         setHasResponded(true);
         clear();
+        resetIdleTimeout(); // Reset idle timer on approval response
       } catch (e: unknown) {
         console.error('Approval respond failed:', e);
         const errorMessage =
@@ -271,7 +274,7 @@ const PendingApprovalEntry = ({
         setIsResponding(false);
       }
     },
-    [disabled, executionProcessId, pendingStatus.approval_id, clear]
+    [disabled, executionProcessId, pendingStatus.approval_id, clear, resetIdleTimeout]
   );
 
   const handleApprove = useCallback(() => respond(true), [respond]);
