@@ -5,6 +5,8 @@ const DEFAULT_TIMEOUT_SECONDS = 5 * 60; // 5 minutes
 export interface UseExecutorIdleTimeoutOptions {
   timeoutSeconds?: number;
   enabled?: boolean;
+  /** ISO timestamp of the last activity. Timer counts down from this point. */
+  lastActivityAt?: string | null;
 }
 
 export interface UseExecutorIdleTimeoutResult {
@@ -16,28 +18,62 @@ export interface UseExecutorIdleTimeoutResult {
 
 /**
  * Hook to track idle time for an executor, counting down from a specified timeout.
- * Resets when `reset()` is called (should be triggered on any interaction).
+ * Can be initialized from a lastActivityAt timestamp to persist across component mounts.
  *
  * @param options.timeoutSeconds - Total countdown time in seconds (default: 300 = 5 minutes)
  * @param options.enabled - Whether the countdown is active (default: true)
+ * @param options.lastActivityAt - ISO timestamp of last activity to calculate timer from
  */
 export function useExecutorIdleTimeout(
   options: UseExecutorIdleTimeoutOptions = {}
 ): UseExecutorIdleTimeoutResult {
-  const { timeoutSeconds = DEFAULT_TIMEOUT_SECONDS, enabled = true } = options;
+  const {
+    timeoutSeconds = DEFAULT_TIMEOUT_SECONDS,
+    enabled = true,
+    lastActivityAt,
+  } = options;
 
-  // Track when the countdown started
-  const [startTime, setStartTime] = useState<number>(() => Date.now());
-  const [timeLeft, setTimeLeft] = useState<number>(timeoutSeconds);
+  // Calculate initial time left based on lastActivityAt or current time
+  const calculateTimeLeft = useCallback(() => {
+    if (!lastActivityAt) {
+      return timeoutSeconds;
+    }
+    const activityTime = new Date(lastActivityAt).getTime();
+    const elapsed = Math.floor((Date.now() - activityTime) / 1000);
+    return Math.max(0, timeoutSeconds - elapsed);
+  }, [lastActivityAt, timeoutSeconds]);
+
+  // Track manual reset - when user triggers reset(), we use current time
+  const [manualResetTime, setManualResetTime] = useState<number | null>(null);
+
+  // Calculate time left considering both lastActivityAt and manual resets
+  const getEffectiveTimeLeft = useCallback(() => {
+    if (manualResetTime !== null) {
+      // If manually reset, calculate from that time
+      const elapsed = Math.floor((Date.now() - manualResetTime) / 1000);
+      return Math.max(0, timeoutSeconds - elapsed);
+    }
+    return calculateTimeLeft();
+  }, [manualResetTime, calculateTimeLeft, timeoutSeconds]);
+
+  const [timeLeft, setTimeLeft] = useState<number>(getEffectiveTimeLeft);
 
   // Use a ref to track the interval ID
   const intervalRef = useRef<number | null>(null);
 
-  // Reset function - restarts countdown from full duration
+  // Reset function - uses current time as new activity time
   const reset = useCallback(() => {
-    setStartTime(Date.now());
+    setManualResetTime(Date.now());
     setTimeLeft(timeoutSeconds);
   }, [timeoutSeconds]);
+
+  // When lastActivityAt changes (new process activity), clear manual reset and recalculate
+  useEffect(() => {
+    if (lastActivityAt) {
+      setManualResetTime(null);
+      setTimeLeft(calculateTimeLeft());
+    }
+  }, [lastActivityAt, calculateTimeLeft]);
 
   // Run the countdown
   useEffect(() => {
@@ -53,8 +89,7 @@ export function useExecutorIdleTimeout(
 
     // Update immediately
     const updateTimeLeft = () => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const remaining = Math.max(0, timeoutSeconds - elapsed);
+      const remaining = getEffectiveTimeLeft();
       setTimeLeft(remaining);
       if (remaining <= 0 && intervalRef.current) {
         window.clearInterval(intervalRef.current);
@@ -73,7 +108,7 @@ export function useExecutorIdleTimeout(
         intervalRef.current = null;
       }
     };
-  }, [enabled, startTime, timeoutSeconds]);
+  }, [enabled, getEffectiveTimeLeft, timeoutSeconds]);
 
   // Calculate percentage remaining
   const percent = useMemo(
