@@ -410,15 +410,46 @@ export function installVSCodeIframeKeyboardBridge() {
   document.addEventListener('keypress', onKeyPress, true);
 }
 
-/** Copy helper that prefers navigator.clipboard and falls back to the bridge. */
+/** Copy helper that prefers navigator.clipboard and falls back to execCommand, then bridge. */
 export async function writeClipboardViaBridge(text: string): Promise<boolean> {
+  // Try navigator.clipboard first (modern API)
   try {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    parentClipboardWrite(text);
-    return false;
+    // navigator.clipboard may fail in non-secure contexts or due to permissions
   }
+
+  // Fallback to execCommand with a temporary textarea (works in more contexts)
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    // Avoid scrolling to bottom
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '2em';
+    textarea.style.height = '2em';
+    textarea.style.padding = '0';
+    textarea.style.border = 'none';
+    textarea.style.outline = 'none';
+    textarea.style.boxShadow = 'none';
+    textarea.style.background = 'transparent';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (success) {
+      return true;
+    }
+  } catch {
+    // execCommand fallback failed
+  }
+
+  // Final fallback for VSCode iframe context
+  parentClipboardWrite(text);
+  return false;
 }
 
 /** Paste helper that prefers navigator.clipboard and falls back to the bridge. */
