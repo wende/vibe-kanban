@@ -592,12 +592,21 @@ export const useConversationHistory = ({
     let cancelled = false;
     const attemptIdAtCallTime = attempt.id;
     (async () => {
-      // Waiting for execution processes to load
-      if (
-        executionProcesses?.current.length === 0 ||
-        loadedInitialEntries.current
-      )
+      // Skip if already loaded
+      if (loadedInitialEntries.current) return;
+
+      // Get non-running (historical) processes
+      const historicProcesses =
+        executionProcesses?.current.filter(
+          (ep) => ep.status !== ExecutionProcessStatus.running
+        ) ?? [];
+
+      // If there are no historical processes, mark as loaded so active process
+      // streaming can begin. Otherwise, load the historical entries first.
+      if (historicProcesses.length === 0) {
+        loadedInitialEntries.current = true;
         return;
+      }
 
       // Load all historic entries in parallel (cached entries return instantly)
       const allInitialEntries = await loadInitialEntries(attemptIdAtCallTime);
