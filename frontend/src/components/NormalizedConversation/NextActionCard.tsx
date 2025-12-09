@@ -13,6 +13,8 @@ import {
   RefreshCw,
   Clock,
   MessageSquare,
+  Minimize2,
+  Loader2 as Loader2Icon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ViewProcessesDialog } from '@/components/dialogs/tasks/ViewProcessesDialog';
@@ -28,6 +30,7 @@ import { useUserSystem } from '@/components/ConfigProvider';
 import { getIdeName } from '@/components/ide/IdeIcon';
 import { useProject } from '@/contexts/ProjectContext';
 import { useTaskAttempt } from '@/hooks/useTaskAttempt';
+import { useAttemptExecution } from '@/hooks/useAttemptExecution';
 import { attemptsApi } from '@/lib/api';
 import {
   BaseAgentCapability,
@@ -76,6 +79,13 @@ export function NextActionCard({
   );
   const attempt = attemptProp ?? fetchedAttempt;
   const { capabilities } = useUserSystem();
+
+  // Get compact execution functionality
+  const {
+    compactExecution,
+    isCompacting,
+    canCompact,
+  } = useAttemptExecution(attemptId, task?.id);
 
   const openInEditor = useOpenInEditor(attemptId);
   const { fileCount, added, deleted, error } = useDiffSummary(
@@ -425,6 +435,30 @@ export function NextActionCard({
               </Tooltip>
               </>
             )}
+
+            {/* Compact button - compacts the execution history */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={compactExecution}
+                  disabled={isCompacting || !canCompact}
+                  className="text-sm"
+                  aria-label={t('followUp.compact')}
+                >
+                  {isCompacting ? (
+                    <Loader2Icon className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Minimize2 className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  {t('followUp.compact')}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('followUp.compactTooltip', 'Compact execution history')}
+              </TooltipContent>
+            </Tooltip>
 
             {/* Try Different Agent button - shows on all completions */}
             <Tooltip>

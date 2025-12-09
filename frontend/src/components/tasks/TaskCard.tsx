@@ -35,6 +35,8 @@ type GitIndicator = {
   label: string;
 };
 
+const IDLE_TIMEOUT_SECONDS = 5 * 60; // 5 minutes
+
 const DevServerIndicator = memo(function DevServerIndicator({
   attemptId,
 }: {
@@ -181,12 +183,11 @@ export const TaskCard = memo(function TaskCard({
   const idleTimeoutState = useIdleTimeoutForAttempt(task.latest_task_attempt_id);
 
   // Calculate timer from task.updated_at if no active provider
-  const TIMEOUT_SECONDS = 5 * 60; // 5 minutes
   const calculatedTimeLeft = useMemo(() => {
     if (!task.updated_at) return 0;
     const updatedTime = new Date(task.updated_at).getTime();
     const elapsed = Math.floor((Date.now() - updatedTime) / 1000);
-    return Math.max(0, TIMEOUT_SECONDS - elapsed);
+    return Math.max(0, IDLE_TIMEOUT_SECONDS - elapsed);
   }, [task.updated_at]);
 
   // Use synced state if available, otherwise use calculated value

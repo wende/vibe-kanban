@@ -7,8 +7,6 @@ import {
   X,
   Paperclip,
   Terminal,
-  MessageSquare,
-  Minimize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -59,8 +57,6 @@ import { useScratch } from '@/hooks/useScratch';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { useQueueStatus } from '@/hooks/useQueueStatus';
 import { imagesApi, attemptsApi } from '@/lib/api';
-import { GitHubCommentsDialog } from '@/components/dialogs/tasks/GitHubCommentsDialog';
-import type { NormalizedComment } from '@/components/ui/wysiwyg/nodes/github-comment-node';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useIdleTimeoutReset } from '@/contexts/IdleTimeoutContext';
 
@@ -83,9 +79,6 @@ export function TaskFollowUpSection({
     isStopping,
     processes,
     contextUsageResetVersion,
-    compactExecution,
-    isCompacting,
-    canCompact,
   } = useAttemptExecution(selectedAttemptId, task.id);
   const { data: branchStatus, refetch: refetchBranchStatus } =
     useBranchStatus(selectedAttemptId);
@@ -560,55 +553,6 @@ export function TaskFollowUpSection({
     [handlePasteFiles]
   );
 
-  // Handler for GitHub comments insertion
-  const handleGitHubCommentClick = useCallback(async () => {
-    if (!selectedAttemptId) return;
-
-    const result = await GitHubCommentsDialog.show({
-      attemptId: selectedAttemptId,
-    });
-    if (result.comments.length > 0) {
-      // Build markdown for all selected comments
-      const markdownBlocks = result.comments.map((comment) => {
-        const payload: NormalizedComment = {
-          id:
-            comment.comment_type === 'general'
-              ? comment.id
-              : comment.id.toString(),
-          comment_type: comment.comment_type,
-          author: comment.author,
-          body: comment.body,
-          created_at: comment.created_at,
-          url: comment.url,
-          // Include review-specific fields when available
-          ...(comment.comment_type === 'review' && {
-            path: comment.path,
-            line: comment.line != null ? Number(comment.line) : null,
-            diff_hunk: comment.diff_hunk,
-          }),
-        };
-        return '```gh-comment\n' + JSON.stringify(payload, null, 2) + '\n```';
-      });
-
-      const markdown = markdownBlocks.join('\n\n');
-
-      // Same pattern as image paste
-      if (isQueuedRef.current && queuedMessageRef.current) {
-        cancelQueueRef.current();
-        const base = queuedMessageRef.current.data.message;
-        const newMessage = base ? `${base}\n\n${markdown}` : markdown;
-        setLocalMessage(newMessage);
-        setFollowUpMessageRef.current(newMessage);
-      } else {
-        setLocalMessage((prev) => {
-          const newMessage = prev ? `${prev}\n\n${markdown}` : markdown;
-          setFollowUpMessageRef.current(newMessage);
-          return newMessage;
-        });
-      }
-    }
-  }, [selectedAttemptId]);
-
   // Stable onChange handler for WYSIWYGEditor
   const handleEditorChange = useCallback(
     (value: string) => {
@@ -812,21 +756,6 @@ export function TaskFollowUpSection({
                 onChange={handleFileInputChange}
               />
 
-              {/* Compact button - always visible, disabled when compaction is unavailable */}
-              <Button
-                onClick={compactExecution}
-                disabled={isCompacting || !canCompact}
-                size="sm"
-                variant="outline"
-                title={t('followUp.compact')}
-              >
-                {isCompacting ? (
-                  <Loader2 className="animate-spin h-4 w-4" />
-                ) : (
-                  <Minimize2 className="h-4 w-4" />
-                )}
-              </Button>
-
               {/* Attach button - always visible */}
               <Button
                 onClick={handleAttachClick}
@@ -837,18 +766,6 @@ export function TaskFollowUpSection({
                 aria-label="Attach image"
               >
                 <Paperclip className="h-4 w-4" />
-              </Button>
-
-              {/* GitHub Comments button */}
-              <Button
-                onClick={handleGitHubCommentClick}
-                disabled={!isEditable}
-                size="sm"
-                variant="outline"
-                title="Insert GitHub comment"
-                aria-label="Insert GitHub comment"
-              >
-                <MessageSquare className="h-4 w-4" />
               </Button>
 
               {/* Scripts dropdown - only show if project has any scripts */}
