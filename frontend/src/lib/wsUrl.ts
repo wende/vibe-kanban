@@ -13,14 +13,13 @@
 const WS_BACKEND_PORT = import.meta.env.VITE_WS_BACKEND_PORT;
 
 /**
- * Check if we're accessing from a non-localhost origin
+ * Check if we're accessing from a non-localhost origin.
+ * Note: .local hostnames (mDNS/Bonjour) are considered remote access
+ * because Vite's WebSocket proxy doesn't work well with them.
  */
 function isRemoteAccess(): boolean {
   const hostname = window.location.hostname;
-  return (
-    !['localhost', '127.0.0.1', '0.0.0.0'].includes(hostname) &&
-    !hostname.endsWith('.local')
-  );
+  return !['localhost', '127.0.0.1', '0.0.0.0'].includes(hostname);
 }
 
 /**

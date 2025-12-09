@@ -201,15 +201,17 @@ export const useConversationHistory = ({
     };
   };
 
-  const getActiveAgentProcesses = (): ExecutionProcess[] => {
-    return (
-      executionProcesses?.current.filter(
-        (p) =>
-          p.status === ExecutionProcessStatus.running &&
-          p.run_reason !== 'devserver'
-      ) ?? []
+  // Use executionProcessesForAttempt directly instead of the ref to avoid
+  // race conditions where the ref might not be updated yet when this is called
+  const getActiveAgentProcesses = useCallback((): ExecutionProcess[] => {
+    return executionProcessesForAttempt.filter(
+      (p) =>
+        p.status === ExecutionProcessStatus.running &&
+        (p.run_reason === 'setupscript' ||
+          p.run_reason === 'cleanupscript' ||
+          p.run_reason === 'codingagent')
     );
-  };
+  }, [executionProcessesForAttempt]);
 
   const flattenEntriesForEmit = useCallback(
     (executionProcessState: ExecutionProcessStateStore): PatchTypeWithKey[] => {
@@ -677,6 +679,7 @@ export const useConversationHistory = ({
     emitEntries,
     ensureProcessVisible,
     loadRunningAndEmitWithBackoff,
+    getActiveAgentProcesses,
   ]);
 
   // If an execution process is removed, remove it from the state
