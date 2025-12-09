@@ -69,8 +69,12 @@ const TaskAttemptPanel = ({
 }: TaskAttemptPanelProps) => {
   const { markAsRead } = useTaskReadStatus();
   // Keep track of the last valid attempt to prevent flickering during transitions
+  // IMPORTANT: Only use cached data if the IDs match to prevent cross-card content leakage
   const lastAttemptRef = useRef<TaskAttempt | undefined>(attempt);
   const lastTaskRef = useRef<TaskWithAttemptStatus | null>(task);
+
+  // Determine the target attempt ID (what we're trying to display)
+  const targetAttemptId = attempt?.id ?? attemptId;
 
   // Update refs when we have valid data
   if (attempt) {
@@ -80,9 +84,18 @@ const TaskAttemptPanel = ({
     lastTaskRef.current = task;
   }
 
-  // Use the last valid data for rendering to prevent skeleton flash
-  const displayAttempt = attempt ?? lastAttemptRef.current;
-  const displayTask = task ?? lastTaskRef.current;
+  // Use the last valid data for rendering ONLY if it matches the target attempt ID
+  // This prevents showing content from a different card during transitions
+  const displayAttempt =
+    attempt ??
+    (lastAttemptRef.current?.id === targetAttemptId
+      ? lastAttemptRef.current
+      : undefined);
+  const displayTask =
+    task ??
+    (lastTaskRef.current?.latest_task_attempt_id === targetAttemptId
+      ? lastTaskRef.current
+      : null);
 
   // Mark task as read when viewing the panel, and whenever it gets updated
   useEffect(() => {
