@@ -103,7 +103,7 @@ function EditDiffRenderer({
         <SquarePen className="h-3 w-3" />
         <p
           onClick={() => setExpanded()}
-          className="text-sm font-mono overflow-x-auto flex-1 cursor-pointer"
+          className="text-sm font-mono break-all flex-1 cursor-pointer"
         >
           {path}{' '}
           <span style={{ color: 'hsl(var(--console-success))' }}>

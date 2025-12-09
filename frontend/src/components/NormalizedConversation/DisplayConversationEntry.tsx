@@ -48,7 +48,7 @@ type Props = {
 type FileEditAction = Extract<ActionType, { action: 'file_edit' }>;
 
 const renderJson = (v: JsonValue) => (
-  <pre className="whitespace-pre-wrap">{JSON.stringify(v, null, 2)}</pre>
+  <pre className="whitespace-pre-wrap break-all">{JSON.stringify(v, null, 2)}</pre>
 );
 
 const getEntryIcon = (entryType: NormalizedEntryType) => {
@@ -517,7 +517,7 @@ const ToolCallCard: React.FC<{
             {entryType && getEntryIcon(entryType)}
           </span>
           {showInlineSummary ? (
-            <span className="font-light">{inlineText}</span>
+            <span className="font-light break-all">{inlineText}</span>
           ) : (
             <span className="font-normal">{label}</span>
           )}
@@ -533,7 +533,7 @@ const ToolCallCard: React.FC<{
                   <div className="font-normal uppercase bg-background border-b border-dashed px-2 py-1">
                     {t('conversation.args')}
                   </div>
-                  <div className="px-2 py-1">{argsText}</div>
+                  <div className="px-2 py-1 break-all whitespace-pre-wrap">{argsText}</div>
                 </>
               )}
 

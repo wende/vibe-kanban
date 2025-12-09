@@ -66,7 +66,7 @@ const FileChangeRenderer = ({
       <div>
         <div className={headerClass}>
           {statusIcon}
-          <p className="text-sm font-light overflow-x-auto flex-1">{path}</p>
+          <p className="text-sm font-light break-all flex-1">{path}</p>
         </div>
       </div>
     );
@@ -136,7 +136,7 @@ const FileChangeRenderer = ({
         {icon}
         <p
           onClick={() => expandable && setExpanded()}
-          className="text-sm font-light overflow-x-auto flex-1 cursor-pointer"
+          className="text-sm font-light break-all flex-1 cursor-pointer"
         >
           {titleNode}
         </p>
