@@ -17,12 +17,20 @@ export interface UseExecutorIdleTimeoutResult {
 }
 
 /**
- * Calculate time left from a given activity timestamp
+ * Calculate time left from a given activity timestamp or manual reset time
  */
-function calculateTimeLeftFromActivity(
+function calculateTimeLeft(
   lastActivityAt: string | null | undefined,
+  manualResetTime: number | null,
   timeoutSeconds: number
 ): number {
+  // Manual reset takes precedence
+  if (manualResetTime !== null) {
+    const elapsed = Math.floor((Date.now() - manualResetTime) / 1000);
+    return Math.max(0, timeoutSeconds - elapsed);
+  }
+
+  // Calculate from lastActivityAt
   if (!lastActivityAt) {
     return timeoutSeconds;
   }
@@ -33,11 +41,6 @@ function calculateTimeLeftFromActivity(
 
 /**
  * Hook to track idle time for an executor, counting down from a specified timeout.
- * Can be initialized from a lastActivityAt timestamp to persist across component mounts.
- *
- * @param options.timeoutSeconds - Total countdown time in seconds (default: 300 = 5 minutes)
- * @param options.enabled - Whether the countdown is active (default: true)
- * @param options.lastActivityAt - ISO timestamp of last activity to calculate timer from
  */
 export function useExecutorIdleTimeout(
   options: UseExecutorIdleTimeoutOptions = {}
@@ -48,51 +51,46 @@ export function useExecutorIdleTimeout(
   } = options;
 
   // Track manual reset time - when user triggers reset(), we use current time
-  const manualResetTimeRef = useRef<number | null>(null);
+  const [manualResetTime, setManualResetTime] = useState<number | null>(null);
 
-  // Track the lastActivityAt value to detect changes
-  const lastActivityAtRef = useRef<string | null | undefined>(lastActivityAt);
+  // Track the lastActivityAt value to detect changes and clear manual reset
+  const lastActivityAtRef = useRef<string | null | undefined>(undefined);
 
-  // Clear manual reset when lastActivityAt changes to a new value
-  if (lastActivityAt !== lastActivityAtRef.current) {
-    lastActivityAtRef.current = lastActivityAt;
-    if (lastActivityAt) {
-      // New activity came in, clear the manual reset so we use the new activity time
-      manualResetTimeRef.current = null;
-    }
-  }
+  // State for the displayed time - initialized to 0, will be set properly in effect
+  const [timeLeft, setTimeLeft] = useState<number>(timeoutSeconds);
 
-  // Calculate current time left
-  const calculateTimeLeft = useCallback((): number => {
-    if (manualResetTimeRef.current !== null) {
-      const elapsed = Math.floor((Date.now() - manualResetTimeRef.current) / 1000);
-      return Math.max(0, timeoutSeconds - elapsed);
-    }
-    return calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds);
-  }, [lastActivityAt, timeoutSeconds]);
-
-  // State for the displayed time
-  const [timeLeft, setTimeLeft] = useState<number>(() => calculateTimeLeft());
+  // Tick counter to force recalculation
+  const [tick, setTick] = useState(0);
 
   // Reset function - uses current time as new activity time
   const reset = useCallback(() => {
-    manualResetTimeRef.current = Date.now();
-    setTimeLeft(timeoutSeconds);
-  }, [timeoutSeconds]);
+    setManualResetTime(Date.now());
+  }, []);
+
+  // Clear manual reset when lastActivityAt changes to a NEW non-null value
+  useEffect(() => {
+    if (lastActivityAt !== lastActivityAtRef.current && lastActivityAt !== null) {
+      lastActivityAtRef.current = lastActivityAt;
+      setManualResetTime(null);
+    }
+  }, [lastActivityAt]);
+
+  // Update timeLeft whenever dependencies change or tick updates
+  useEffect(() => {
+    const newTimeLeft = calculateTimeLeft(lastActivityAt, manualResetTime, timeoutSeconds);
+    setTimeLeft(newTimeLeft);
+  }, [lastActivityAt, manualResetTime, timeoutSeconds, tick]);
 
   // Run the countdown interval
   useEffect(() => {
-    // Update immediately when lastActivityAt changes
-    setTimeLeft(calculateTimeLeft());
-
     const intervalId = window.setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
+      setTick(t => t + 1);
     }, 1000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [calculateTimeLeft]);
+  }, []);
 
   // Calculate percentage remaining
   const percent = Math.max(0, Math.min(100, Math.round((timeLeft / timeoutSeconds) * 100)));
