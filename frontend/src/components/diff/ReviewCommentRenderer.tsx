@@ -44,7 +44,7 @@ export function ReviewCommentRenderer({
           value={editText}
           onChange={setEditText}
           placeholder="Edit comment... (type @ to search files)"
-          className="w-full bg-background text-foreground text-sm font-mono min-h-[60px]"
+          className="w-full bg-background text-foreground text-sm font-mono min-h-[60px] max-h-[300px] overflow-y-auto"
           projectId={projectId}
           onCmdEnter={handleSave}
           autoFocus

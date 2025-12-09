@@ -147,7 +147,7 @@ function DenyReasonForm({
         onChange={onChange}
         placeholder="Let the agent know why this request was denied... Type @ to insert tags or search files."
         disabled={isResponding}
-        className="min-h-[80px]"
+        className="min-h-[80px] max-h-[300px] overflow-y-auto"
         projectId={projectId}
         onCmdEnter={onSubmit}
       />

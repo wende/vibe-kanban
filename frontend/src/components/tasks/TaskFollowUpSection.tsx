@@ -774,7 +774,7 @@ export function TaskFollowUpSection({
             projectId={projectId}
             taskAttemptId={selectedAttemptId}
             onCmdEnter={handleSubmitShortcut}
-            className={cn('min-h-[40px]', isMobile && 'max-h-[120px]')}
+            className={cn('min-h-[40px] overflow-y-auto', isMobile ? 'max-h-[120px]' : 'max-h-[300px]')}
           />
         </div>
 

@@ -157,7 +157,7 @@ export function RetryEditorInline({
           disabled={isSending}
           onCmdEnter={handleCmdEnter}
           onPasteFiles={handlePasteFiles}
-          className={cn('min-h-[40px]', 'bg-background')}
+          className={cn('min-h-[40px] max-h-[300px] overflow-y-auto', 'bg-background')}
           projectId={projectId}
           taskAttemptId={attemptId}
         />
