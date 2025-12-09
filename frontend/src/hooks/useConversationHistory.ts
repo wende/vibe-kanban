@@ -51,7 +51,6 @@ interface UseConversationHistoryParams {
 
 interface UseConversationHistoryResult {}
 
-
 const makeLoadingPatch = (executionProcessId: string): PatchTypeWithKey => ({
   type: 'NORMALIZED_ENTRY',
   content: {
@@ -424,7 +423,10 @@ export const useConversationHistory = ({
 
   // This emits its own events as they are streamed
   const loadRunningAndEmit = useCallback(
-    (executionProcess: ExecutionProcess, attemptIdAtCallTime: string): Promise<void> => {
+    (
+      executionProcess: ExecutionProcess,
+      attemptIdAtCallTime: string
+    ): Promise<void> => {
       // Close any existing stream before starting a new one
       if (activeStreamControllerRef.current) {
         activeStreamControllerRef.current.close();
@@ -458,7 +460,11 @@ export const useConversationHistory = ({
           onFinished: () => {
             // Check if the attempt has changed before emitting
             if (currentAttemptIdRef.current === attemptIdAtCallTime) {
-              emitEntries(displayedExecutionProcesses.current, 'running', false);
+              emitEntries(
+                displayedExecutionProcesses.current,
+                'running',
+                false
+              );
             }
             controller.close();
             if (activeStreamControllerRef.current === controller) {
@@ -582,12 +588,7 @@ export const useConversationHistory = ({
     return () => {
       cancelled = true;
     };
-  }, [
-    attempt.id,
-    idListKey,
-    loadInitialEntries,
-    emitEntries,
-  ]); // include idListKey so new processes trigger reload
+  }, [attempt.id, idListKey, loadInitialEntries, emitEntries]); // include idListKey so new processes trigger reload
 
   useEffect(() => {
     const activeProcesses = getActiveAgentProcesses();
@@ -650,7 +651,10 @@ export const useConversationHistory = ({
     currentAttemptIdRef.current = attempt.id;
 
     // Only reset if this is an actual attempt change (not initial mount)
-    if (prevAttemptIdForResetRef.current !== null && prevAttemptIdForResetRef.current !== attempt.id) {
+    if (
+      prevAttemptIdForResetRef.current !== null &&
+      prevAttemptIdForResetRef.current !== attempt.id
+    ) {
       // Close any active stream from the previous attempt
       if (activeStreamControllerRef.current) {
         activeStreamControllerRef.current.close();

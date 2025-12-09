@@ -49,13 +49,17 @@ export function OrchestratorButton({
     staleTime: 2000,
   });
 
-  const isRunning = orchestrator?.latest_process?.status === ExecutionProcessStatus.running;
+  const isRunning =
+    orchestrator?.latest_process?.status === ExecutionProcessStatus.running;
 
   const handleClick = () => {
     // Navigate to project tasks (clears any selected task) with orchestrator open
     const params = new URLSearchParams(searchParams);
     params.set('orchestrator', 'open');
-    navigate({ pathname: paths.projectTasks(projectId), search: `?${params.toString()}` });
+    navigate({
+      pathname: paths.projectTasks(projectId),
+      search: `?${params.toString()}`,
+    });
   };
 
   return (

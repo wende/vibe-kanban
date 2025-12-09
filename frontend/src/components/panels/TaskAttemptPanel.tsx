@@ -106,7 +106,10 @@ const TaskAttemptPanel = ({
     );
   const followUpContent =
     displayTask && displayAttempt ? (
-      <TaskFollowUpSection task={displayTask} selectedAttemptId={displayAttempt.id} />
+      <TaskFollowUpSection
+        task={displayTask}
+        selectedAttemptId={displayAttempt.id}
+      />
     ) : (
       <FollowUpSkeleton />
     );
@@ -143,9 +146,7 @@ const TaskAttemptPanel = ({
         </div>
       </div>
       {/* Content - always visible, ref-based caching prevents flash */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {content}
-      </div>
+      <div className="flex-1 min-h-0 flex flex-col">{content}</div>
     </div>
   );
 };

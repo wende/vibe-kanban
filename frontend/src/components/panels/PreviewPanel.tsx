@@ -314,7 +314,9 @@ export function PreviewPanel() {
 
           {/* Panel Content - use CSS to hide instead of unmounting */}
           <div
-            className={showBottomPanel ? 'overflow-hidden' : 'h-0 overflow-hidden'}
+            className={
+              showBottomPanel ? 'overflow-hidden' : 'h-0 overflow-hidden'
+            }
             style={{
               position: 'relative',
               height: showBottomPanel ? `${bottomPanelHeight}px` : '0px',

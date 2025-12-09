@@ -198,7 +198,8 @@ export function RetryEditorInline({
           </Button>
           <Button onClick={onSend} disabled={!canSend || isSending}>
             <Send className={cn('h-3 w-3', !isMobile && 'mr-1')} />
-            {!isMobile && t('buttons.send', { ns: 'common', defaultValue: 'Send' })}
+            {!isMobile &&
+              t('buttons.send', { ns: 'common', defaultValue: 'Send' })}
           </Button>
         </div>
       </div>

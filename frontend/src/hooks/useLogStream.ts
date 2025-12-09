@@ -27,7 +27,9 @@ export const useLogStream = (processId: string): UseLogStreamResult => {
     setError(null);
 
     const open = () => {
-      const wsUrl = getWsUrl(`/api/execution-processes/${processId}/raw-logs/ws`);
+      const wsUrl = getWsUrl(
+        `/api/execution-processes/${processId}/raw-logs/ws`
+      );
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       isIntentionallyClosed.current = false;

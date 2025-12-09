@@ -40,7 +40,8 @@ export function useDevserverPreview(
   const selectedProcess = useMemo(() => {
     const devserverProcesses = executionProcesses.filter(
       (process) =>
-        process.run_reason === 'devserver' && process.status === ExecutionProcessStatus.running
+        process.run_reason === 'devserver' &&
+        process.status === ExecutionProcessStatus.running
     );
 
     if (devserverProcesses.length === 0) return null;

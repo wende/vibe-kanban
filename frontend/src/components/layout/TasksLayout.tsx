@@ -26,7 +26,12 @@ function useSwipeGesture(
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      if (!enabled || touchStartX.current === null || touchStartY.current === null) return;
+      if (
+        !enabled ||
+        touchStartX.current === null ||
+        touchStartY.current === null
+      )
+        return;
 
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
@@ -268,7 +273,12 @@ function DesktopSimple({
       className="h-full min-h-0"
       onLayout={(layout) => {
         // Only save sizes when both panels are visible and have reasonable values
-        if (layout.length === 2 && showRightArea && layout[0] > 5 && layout[1] > 5) {
+        if (
+          layout.length === 2 &&
+          showRightArea &&
+          layout[0] > 5 &&
+          layout[1] > 5
+        ) {
           setOuterSizes([layout[0], layout[1]]);
           saveSizes(STORAGE_KEYS.KANBAN_ATTEMPT, [layout[0], layout[1]]);
         }
@@ -411,7 +421,10 @@ export function TasksLayout({
   );
 
   return (
-    <div className="h-full min-h-0" data-panel-open={isPanelOpen ? 'true' : 'false'}>
+    <div
+      className="h-full min-h-0"
+      data-panel-open={isPanelOpen ? 'true' : 'false'}
+    >
       {desktopNode}
     </div>
   );

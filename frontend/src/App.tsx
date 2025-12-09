@@ -24,24 +24,47 @@ import { TaskReadStatusProvider } from './contexts/TaskReadStatusContext';
 import NiceModal from '@ebay/nice-modal-react';
 
 // Lazy load page components
-const Projects = lazy(() => import('@/pages/Projects').then(m => ({ default: m.Projects })));
-const ProjectTasks = lazy(() => import('@/pages/ProjectTasks').then(m => ({ default: m.ProjectTasks })));
-const FullAttemptLogsPage = lazy(() => import('@/pages/FullAttemptLogs').then(m => ({ default: m.FullAttemptLogsPage })));
-const NormalLayout = lazy(() => import('@/components/layout/NormalLayout').then(m => ({ default: m.NormalLayout })));
+const Projects = lazy(() =>
+  import('@/pages/Projects').then((m) => ({ default: m.Projects }))
+);
+const ProjectTasks = lazy(() =>
+  import('@/pages/ProjectTasks').then((m) => ({ default: m.ProjectTasks }))
+);
+const FullAttemptLogsPage = lazy(() =>
+  import('@/pages/FullAttemptLogs').then((m) => ({
+    default: m.FullAttemptLogsPage,
+  }))
+);
+const NormalLayout = lazy(() =>
+  import('@/components/layout/NormalLayout').then((m) => ({
+    default: m.NormalLayout,
+  }))
+);
 
 // Lazy load settings pages
-const SettingsLayout = lazy(() => import('@/pages/settings/').then(m => ({ default: m.SettingsLayout })));
-const AgentSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.AgentSettings })));
-const GeneralSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.GeneralSettings })));
-const McpSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.McpSettings })));
-const OrganizationSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.OrganizationSettings })));
-const ProjectSettings = lazy(() => import('@/pages/settings/').then(m => ({ default: m.ProjectSettings })));
+const SettingsLayout = lazy(() =>
+  import('@/pages/settings/').then((m) => ({ default: m.SettingsLayout }))
+);
+const AgentSettings = lazy(() =>
+  import('@/pages/settings/').then((m) => ({ default: m.AgentSettings }))
+);
+const GeneralSettings = lazy(() =>
+  import('@/pages/settings/').then((m) => ({ default: m.GeneralSettings }))
+);
+const McpSettings = lazy(() =>
+  import('@/pages/settings/').then((m) => ({ default: m.McpSettings }))
+);
+const OrganizationSettings = lazy(() =>
+  import('@/pages/settings/').then((m) => ({ default: m.OrganizationSettings }))
+);
+const ProjectSettings = lazy(() =>
+  import('@/pages/settings/').then((m) => ({ default: m.ProjectSettings }))
+);
 
 // Use regular Routes in dev to avoid HMR conflicts with Sentry's hook wrapper
-const SentryRoutes =
-  import.meta.env.DEV
-    ? Routes
-    : Sentry.withSentryReactRouterV6Routing(Routes);
+const SentryRoutes = import.meta.env.DEV
+  ? Routes
+  : Sentry.withSentryReactRouterV6Routing(Routes);
 
 function AppContent() {
   const { config, analyticsUserId, updateAndSaveConfig, loading } =
@@ -123,11 +146,13 @@ function AppContent() {
       <ThemeProvider initialTheme={config?.theme || ThemeMode.SYSTEM}>
         <SearchProvider>
           <div className="h-screen flex flex-col bg-background">
-            <Suspense fallback={
-              <div className="min-h-screen bg-background flex items-center justify-center">
-                <Loader message="Loading..." size={32} />
-              </div>
-            }>
+            <Suspense
+              fallback={
+                <div className="min-h-screen bg-background flex items-center justify-center">
+                  <Loader message="Loading..." size={32} />
+                </div>
+              }
+            >
               <SentryRoutes>
                 {/* VS Code full-page logs route (outside NormalLayout for minimal UI) */}
                 <Route
@@ -183,7 +208,9 @@ function App() {
         <ClickedElementsProvider>
           <TaskReadStatusProvider>
             <ProjectProvider>
-              <HotkeysProvider initiallyActiveScopes={['*', 'global', 'kanban']}>
+              <HotkeysProvider
+                initiallyActiveScopes={['*', 'global', 'kanban']}
+              >
                 <NiceModal.Provider>
                   <AppContent />
                 </NiceModal.Provider>

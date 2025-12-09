@@ -609,13 +609,15 @@ const getToolStatusAppearance = (status: ToolStatus): ToolStatusAppearance => {
  * Main component  *
  *******************/
 
-export const DisplayConversationEntryMaxWidth = memo(function DisplayConversationEntryMaxWidth(props: Props) {
-  return (
-    <div className="mx-auto w-full max-w-[50rem]">
-      <DisplayConversationEntry {...props} />
-    </div>
-  );
-});
+export const DisplayConversationEntryMaxWidth = memo(
+  function DisplayConversationEntryMaxWidth(props: Props) {
+    return (
+      <div className="mx-auto w-full max-w-[50rem]">
+        <DisplayConversationEntry {...props} />
+      </div>
+    );
+  }
+);
 
 const DisplayConversationEntry = memo(function DisplayConversationEntry({
   entry,

@@ -66,7 +66,9 @@ export function NextActionCard({
   const isXL = useMediaQuery('(min-width: 800px)');
 
   // Use the passed attempt if available, otherwise fetch it
-  const { data: fetchedAttempt } = useTaskAttempt(attemptProp ? undefined : attemptId);
+  const { data: fetchedAttempt } = useTaskAttempt(
+    attemptProp ? undefined : attemptId
+  );
   const attempt = attemptProp ?? fetchedAttempt;
   const { capabilities } = useUserSystem();
 

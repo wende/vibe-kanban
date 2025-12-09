@@ -23,7 +23,8 @@ export function useDevServer(
   const runningDevServer = useMemo<ExecutionProcess | undefined>(() => {
     return attemptData.processes.find(
       (process) =>
-        process.run_reason === 'devserver' && process.status === ExecutionProcessStatus.running
+        process.run_reason === 'devserver' &&
+        process.status === ExecutionProcessStatus.running
     );
   }, [attemptData.processes]);
 
@@ -47,8 +48,7 @@ export function useDevServer(
     onSuccess: async () => {
       // Invalidate both individual and batch execution process queries
       await queryClient.invalidateQueries({
-        predicate: (query) =>
-          query.queryKey[0] === 'executionProcesses',
+        predicate: (query) => query.queryKey[0] === 'executionProcesses',
       });
       options?.onStartSuccess?.();
     },
@@ -69,8 +69,7 @@ export function useDevServer(
       // Invalidate both individual and batch execution process queries
       await Promise.all([
         queryClient.invalidateQueries({
-          predicate: (query) =>
-            query.queryKey[0] === 'executionProcesses',
+          predicate: (query) => query.queryKey[0] === 'executionProcesses',
         }),
         runningDevServer
           ? queryClient.invalidateQueries({

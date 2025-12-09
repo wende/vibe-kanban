@@ -709,7 +709,9 @@ export const attemptsApi = {
 
   generateCommitMessage: async (
     attemptId: string
-  ): Promise<Result<GenerateCommitMessageResponse, GenerateCommitMessageError>> => {
+  ): Promise<
+    Result<GenerateCommitMessageResponse, GenerateCommitMessageError>
+  > => {
     const response = await makeRequest(
       `/api/task-attempts/${attemptId}/generate-commit-message`,
       {
@@ -770,13 +772,10 @@ export const executionProcessesApi = {
   getExecutionProcessesForAttempts: async (
     attemptIds: string[]
   ): Promise<ExecutionProcess[]> => {
-    const response = await makeRequest(
-      '/api/execution-processes/batch',
-      {
-        method: 'POST',
-        body: JSON.stringify({ attempt_ids: attemptIds }),
-      }
-    );
+    const response = await makeRequest('/api/execution-processes/batch', {
+      method: 'POST',
+      body: JSON.stringify({ attempt_ids: attemptIds }),
+    });
     return handleApiResponse<ExecutionProcess[]>(response);
   },
 
@@ -1300,7 +1299,9 @@ export const orchestratorApi = {
    * Get the orchestrator for a project (creates if none exists)
    */
   get: async (projectId: string): Promise<OrchestratorResponse> => {
-    const response = await makeRequest(`/api/projects/${projectId}/orchestrator`);
+    const response = await makeRequest(
+      `/api/projects/${projectId}/orchestrator`
+    );
     return handleApiResponse<OrchestratorResponse>(response);
   },
 
@@ -1321,7 +1322,7 @@ export const orchestratorApi = {
         body: JSON.stringify({
           prompt,
           variant,
-          force_new_session: forceNewSession || false
+          force_new_session: forceNewSession || false,
         }),
       }
     );

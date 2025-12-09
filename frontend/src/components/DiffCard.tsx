@@ -42,6 +42,7 @@ type Props = {
   expanded: boolean;
   onToggle: () => void;
   selectedAttempt: TaskAttempt | null;
+  forceMobileView?: boolean;
 };
 
 function labelAndIcon(diff: Diff) {
@@ -80,6 +81,7 @@ export default function DiffCard({
   expanded,
   onToggle,
   selectedAttempt,
+  forceMobileView = false,
 }: Props) {
   const { config } = useUserSystem();
   const theme = getActualTheme(config?.theme);
@@ -92,6 +94,15 @@ export default function DiffCard({
 
   const oldName = diff.oldPath || undefined;
   const newName = diff.newPath || oldName || 'unknown';
+
+  // Truncate paths for mobile view
+  const truncatePath = (path: string | undefined, maxLen = 40) => {
+    if (!path || path.length <= maxLen) return path;
+    return `...${path.slice(-(maxLen - 3))}`;
+  };
+  const displayOldName = forceMobileView ? truncatePath(oldName) : oldName;
+  const displayNewName = forceMobileView ? truncatePath(newName) : newName;
+
   const oldLang =
     getHighLightLanguageFromPath(oldName || newName || '') || 'plaintext';
   const newLang =
@@ -217,19 +228,19 @@ export default function DiffCard({
   // Title row
   const title = (
     <p
-      className="text-xs font-mono overflow-x-auto flex-1"
+      className={`text-xs font-mono overflow-x-auto flex-1 ${forceMobileView ? 'truncate' : ''}`}
       style={{ color: 'hsl(var(--muted-foreground) / 0.7)' }}
     >
       <Icon className="h-3 w-3 inline mr-2" aria-hidden />
       {label && <span className="mr-2">{label}</span>}
-      {diff.change === 'renamed' && oldName ? (
+      {diff.change === 'renamed' && displayOldName ? (
         <span className="inline-flex items-center gap-2">
-          <span>{oldName}</span>
+          <span title={oldName}>{displayOldName}</span>
           <span aria-hidden>→</span>
-          <span>{newName}</span>
+          <span title={newName}>{displayNewName}</span>
         </span>
       ) : (
-        <span>{newName}</span>
+        <span title={newName}>{displayNewName}</span>
       )}
       <span className="ml-3" style={{ color: 'hsl(var(--console-success))' }}>
         +{add}
@@ -311,9 +322,13 @@ export default function DiffCard({
             diffViewTheme={theme}
             diffViewHighlight
             diffViewMode={
-              globalMode === 'split' ? DiffModeEnum.Split : DiffModeEnum.Unified
+              forceMobileView
+                ? DiffModeEnum.Unified
+                : globalMode === 'split'
+                  ? DiffModeEnum.Split
+                  : DiffModeEnum.Unified
             }
-            diffViewFontSize={12}
+            diffViewFontSize={forceMobileView ? 11 : 12}
             diffViewAddWidget
             onAddWidgetClick={handleAddWidgetClick}
             renderWidgetLine={renderWidgetLine}

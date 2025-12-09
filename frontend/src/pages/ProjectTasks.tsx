@@ -87,6 +87,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import { AttemptHeaderActions } from '@/components/panels/AttemptHeaderActions';
 import { TaskPanelHeaderActions } from '@/components/panels/TaskPanelHeaderActions';
+import { MobileDiffsDialog } from '@/components/dialogs/tasks/MobileDiffsDialog';
 
 import type { TaskWithAttemptStatus } from 'shared/types';
 
@@ -152,6 +153,24 @@ function DiffsPanelContainer({
   );
 }
 
+function MobileDiffsDialogContainer({
+  open,
+  onOpenChange,
+  attempt,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  attempt: TaskAttempt | null;
+}) {
+  return (
+    <MobileDiffsDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      selectedAttempt={attempt}
+    />
+  );
+}
+
 export function ProjectTasks() {
   const { t } = useTranslation(['tasks', 'common']);
   const { taskId, attemptId } = useParams<{
@@ -168,6 +187,7 @@ export function ProjectTasks() {
   const [selectedSharedTaskId, setSelectedSharedTaskId] = useState<
     string | null
   >(null);
+  const [showMobileDiffs, setShowMobileDiffs] = useState(false);
   const { userId } = useAuth();
 
   const {
@@ -426,6 +446,17 @@ export function ProjectTasks() {
 
   const setMode = useCallback(
     (newMode: LayoutMode) => {
+      // Handle mobile diffs specially - show dialog instead of changing layout
+      if (isMobile && newMode === 'diffs') {
+        setShowMobileDiffs(true);
+        return;
+      }
+
+      // Close mobile diffs if switching away
+      if (isMobile && newMode !== 'diffs') {
+        setShowMobileDiffs(false);
+      }
+
       const params = new URLSearchParams(searchParams);
       if (newMode === null) {
         params.delete('view');
@@ -434,7 +465,7 @@ export function ProjectTasks() {
       }
       setSearchParams(params, { replace: true });
     },
-    [searchParams, setSearchParams]
+    [searchParams, setSearchParams, isMobile]
   );
 
   const handleCreateNewTask = useCallback(() => {
@@ -1245,6 +1276,14 @@ export function ProjectTasks() {
               rightHeader={rightHeader}
               onClose={handleClosePanel}
             />
+            {/* Mobile diffs dialog */}
+            {isMobile && (
+              <MobileDiffsDialogContainer
+                open={showMobileDiffs}
+                onOpenChange={setShowMobileDiffs}
+                attempt={attempt ?? null}
+              />
+            )}
           </ExecutionProcessesProvider>
         </ReviewProvider>
       </ClickedElementsProvider>

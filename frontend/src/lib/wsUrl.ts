@@ -17,8 +17,10 @@ const WS_BACKEND_PORT = import.meta.env.VITE_WS_BACKEND_PORT;
  */
 function isRemoteAccess(): boolean {
   const hostname = window.location.hostname;
-  return !['localhost', '127.0.0.1', '0.0.0.0'].includes(hostname) &&
-         !hostname.endsWith('.local');
+  return (
+    !['localhost', '127.0.0.1', '0.0.0.0'].includes(hostname) &&
+    !hostname.endsWith('.local')
+  );
 }
 
 /**

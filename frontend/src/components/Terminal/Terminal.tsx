@@ -103,12 +103,22 @@ export function Terminal({
 
     // Open terminal in container
     terminal.open(containerRef.current);
-    console.log('[Terminal] Opened in container, size:', containerRef.current.offsetWidth, 'x', containerRef.current.offsetHeight);
+    console.log(
+      '[Terminal] Opened in container, size:',
+      containerRef.current.offsetWidth,
+      'x',
+      containerRef.current.offsetHeight
+    );
 
     // Initial fit after a short delay to ensure container is sized
     setTimeout(() => {
       fitAddon.fit();
-      console.log('[Terminal] After fit - cols:', terminal.cols, 'rows:', terminal.rows);
+      console.log(
+        '[Terminal] After fit - cols:',
+        terminal.cols,
+        'rows:',
+        terminal.rows
+      );
     }, 50);
 
     // Connect WebSocket after fit so we get proper dimensions
@@ -160,11 +170,13 @@ export function Terminal({
     });
 
     // Handle terminal resize -> send to WebSocket
-    const resizeDisposable = terminal.onResize(({ cols, rows }: { cols: number; rows: number }) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'resize', cols, rows }));
+    const resizeDisposable = terminal.onResize(
+      ({ cols, rows }: { cols: number; rows: number }) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'resize', cols, rows }));
+        }
       }
-    });
+    );
 
     // Setup resize observer for container size changes
     // Only resize when visible to avoid bad dimensions when collapsed

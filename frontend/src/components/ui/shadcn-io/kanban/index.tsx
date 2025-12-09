@@ -268,7 +268,10 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
             button
           )}
           {createPortal(
-            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+            <Dialog
+              open={showConfirmDialog}
+              onOpenChange={setShowConfirmDialog}
+            >
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <div className="flex items-center gap-3">

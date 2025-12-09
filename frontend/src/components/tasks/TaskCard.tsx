@@ -93,7 +93,11 @@ const GitStatusIndicators = memo(function GitStatusIndicators({
       branchStatus.commits_ahead === 0;
 
     setSticky((prev) => ({
-      uncommitted: nextUncommitted ? true : cleanUncommitted ? false : prev.uncommitted,
+      uncommitted: nextUncommitted
+        ? true
+        : cleanUncommitted
+          ? false
+          : prev.uncommitted,
       untracked: nextUntracked ? true : cleanUntracked ? false : prev.untracked,
       commitsAhead: nextCommitsAhead
         ? true

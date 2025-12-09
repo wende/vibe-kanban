@@ -160,10 +160,10 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
       isLoadingParent;
     const canCreate = Boolean(
       effectiveProfile &&
-        effectiveBranch &&
-        !isCreating &&
-        !isLoadingInitial &&
-        !isLoadingHistory
+      effectiveBranch &&
+      !isCreating &&
+      !isLoadingInitial &&
+      !isLoadingHistory
     );
 
     const handleCreate = async () => {
@@ -175,7 +175,8 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
         if (sourceAttemptId && includeHistory) {
           try {
             setIsLoadingHistory(true);
-            const result = await attemptsApi.exportConversation(sourceAttemptId);
+            const result =
+              await attemptsApi.exportConversation(sourceAttemptId);
             conversationHistory = result.markdown;
           } catch (err) {
             console.error('Failed to export conversation:', err);
@@ -261,13 +262,18 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="custom-branch" className="text-sm font-medium text-muted-foreground">
+                  <Label
+                    htmlFor="custom-branch"
+                    className="text-sm font-medium text-muted-foreground"
+                  >
                     Custom branch name (optional)
                   </Label>
                   <Input
                     id="custom-branch"
                     value={customBranch}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomBranch(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setCustomBranch(e.target.value)
+                    }
                     placeholder="feature/my-custom-branch"
                     disabled={isCreating}
                   />
@@ -281,7 +287,9 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
                   <Checkbox
                     id="include-history"
                     checked={includeHistory}
-                    onCheckedChange={(checked) => setIncludeHistory(checked === true)}
+                    onCheckedChange={(checked) =>
+                      setIncludeHistory(checked === true)
+                    }
                     disabled={isCreating || isLoadingHistory}
                   />
                   <Label

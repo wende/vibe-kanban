@@ -33,7 +33,11 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
 
   // Auto-start orchestrator when panel opens with no existing session
   useEffect(() => {
-    if (orchestrator?.attempt && !orchestrator?.latest_process && !startMutation.isPending) {
+    if (
+      orchestrator?.attempt &&
+      !orchestrator?.latest_process &&
+      !startMutation.isPending
+    ) {
       startMutation.mutate();
     }
   }, [orchestrator, startMutation]);
@@ -45,7 +49,9 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
   if (orchestrator?.latest_process) {
     lastOrchestratorRef.current = orchestrator;
   }
-  const displayOrchestrator = orchestrator?.latest_process ? orchestrator : lastOrchestratorRef.current;
+  const displayOrchestrator = orchestrator?.latest_process
+    ? orchestrator
+    : lastOrchestratorRef.current;
 
   // Convert orchestrator data to the format TaskAttemptPanel expects
   const taskWithStatus: TaskWithAttemptStatus | null = displayOrchestrator
@@ -53,7 +59,8 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
         ...displayOrchestrator.task,
         has_in_progress_attempt: isRunning,
         has_merged_attempt: false,
-        last_attempt_failed: displayOrchestrator.latest_process?.status === 'failed',
+        last_attempt_failed:
+          displayOrchestrator.latest_process?.status === 'failed',
         executor: 'CLAUDE_CODE',
         latest_task_attempt_id: displayOrchestrator.attempt.id,
       }
@@ -62,7 +69,11 @@ export function OrchestratorPanel({ projectId }: OrchestratorPanelProps) {
   // Determine if we need to show loading overlay
   const showLoading = !displayOrchestrator?.latest_process;
   const hasError = error || startMutation.isError;
-  const errorMessage = error ? String(error) : startMutation.error ? String(startMutation.error) : null;
+  const errorMessage = error
+    ? String(error)
+    : startMutation.error
+      ? String(startMutation.error)
+      : null;
 
   // Always render the same structure - loading overlay + content
   // This prevents layout jumps when switching between loading and loaded states

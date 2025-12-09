@@ -159,6 +159,32 @@ export const AttemptHeaderActions = ({
             <CopyPathButton />
           </TooltipProvider>
         )}
+      {!isXL && typeof mode !== 'undefined' && onModeChange && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="icon"
+                aria-label={t('attemptHeaderActions.diffs')}
+                onClick={() => {
+                  posthog?.capture('diffs_navigated', {
+                    trigger: 'button',
+                    platform: 'mobile',
+                    timestamp: new Date().toISOString(),
+                    source: 'frontend',
+                  });
+                  onModeChange('diffs');
+                }}
+              >
+                <FileDiff className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {t('attemptHeaderActions.diffs')}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       <ActionsDropdown task={task} attempt={attempt} sharedTask={sharedTask} />
       {mode !== 'diffs' && (
         <Button variant="icon" aria-label="Close" onClick={onClose}>

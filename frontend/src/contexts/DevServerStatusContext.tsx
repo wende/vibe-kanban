@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useContext,
@@ -32,7 +31,10 @@ export function DevServerStatusProvider({
     if (!processes) return status;
 
     for (const process of processes) {
-      if (process.run_reason === 'devserver' && process.status === ExecutionProcessStatus.running) {
+      if (
+        process.run_reason === 'devserver' &&
+        process.status === ExecutionProcessStatus.running
+      ) {
         status[process.task_attempt_id] = process;
       }
     }

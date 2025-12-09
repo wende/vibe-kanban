@@ -858,3 +858,33 @@
 .diff-tailwindcss-wrapper .group:hover .group-hover\:visible {
   visibility: visible;
 }
+
+/* Mobile diff view adjustments */
+@media (max-width: 800px) {
+  .diff-tailwindcss-wrapper .diff-line-syntax-raw {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .diff-tailwindcss-wrapper .min-w-\[40px\] {
+    min-width: 28px;
+  }
+
+  .diff-tailwindcss-wrapper .px-\[10px\] {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .diff-tailwindcss-wrapper .pl-\[10px\] {
+    padding-left: 4px;
+  }
+
+  .diff-tailwindcss-wrapper .pr-\[10px\] {
+    padding-right: 4px;
+  }
+
+  /* Ensure diff content scrolls horizontally on mobile */
+  .diff-tailwindcss-wrapper .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}

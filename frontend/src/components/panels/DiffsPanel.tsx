@@ -210,9 +210,7 @@ function DiffsPanelContent({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    {allCollapsed
-                      ? t('diff.expandAll')
-                      : t('diff.collapseAll')}
+                    {allCollapsed ? t('diff.expandAll') : t('diff.collapseAll')}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -222,17 +220,20 @@ function DiffsPanelContent({
         </NewCardHeader>
       ) : (
         onClose && (
-          <NewCardHeader className="sticky top-0 z-10" actions={
-            <Button
-              variant="icon"
-              aria-label={t('common:buttons.close', {
-                defaultValue: 'Close',
-              })}
-              onClick={onClose}
-            >
-              <X size={16} />
-            </Button>
-          }>
+          <NewCardHeader
+            className="sticky top-0 z-10"
+            actions={
+              <Button
+                variant="icon"
+                aria-label={t('common:buttons.close', {
+                  defaultValue: 'Close',
+                })}
+                onClick={onClose}
+              >
+                <X size={16} />
+              </Button>
+            }
+          >
             <span className="text-sm text-muted-foreground">
               {t('diff.noChanges')}
             </span>
