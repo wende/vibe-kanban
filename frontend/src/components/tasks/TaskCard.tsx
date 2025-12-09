@@ -176,9 +176,22 @@ export const TaskCard = memo(function TaskCard({
 
   const taskHasUnread = hasUnread(task.id, task.updated_at);
 
-  // Get idle timeout state for this task's attempt
+  // Get idle timeout state for this task's attempt from the global store
+  // (synced when the card is open), or calculate from task.updated_at as fallback
   const idleTimeoutState = useIdleTimeoutForAttempt(task.latest_task_attempt_id);
-  const hasActiveTimer = idleTimeoutState && idleTimeoutState.timeLeft > 0;
+
+  // Calculate timer from task.updated_at if no active provider
+  const TIMEOUT_SECONDS = 5 * 60; // 5 minutes
+  const calculatedTimeLeft = useMemo(() => {
+    if (!task.updated_at) return 0;
+    const updatedTime = new Date(task.updated_at).getTime();
+    const elapsed = Math.floor((Date.now() - updatedTime) / 1000);
+    return Math.max(0, TIMEOUT_SECONDS - elapsed);
+  }, [task.updated_at]);
+
+  // Use synced state if available, otherwise use calculated value
+  const timeLeft = idleTimeoutState?.timeLeft ?? calculatedTimeLeft;
+  const hasActiveTimer = timeLeft > 0;
 
   const handleClick = useCallback(() => {
     markAsRead(task.id);
