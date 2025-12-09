@@ -27,14 +27,18 @@ export const EntriesProvider = ({
   resetKey,
 }: EntriesProviderProps) => {
   const [entries, setEntriesState] = useState<PatchTypeWithKey[]>([]);
-  // Track resetKey changes to know when to accept new entries vs keep old
+  // Track resetKey changes to clear entries and prevent cross-attempt content leakage
   const currentResetKeyRef = useRef(resetKey);
 
-  // Don't clear entries immediately on resetKey change - this causes flicker
-  // Instead, let setEntries replace them when new data arrives
-  // Just track that the key changed so reset() knows to clear
+  // Clear entries immediately when resetKey changes to prevent stale content
+  // from one attempt appearing when viewing another attempt
   if (currentResetKeyRef.current !== resetKey) {
     currentResetKeyRef.current = resetKey;
+    // Note: This is intentionally a side effect during render to ensure
+    // entries are cleared synchronously with the key change
+    if (entries.length > 0) {
+      setEntriesState([]);
+    }
   }
 
   const setEntries = useCallback((newEntries: PatchTypeWithKey[]) => {

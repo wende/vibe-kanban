@@ -15,7 +15,25 @@ import { streamJsonPatchEntries } from '@/utils/streamJsonPatchEntries';
 
 // Module-level cache for historical execution process entries
 // This allows instant reopening of already-viewed executions
+// Key format: `${attemptId}:${executionProcessId}` to prevent cross-attempt leakage
 const historicalEntriesCache = new Map<string, PatchType[]>();
+
+// Helper to create cache key scoped by attempt
+const makeCacheKey = (attemptId: string, executionProcessId: string) =>
+  `${attemptId}:${executionProcessId}`;
+
+// Clear all cache entries for a specific attempt
+const clearCacheForAttempt = (attemptId: string) => {
+  const keysToDelete: string[] = [];
+  for (const key of historicalEntriesCache.keys()) {
+    if (key.startsWith(`${attemptId}:`)) {
+      keysToDelete.push(key);
+    }
+  }
+  for (const key of keysToDelete) {
+    historicalEntriesCache.delete(key);
+  }
+};
 
 export type PatchTypeWithKey = PatchType & {
   patchKey: string;
@@ -130,10 +148,12 @@ export const useConversationHistory = ({
   }, [executionProcessesRaw]);
 
   const loadEntriesForHistoricExecutionProcess = (
-    executionProcess: ExecutionProcess
+    executionProcess: ExecutionProcess,
+    attemptId: string
   ): Promise<PatchType[]> => {
-    // Check cache first for instant reopening
-    const cached = historicalEntriesCache.get(executionProcess.id);
+    // Check cache first for instant reopening (scoped by attempt ID)
+    const cacheKey = makeCacheKey(attemptId, executionProcess.id);
+    const cached = historicalEntriesCache.get(cacheKey);
     if (cached) {
       return Promise.resolve(cached);
     }
@@ -149,8 +169,8 @@ export const useConversationHistory = ({
       const controller = streamJsonPatchEntries<PatchType>(url, {
         onFinished: (allEntries) => {
           controller.close();
-          // Cache the result for future reopens
-          historicalEntriesCache.set(executionProcess.id, allEntries);
+          // Cache the result for future reopens (scoped by attempt ID)
+          historicalEntriesCache.set(cacheKey, allEntries);
           resolve(allEntries);
         },
         onError: (err) => {
@@ -506,8 +526,8 @@ export const useConversationHistory = ({
     [loadRunningAndEmit]
   );
 
-  const loadInitialEntries =
-    useCallback(async (): Promise<ExecutionProcessStateStore> => {
+  const loadInitialEntries = useCallback(
+    async (attemptId: string): Promise<ExecutionProcessStateStore> => {
       const localDisplayedExecutionProcesses: ExecutionProcessStateStore = {};
 
       if (!executionProcesses?.current) return localDisplayedExecutionProcesses;
@@ -520,7 +540,10 @@ export const useConversationHistory = ({
       // Load all historic processes in parallel for faster loading
       const results = await Promise.all(
         historicProcesses.map(async (ep) => {
-          const entries = await loadEntriesForHistoricExecutionProcess(ep);
+          const entries = await loadEntriesForHistoricExecutionProcess(
+            ep,
+            attemptId
+          );
           return { ep, entries };
         })
       );
@@ -537,7 +560,9 @@ export const useConversationHistory = ({
       }
 
       return localDisplayedExecutionProcesses;
-    }, [executionProcesses]);
+    },
+    [executionProcesses]
+  );
 
   const ensureProcessVisible = useCallback((p: ExecutionProcess) => {
     mergeIntoDisplayed((state) => {
@@ -568,6 +593,7 @@ export const useConversationHistory = ({
   // Initial load when attempt changes
   useEffect(() => {
     let cancelled = false;
+    const attemptIdAtCallTime = attempt.id;
     (async () => {
       // Waiting for execution processes to load
       if (
@@ -577,8 +603,10 @@ export const useConversationHistory = ({
         return;
 
       // Load all historic entries in parallel (cached entries return instantly)
-      const allInitialEntries = await loadInitialEntries();
-      if (cancelled) return;
+      const allInitialEntries = await loadInitialEntries(attemptIdAtCallTime);
+      // Verify attempt hasn't changed during async load
+      if (cancelled || currentAttemptIdRef.current !== attemptIdAtCallTime)
+        return;
       mergeIntoDisplayed((state) => {
         Object.assign(state, allInitialEntries);
       });
@@ -591,10 +619,20 @@ export const useConversationHistory = ({
   }, [attempt.id, idListKey, loadInitialEntries, emitEntries]); // include idListKey so new processes trigger reload
 
   useEffect(() => {
+    // Skip if we haven't loaded initial entries yet - this prevents race conditions
+    // where we might emit entries from stale execution processes during attempt transitions
+    if (!loadedInitialEntries.current) return;
+
     const activeProcesses = getActiveAgentProcesses();
     if (activeProcesses.length === 0) return;
 
     for (const activeProcess of activeProcesses) {
+      // Verify this process belongs to the current attempt by checking it's in the raw list
+      // This guards against race conditions during attempt transitions
+      if (!executionProcessesRaw.some((p) => p.id === activeProcess.id)) {
+        continue;
+      }
+
       if (!displayedExecutionProcesses.current[activeProcess.id]) {
         const runningOrInitial =
           Object.keys(displayedExecutionProcesses.current).length > 1
@@ -623,6 +661,7 @@ export const useConversationHistory = ({
     emitEntries,
     ensureProcessVisible,
     loadRunningAndEmitWithBackoff,
+    executionProcessesRaw,
   ]);
 
   // If an execution process is removed, remove it from the state
@@ -660,6 +699,8 @@ export const useConversationHistory = ({
         activeStreamControllerRef.current.close();
         activeStreamControllerRef.current = null;
       }
+      // Clear cache for the previous attempt to prevent stale data leakage
+      clearCacheForAttempt(prevAttemptIdForResetRef.current);
       displayedExecutionProcesses.current = {};
       loadedInitialEntries.current = false;
       lastActiveProcessId.current = null;
