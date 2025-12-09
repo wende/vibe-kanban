@@ -259,6 +259,9 @@ pub struct CreateFollowUpAttempt {
     pub retry_process_id: Option<Uuid>,
     pub force_when_dirty: Option<bool>,
     pub perform_git_reset: Option<bool>,
+    /// When true, drops all coding agent processes before starting the follow-up,
+    /// effectively resetting the conversation. Used by compact operations.
+    pub reset_conversation: Option<bool>,
 }
 
 pub async fn follow_up(
@@ -349,6 +352,16 @@ pub async fn follow_up(
 
         // Soft-drop the target process and all later processes
         let _ = ExecutionProcess::drop_at_and_after(pool, task_attempt.id, proc_id).await?;
+    }
+
+    // If reset_conversation is requested, drop all coding agent processes
+    // This resets the conversation by making the follow-up act as an initial request
+    if payload.reset_conversation.unwrap_or(false) {
+        let pool = &deployment.db().pool;
+        // Stop any running processes for this attempt
+        deployment.container().try_stop(&task_attempt).await;
+        // Drop all coding agent processes
+        let _ = ExecutionProcess::drop_all_coding_agent_processes(pool, task_attempt.id).await?;
     }
 
     let latest_session_id = ExecutionProcess::find_latest_session_id_by_task_attempt(

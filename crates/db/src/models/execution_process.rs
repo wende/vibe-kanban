@@ -599,6 +599,25 @@ impl ExecutionProcess {
         Ok(result.rows_affected() as i64)
     }
 
+    /// Soft-drop all coding agent processes for a task attempt
+    /// Used by compact operations to reset the conversation
+    pub async fn drop_all_coding_agent_processes(
+        pool: &SqlitePool,
+        task_attempt_id: Uuid,
+    ) -> Result<i64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE execution_processes
+               SET dropped = TRUE
+             WHERE task_attempt_id = ?
+               AND run_reason = 'codingagent'
+               AND dropped = FALSE"#,
+        )
+        .bind(task_attempt_id)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() as i64)
+    }
+
     /// Find the previous process's after_head_commit before the given boundary process
     pub async fn find_prev_after_head_commit(
         pool: &SqlitePool,

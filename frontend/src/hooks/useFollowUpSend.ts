@@ -49,6 +49,7 @@ export function useFollowUpSend({
         retry_process_id: null,
         force_when_dirty: null,
         perform_git_reset: null,
+        reset_conversation: null,
       };
       await attemptsApi.followUp(attemptId, body);
       clearComments();

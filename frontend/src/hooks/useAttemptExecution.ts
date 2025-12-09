@@ -147,12 +147,14 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
         }
       } else {
         // If no running process, start a new follow-up with /compact as the prompt
+        // reset_conversation drops all previous processes so the agent starts fresh
         await attemptsApi.followUp(attemptId, {
           prompt: '/compact',
           variant: null,
           retry_process_id: null,
           force_when_dirty: null,
           perform_git_reset: null,
+          reset_conversation: true,
         });
         setContextUsageResetVersion((version) => version + 1);
       }
@@ -177,12 +179,14 @@ export function useAttemptExecution(attemptId?: string, taskId?: string) {
 
       if (result.markdown && result.message_count > 0) {
         // Start a new follow-up with the compacted context
+        // reset_conversation drops all previous processes so the agent starts fresh
         await attemptsApi.followUp(attemptId, {
           prompt: result.markdown + '\n\nContinue from where you left off.',
           variant: null,
           retry_process_id: null,
           force_when_dirty: null,
           perform_git_reset: null,
+          reset_conversation: true,
         });
         setContextUsageResetVersion((version) => version + 1);
       }

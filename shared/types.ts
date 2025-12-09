@@ -206,7 +206,12 @@ export type CheckAgentAvailabilityQuery = { executor: BaseCodingAgent, };
 
 export type CurrentUserResponse = { user_id: string, };
 
-export type CreateFollowUpAttempt = { prompt: string, variant: string | null, retry_process_id: string | null, force_when_dirty: boolean | null, perform_git_reset: boolean | null, };
+export type CreateFollowUpAttempt = { prompt: string, variant: string | null, retry_process_id: string | null, force_when_dirty: boolean | null, perform_git_reset: boolean | null,
+/**
+ * When true, drops all coding agent processes before starting the follow-up,
+ * effectively resetting the conversation. Used by compact operations.
+ */
+reset_conversation: boolean | null, };
 
 export type ChangeTargetBranchRequest = { new_target_branch: string, };
 
