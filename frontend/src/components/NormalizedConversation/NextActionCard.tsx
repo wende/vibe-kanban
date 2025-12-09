@@ -11,6 +11,7 @@ import {
   GitBranch,
   Settings,
   RefreshCw,
+  Clock,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ViewProcessesDialog } from '@/components/dialogs/tasks/ViewProcessesDialog';
@@ -38,6 +39,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useIdleTimeout } from '@/contexts/IdleTimeoutContext';
+import { cn } from '@/lib/utils';
 
 type NextActionCardProps = {
   attemptId?: string;
@@ -165,16 +168,41 @@ export function NextActionCard({
 
   const editorName = getIdeName(config?.editor?.editor_type);
 
+  // Idle timeout timer
+  const { formattedTime: idleTimeLeft, percent: idlePercent, isReady: idleTimerReady } = useIdleTimeout();
 
   return (
     <TooltipProvider>
       <div className="pt-2 pb-4">
         <div
-          className={`px-3 py-1 text-background flex ${failed ? 'bg-destructive' : 'bg-foreground'}`}
+          className={`px-3 py-1 text-background flex items-center ${failed ? 'bg-destructive' : 'bg-foreground'}`}
         >
           <span className="font-semibold flex-1">
             {t('attempt.labels.summaryAndActions')}
           </span>
+          {/* Idle timeout indicator */}
+          {idleTimerReady && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono tabular-nums',
+                    idlePercent > 50
+                      ? 'text-background/70'
+                      : idlePercent > 20
+                        ? 'text-yellow-300'
+                        : 'text-red-300'
+                  )}
+                >
+                  <Clock className="h-3 w-3" />
+                  <span>{idleTimeLeft}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Time until idle timeout. Resets on interaction.</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         {/* Display setup help text when setup is needed */}
