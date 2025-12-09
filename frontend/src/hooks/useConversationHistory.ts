@@ -595,11 +595,18 @@ export const useConversationHistory = ({
       // Skip if already loaded
       if (loadedInitialEntries.current) return;
 
+      // Filter to relevant processes (use state, not ref, to ensure fresh data)
+      const relevantProcesses = executionProcessesForAttempt.filter(
+        (ep) =>
+          ep.run_reason === 'setupscript' ||
+          ep.run_reason === 'cleanupscript' ||
+          ep.run_reason === 'codingagent'
+      );
+
       // Get non-running (historical) processes
-      const historicProcesses =
-        executionProcesses?.current.filter(
-          (ep) => ep.status !== ExecutionProcessStatus.running
-        ) ?? [];
+      const historicProcesses = relevantProcesses.filter(
+        (ep) => ep.status !== ExecutionProcessStatus.running
+      );
 
       // If there are no historical processes, mark as loaded so active process
       // streaming can begin. Otherwise, load the historical entries first.
@@ -622,7 +629,7 @@ export const useConversationHistory = ({
     return () => {
       cancelled = true;
     };
-  }, [attempt.id, idListKey, loadInitialEntries, emitEntries]); // include idListKey so new processes trigger reload
+  }, [attempt.id, idListKey, loadInitialEntries, emitEntries, executionProcessesForAttempt]); // include idListKey so new processes trigger reload
 
   useEffect(() => {
     // Skip if we haven't loaded initial entries yet - this prevents race conditions
