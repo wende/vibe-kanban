@@ -42,6 +42,8 @@ export const useJsonPatchWsStream = <T extends object>(
   const retryAttemptsRef = useRef<number>(0);
   const [retryNonce, setRetryNonce] = useState(0);
   const finishedRef = useRef<boolean>(false);
+  // Track the current endpoint to detect changes and prevent stale data
+  const currentEndpointRef = useRef<string | undefined>(undefined);
 
   const injectInitialEntry = options?.injectInitialEntry;
   const deduplicatePatches = options?.deduplicatePatches;
@@ -74,10 +76,20 @@ export const useJsonPatchWsStream = <T extends object>(
       setIsConnected(false);
       setError(null);
       dataRef.current = undefined;
+      currentEndpointRef.current = undefined;
       return;
     }
 
-    // Initialize data
+    // Check if endpoint changed - if so, reset data to prevent stale content
+    const endpointChanged = currentEndpointRef.current !== endpoint;
+    if (endpointChanged) {
+      // Clear any existing data from previous endpoint
+      dataRef.current = undefined;
+      setData(undefined);
+      currentEndpointRef.current = endpoint;
+    }
+
+    // Initialize data for this endpoint
     if (!dataRef.current) {
       dataRef.current = initialData();
 
@@ -190,6 +202,7 @@ export const useJsonPatchWsStream = <T extends object>(
       }
       finishedRef.current = false;
       dataRef.current = undefined;
+      currentEndpointRef.current = undefined;
       setData(undefined);
     };
   }, [

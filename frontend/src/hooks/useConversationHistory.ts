@@ -22,19 +22,6 @@ const historicalEntriesCache = new Map<string, PatchType[]>();
 const makeCacheKey = (attemptId: string, executionProcessId: string) =>
   `${attemptId}:${executionProcessId}`;
 
-// Clear all cache entries for a specific attempt
-const clearCacheForAttempt = (attemptId: string) => {
-  const keysToDelete: string[] = [];
-  for (const key of historicalEntriesCache.keys()) {
-    if (key.startsWith(`${attemptId}:`)) {
-      keysToDelete.push(key);
-    }
-  }
-  for (const key of keysToDelete) {
-    historicalEntriesCache.delete(key);
-  }
-};
-
 export type PatchTypeWithKey = PatchType & {
   patchKey: string;
   executionProcessId: string;
@@ -699,8 +686,9 @@ export const useConversationHistory = ({
         activeStreamControllerRef.current.close();
         activeStreamControllerRef.current = null;
       }
-      // Clear cache for the previous attempt to prevent stale data leakage
-      clearCacheForAttempt(prevAttemptIdForResetRef.current);
+      // Note: We do NOT clear the historicalEntriesCache here - it's keyed by attemptId
+      // so each attempt has its own cache entries. Keeping the cache allows instant
+      // reopening when switching back to a previously viewed card.
       displayedExecutionProcesses.current = {};
       loadedInitialEntries.current = false;
       lastActiveProcessId.current = null;
