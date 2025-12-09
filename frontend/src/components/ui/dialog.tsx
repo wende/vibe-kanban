@@ -116,7 +116,7 @@ const Dialog = React.forwardRef<
 
     return (
       <div
-        className="fixed inset-0 z-[9999] flex items-start justify-center p-4 overflow-y-auto"
+        className="fixed inset-0 z-[9999] flex items-start justify-center p-4 overflow-y-auto overflow-x-hidden"
         style={zIndexStyle}
       >
         <div
@@ -126,7 +126,7 @@ const Dialog = React.forwardRef<
         <div
           ref={ref}
           className={cn(
-            'relative z-[9999] grid w-full max-w-lg gap-4 bg-primary p-6 shadow-lg duration-200 sm:rounded-lg my-8',
+            'relative z-[9999] grid w-full max-w-lg gap-4 bg-primary p-6 shadow-lg duration-200 sm:rounded-lg my-8 overflow-hidden',
             className
           )}
           style={zIndexStyle}

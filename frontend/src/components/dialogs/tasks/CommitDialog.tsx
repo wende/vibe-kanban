@@ -203,8 +203,9 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(
         open={modal.visible}
         onOpenChange={() => handleCancel()}
         zIndex={10001}
+        className="w-full max-w-[600px]"
       >
-        <DialogContent className="max-h-[80vh] flex flex-col w-[600px] max-w-[90vw]">
+        <DialogContent className="max-h-[80vh] flex flex-col w-full overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GitCommit className="h-5 w-5" />
@@ -224,8 +225,8 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(
               {t('commit.dialog.noChanges')}
             </div>
           ) : (
-            <div className="flex-1 space-y-4 py-4 overflow-hidden flex flex-col min-w-0">
-              <div className="space-y-2 min-w-0">
+            <div className="flex-1 space-y-4 py-4 overflow-hidden flex flex-col min-w-0 w-full">
+              <div className="space-y-2 min-w-0 w-full">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="commit-message">
                     {t('commit.dialog.messageLabel')}
@@ -259,7 +260,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(
                 />
               </div>
 
-              <div className="space-y-2 flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
+              <div className="space-y-2 flex-1 overflow-hidden flex flex-col min-h-0 min-w-0 w-full">
                 <div className="flex items-center justify-between min-w-0">
                   <Label>{t('commit.dialog.filesLabel')}</Label>
                   <button
@@ -273,11 +274,11 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(
                   </button>
                 </div>
 
-                <div className="border rounded-md overflow-y-auto flex-1 min-h-[100px] max-h-[200px] min-w-0">
+                <div className="border rounded-md overflow-y-auto overflow-x-hidden flex-1 min-h-[100px] max-h-[200px] min-w-0">
                   {files.map((file) => (
                     <div
                       key={file.path}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 min-w-0"
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 min-w-0 overflow-hidden"
                       onClick={() => toggleFile(file.path)}
                     >
                       <div onClick={(e) => e.stopPropagation()}>
@@ -288,7 +289,7 @@ const CommitDialogImpl = NiceModal.create<CommitDialogProps>(
                       </div>
                       <span className="shrink-0">{getFileIcon(file)}</span>
                       <span
-                        className="flex-1 text-sm font-mono min-w-0 overflow-hidden whitespace-nowrap text-ellipsis"
+                        className="flex-1 text-sm font-mono min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis"
                         title={file.path}
                         style={{ direction: 'rtl', textAlign: 'left' }}
                       >
