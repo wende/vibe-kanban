@@ -444,15 +444,13 @@ export function NextActionCard({
                   size="sm"
                   onClick={compactExecution}
                   disabled={isCompacting || !canCompact}
-                  className="text-sm"
                   aria-label={t('followUp.compact')}
                 >
                   {isCompacting ? (
-                    <Loader2Icon className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Minimize2 className="h-3.5 w-3.5 mr-1.5" />
+                    <Minimize2 className="h-3.5 w-3.5" />
                   )}
-                  {t('followUp.compact')}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
