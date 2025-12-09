@@ -21,14 +21,14 @@ const IdleTimeoutContext = createContext<IdleTimeoutContextType | null>(null);
 
 interface IdleTimeoutProviderProps {
   children: ReactNode;
-  enabled?: boolean;
 }
 
 /**
- * Calculate the most recent activity timestamp from entries.
- * Entries represent actual agent interactions (messages, tool calls, etc.)
+ * Calculate the most recent user interaction timestamp from entries.
+ * Only counts user_message and user_feedback (tool denials) as user interactions.
+ * Tool calls from the agent are tracked separately via the reset() function.
  */
-function getLastActivityTimestampFromEntries(
+function getLastUserInteractionTimestamp(
   entries: PatchTypeWithKey[]
 ): string | null {
   if (entries.length === 0) return null;
@@ -38,6 +38,10 @@ function getLastActivityTimestampFromEntries(
   for (const entry of entries) {
     // Only NORMALIZED_ENTRY has timestamps
     if (entry.type !== 'NORMALIZED_ENTRY') continue;
+
+    const entryType = entry.content.entry_type.type;
+    // Only count user messages and user feedback (tool denials) as user interactions
+    if (entryType !== 'user_message' && entryType !== 'user_feedback') continue;
 
     const timestamp = entry.content.timestamp;
     if (timestamp && (!latest || timestamp > latest)) {
@@ -50,14 +54,13 @@ function getLastActivityTimestampFromEntries(
 
 export function IdleTimeoutProvider({
   children,
-  enabled = true,
 }: IdleTimeoutProviderProps) {
-  // Get entries - these represent actual agent interactions with real timestamps
+  // Get entries - these contain user messages and feedback with timestamps
   const { entries } = useEntries();
 
-  // Calculate the last activity timestamp from entries
+  // Calculate the last user interaction timestamp from entries
   const lastActivityAt = useMemo(
-    () => getLastActivityTimestampFromEntries(entries),
+    () => getLastUserInteractionTimestamp(entries),
     [entries]
   );
 
@@ -73,7 +76,6 @@ export function IdleTimeoutProvider({
 
   const { timeLeft, percent, formattedTime, reset } = useExecutorIdleTimeout({
     timeoutSeconds: 5 * 60, // 5 minutes
-    enabled: enabled && isReady,
     lastActivityAt,
   });
 

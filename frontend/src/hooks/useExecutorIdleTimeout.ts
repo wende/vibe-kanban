@@ -44,7 +44,8 @@ export function useExecutorIdleTimeout(
 ): UseExecutorIdleTimeoutResult {
   const {
     timeoutSeconds = DEFAULT_TIMEOUT_SECONDS,
-    enabled = true,
+    // enabled is kept in the interface for API compatibility but not used internally
+    // Consumers use isReady from the context to decide when to display
     lastActivityAt,
   } = options;
 
@@ -76,12 +77,9 @@ export function useExecutorIdleTimeout(
     setManualResetTime(Date.now());
   }, []);
 
-  // Run the countdown interval - just ticks to force recalculation
+  // Run the countdown interval - always ticks to force recalculation
+  // The enabled flag is used by consumers to decide whether to display, not to control the interval
   useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
     // Clear any existing interval
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
@@ -99,7 +97,7 @@ export function useExecutorIdleTimeout(
         intervalRef.current = null;
       }
     };
-  }, [enabled]);
+  }, []);
 
   // Recalculate time left on every tick
   // tick is included in deps to force recalculation every second
