@@ -25,6 +25,7 @@ import { NoServerContent } from '@/components/tasks/TaskDetails/preview/NoServer
 import { ReadyContent } from '@/components/tasks/TaskDetails/preview/ReadyContent';
 import { Terminal } from '@/components/Terminal';
 import { VerticalResizeHandle } from '@/components/common/VerticalResizeHandle';
+import { writeClipboardViaBridge } from '@/vscode/bridge';
 
 export function PreviewPanel() {
   const [iframeError, setIframeError] = useState(false);
@@ -78,7 +79,7 @@ export function PreviewPanel() {
 
   const handleCopyUrl = async () => {
     if (previewState.url) {
-      await navigator.clipboard.writeText(previewState.url);
+      await writeClipboardViaBridge(previewState.url);
     }
   };
 

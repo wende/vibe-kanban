@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useIdleTimeout } from '@/contexts/IdleTimeoutContext';
 import { cn } from '@/lib/utils';
+import { writeClipboardViaBridge } from '@/vscode/bridge';
 
 type NextActionCardProps = {
   attemptId?: string;
@@ -106,7 +107,7 @@ export function NextActionCard({
     if (!containerRef) return;
 
     try {
-      await navigator.clipboard.writeText(containerRef);
+      await writeClipboardViaBridge(containerRef);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

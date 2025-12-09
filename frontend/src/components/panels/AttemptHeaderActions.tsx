@@ -16,6 +16,7 @@ import { usePostHog } from 'posthog-js/react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import type { SharedTaskRecord } from '@/hooks/useProjectTasks';
 import { cn } from '@/lib/utils';
+import { writeClipboardViaBridge } from '@/vscode/bridge';
 
 interface AttemptHeaderActionsProps {
   onClose: () => void;
@@ -42,7 +43,7 @@ export const AttemptHeaderActions = ({
   const handleCopyPath = useCallback(async () => {
     if (!attempt?.container_ref) return;
     try {
-      await navigator.clipboard.writeText(attempt.container_ref);
+      await writeClipboardViaBridge(attempt.container_ref);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

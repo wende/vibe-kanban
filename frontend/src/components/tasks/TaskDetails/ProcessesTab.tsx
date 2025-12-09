@@ -18,6 +18,7 @@ import type { ExecutionProcessStatus, ExecutionProcess } from 'shared/types';
 
 import { useProcessSelection } from '@/contexts/ProcessSelectionContext';
 import { useRetryUi } from '@/contexts/RetryUiContext';
+import { writeClipboardViaBridge } from '@/vscode/bridge';
 
 interface ProcessesTabProps {
   attemptId?: string;
@@ -56,7 +57,7 @@ function ProcessesTab({ attemptId }: ProcessesTabProps) {
 
     const text = logs.map((entry) => entry.content).join('\n');
     try {
-      await navigator.clipboard.writeText(text);
+      await writeClipboardViaBridge(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
