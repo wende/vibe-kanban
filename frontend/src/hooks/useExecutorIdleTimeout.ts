@@ -52,23 +52,21 @@ export function useExecutorIdleTimeout(
   // This takes precedence over lastActivityAt until a new lastActivityAt arrives
   const [manualResetTime, setManualResetTime] = useState<number | null>(null);
 
-  // Track the lastActivityAt that was used to initialize/update the timer
-  // This helps detect when lastActivityAt actually changes vs just re-renders
-  const lastProcessedActivityRef = useRef<string | null>(null);
+  // Track the lastActivityAt value that corresponds to the current manualResetTime
+  // When lastActivityAt changes, we clear manualResetTime
+  const lastActivityForManualResetRef = useRef<string | null | undefined>(lastActivityAt);
 
-  // Calculate current time left based on manual reset or lastActivityAt
-  const calculateCurrentTimeLeft = useCallback(() => {
-    if (manualResetTime !== null) {
-      const elapsed = Math.floor((Date.now() - manualResetTime) / 1000);
-      return Math.max(0, timeoutSeconds - elapsed);
+  // Clear manual reset when lastActivityAt changes to a new value
+  if (lastActivityAt !== lastActivityForManualResetRef.current) {
+    lastActivityForManualResetRef.current = lastActivityAt;
+    if (manualResetTime !== null && lastActivityAt) {
+      // New activity came in, clear the manual reset so we use the new activity time
+      setManualResetTime(null);
     }
-    return calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds);
-  }, [manualResetTime, lastActivityAt, timeoutSeconds]);
+  }
 
-  // Initialize with calculated value - this runs on every render but useState ignores it after first
-  const [timeLeft, setTimeLeft] = useState<number>(() =>
-    calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds)
-  );
+  // State to force re-renders every second for the countdown
+  const [tick, setTick] = useState(0);
 
   // Use a ref to track the interval ID
   const intervalRef = useRef<number | null>(null);
@@ -76,28 +74,9 @@ export function useExecutorIdleTimeout(
   // Reset function - uses current time as new activity time
   const reset = useCallback(() => {
     setManualResetTime(Date.now());
-    setTimeLeft(timeoutSeconds);
-  }, [timeoutSeconds]);
+  }, []);
 
-  // When lastActivityAt changes to a NEW value (not just re-render), update the timer
-  useEffect(() => {
-    // Skip if lastActivityAt hasn't actually changed
-    if (lastActivityAt === lastProcessedActivityRef.current) {
-      return;
-    }
-
-    // Update the ref to track this value
-    lastProcessedActivityRef.current = lastActivityAt ?? null;
-
-    if (lastActivityAt) {
-      // Clear manual reset since we have new activity data
-      setManualResetTime(null);
-      // Recalculate from the new activity timestamp
-      setTimeLeft(calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds));
-    }
-  }, [lastActivityAt, timeoutSeconds]);
-
-  // Run the countdown interval
+  // Run the countdown interval - just ticks to force recalculation
   useEffect(() => {
     if (!enabled) {
       return;
@@ -109,14 +88,9 @@ export function useExecutorIdleTimeout(
       intervalRef.current = null;
     }
 
-    // Set up interval to update every second
+    // Set up interval to tick every second
     intervalRef.current = window.setInterval(() => {
-      const remaining = calculateCurrentTimeLeft();
-      setTimeLeft(remaining);
-      if (remaining <= 0 && intervalRef.current) {
-        window.clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      setTick((t) => t + 1);
     }, 1000);
 
     return () => {
@@ -125,7 +99,18 @@ export function useExecutorIdleTimeout(
         intervalRef.current = null;
       }
     };
-  }, [enabled, calculateCurrentTimeLeft]);
+  }, [enabled]);
+
+  // Recalculate time left on every tick
+  // tick is included in deps to force recalculation every second
+  const timeLeft = useMemo(() => {
+    void tick; // Force dependency on tick for recalculation
+    if (manualResetTime !== null) {
+      const elapsed = Math.floor((Date.now() - manualResetTime) / 1000);
+      return Math.max(0, timeoutSeconds - elapsed);
+    }
+    return calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds);
+  }, [tick, manualResetTime, lastActivityAt, timeoutSeconds]);
 
   // Calculate percentage remaining
   const percent = useMemo(
