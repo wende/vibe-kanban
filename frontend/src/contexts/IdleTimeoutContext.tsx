@@ -15,6 +15,7 @@ interface IdleTimeoutContextType {
   percent: number;
   formattedTime: string;
   reset: () => void;
+  isReady: boolean;
 }
 
 const IdleTimeoutContext = createContext<IdleTimeoutContextType | null>(null);
@@ -51,7 +52,7 @@ export function IdleTimeoutProvider({
   enabled = true,
 }: IdleTimeoutProviderProps) {
   // Get processes to calculate last activity timestamp
-  const { executionProcessesVisible: processes } = useExecutionProcessesContext();
+  const { executionProcessesVisible: processes, isLoading } = useExecutionProcessesContext();
 
   // Calculate the last activity timestamp from processes
   const lastActivityAt = useMemo(
@@ -59,9 +60,19 @@ export function IdleTimeoutProvider({
     [processes]
   );
 
+  // Track if we've received initial data - once we have processes, we're ready
+  const hasInitialDataRef = useRef(false);
+  if (processes.length > 0) {
+    hasInitialDataRef.current = true;
+  }
+
+  // Only enable the timer once we have initial data loaded
+  // This prevents the timer from showing 5:00 while waiting for data
+  const isReady = hasInitialDataRef.current && !isLoading;
+
   const { timeLeft, percent, formattedTime, reset } = useExecutorIdleTimeout({
     timeoutSeconds: 5 * 60, // 5 minutes
-    enabled,
+    enabled: enabled && isReady,
     lastActivityAt,
   });
 
@@ -89,8 +100,9 @@ export function IdleTimeoutProvider({
       percent,
       formattedTime,
       reset,
+      isReady,
     }),
-    [timeLeft, percent, formattedTime, reset]
+    [timeLeft, percent, formattedTime, reset, isReady]
   );
 
   return (

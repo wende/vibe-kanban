@@ -17,6 +17,21 @@ export interface UseExecutorIdleTimeoutResult {
 }
 
 /**
+ * Calculate time left from a given activity timestamp
+ */
+function calculateTimeLeftFromActivity(
+  lastActivityAt: string | null | undefined,
+  timeoutSeconds: number
+): number {
+  if (!lastActivityAt) {
+    return timeoutSeconds;
+  }
+  const activityTime = new Date(lastActivityAt).getTime();
+  const elapsed = Math.floor((Date.now() - activityTime) / 1000);
+  return Math.max(0, timeoutSeconds - elapsed);
+}
+
+/**
  * Hook to track idle time for an executor, counting down from a specified timeout.
  * Can be initialized from a lastActivityAt timestamp to persist across component mounts.
  *
@@ -33,30 +48,27 @@ export function useExecutorIdleTimeout(
     lastActivityAt,
   } = options;
 
-  // Calculate initial time left based on lastActivityAt or current time
-  const calculateTimeLeft = useCallback(() => {
-    if (!lastActivityAt) {
-      return timeoutSeconds;
-    }
-    const activityTime = new Date(lastActivityAt).getTime();
-    const elapsed = Math.floor((Date.now() - activityTime) / 1000);
-    return Math.max(0, timeoutSeconds - elapsed);
-  }, [lastActivityAt, timeoutSeconds]);
-
-  // Track manual reset - when user triggers reset(), we use current time
+  // Track manual reset time - when user triggers reset(), we use current time
+  // This takes precedence over lastActivityAt until a new lastActivityAt arrives
   const [manualResetTime, setManualResetTime] = useState<number | null>(null);
 
-  // Calculate time left considering both lastActivityAt and manual resets
-  const getEffectiveTimeLeft = useCallback(() => {
+  // Track the lastActivityAt that was used to initialize/update the timer
+  // This helps detect when lastActivityAt actually changes vs just re-renders
+  const lastProcessedActivityRef = useRef<string | null>(null);
+
+  // Calculate current time left based on manual reset or lastActivityAt
+  const calculateCurrentTimeLeft = useCallback(() => {
     if (manualResetTime !== null) {
-      // If manually reset, calculate from that time
       const elapsed = Math.floor((Date.now() - manualResetTime) / 1000);
       return Math.max(0, timeoutSeconds - elapsed);
     }
-    return calculateTimeLeft();
-  }, [manualResetTime, calculateTimeLeft, timeoutSeconds]);
+    return calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds);
+  }, [manualResetTime, lastActivityAt, timeoutSeconds]);
 
-  const [timeLeft, setTimeLeft] = useState<number>(getEffectiveTimeLeft);
+  // Initialize with calculated value - this runs on every render but useState ignores it after first
+  const [timeLeft, setTimeLeft] = useState<number>(() =>
+    calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds)
+  );
 
   // Use a ref to track the interval ID
   const intervalRef = useRef<number | null>(null);
@@ -67,40 +79,45 @@ export function useExecutorIdleTimeout(
     setTimeLeft(timeoutSeconds);
   }, [timeoutSeconds]);
 
-  // When lastActivityAt changes (new process activity), clear manual reset and recalculate
+  // When lastActivityAt changes to a NEW value (not just re-render), update the timer
   useEffect(() => {
-    if (lastActivityAt) {
-      setManualResetTime(null);
-      setTimeLeft(calculateTimeLeft());
+    // Skip if lastActivityAt hasn't actually changed
+    if (lastActivityAt === lastProcessedActivityRef.current) {
+      return;
     }
-  }, [lastActivityAt, calculateTimeLeft]);
 
-  // Run the countdown
+    // Update the ref to track this value
+    lastProcessedActivityRef.current = lastActivityAt ?? null;
+
+    if (lastActivityAt) {
+      // Clear manual reset since we have new activity data
+      setManualResetTime(null);
+      // Recalculate from the new activity timestamp
+      setTimeLeft(calculateTimeLeftFromActivity(lastActivityAt, timeoutSeconds));
+    }
+  }, [lastActivityAt, timeoutSeconds]);
+
+  // Run the countdown interval
   useEffect(() => {
     if (!enabled) {
-      setTimeLeft(timeoutSeconds);
       return;
     }
 
     // Clear any existing interval
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
-    // Update immediately
-    const updateTimeLeft = () => {
-      const remaining = getEffectiveTimeLeft();
+    // Set up interval to update every second
+    intervalRef.current = window.setInterval(() => {
+      const remaining = calculateCurrentTimeLeft();
       setTimeLeft(remaining);
       if (remaining <= 0 && intervalRef.current) {
         window.clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-    };
-
-    updateTimeLeft();
-
-    // Set up interval to update every second
-    intervalRef.current = window.setInterval(updateTimeLeft, 1000);
+    }, 1000);
 
     return () => {
       if (intervalRef.current) {
@@ -108,7 +125,7 @@ export function useExecutorIdleTimeout(
         intervalRef.current = null;
       }
     };
-  }, [enabled, getEffectiveTimeLeft, timeoutSeconds]);
+  }, [enabled, calculateCurrentTimeLeft]);
 
   // Calculate percentage remaining
   const percent = useMemo(

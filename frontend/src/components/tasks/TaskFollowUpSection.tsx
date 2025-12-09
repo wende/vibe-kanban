@@ -100,7 +100,7 @@ export function TaskFollowUpSection({
   const { enableScope, disableScope } = useHotkeysContext();
 
   // Idle timeout timer (5-minute countdown that resets on interactions)
-  const { formattedTime: idleTimeLeft, percent: idlePercent } = useIdleTimeout();
+  const { formattedTime: idleTimeLeft, percent: idlePercent, isReady: idleTimerReady } = useIdleTimeout();
   const resetIdleTimeout = useIdleTimeoutReset();
 
   const reviewMarkdown = useMemo(
@@ -790,29 +790,31 @@ export function TaskFollowUpSection({
                 onChange={setSelectedVariant}
                 disabled={!isEditable}
               />
-              {/* Idle timeout indicator - compact display */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        'flex items-center gap-1 px-2 py-1 rounded text-xs font-mono tabular-nums',
-                        idlePercent > 50
-                          ? 'text-muted-foreground'
-                          : idlePercent > 20
-                            ? 'text-yellow-600 dark:text-yellow-500'
-                            : 'text-red-600 dark:text-red-500'
-                      )}
-                    >
-                      <Clock className="h-3 w-3" />
-                      <span>{idleTimeLeft}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Time until idle timeout. Resets on interaction.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {/* Idle timeout indicator - compact display, only show when ready */}
+              {idleTimerReady && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          'flex items-center gap-1 px-2 py-1 rounded text-xs font-mono tabular-nums',
+                          idlePercent > 50
+                            ? 'text-muted-foreground'
+                            : idlePercent > 20
+                              ? 'text-yellow-600 dark:text-yellow-500'
+                              : 'text-red-600 dark:text-red-500'
+                        )}
+                      >
+                        <Clock className="h-3 w-3" />
+                        <span>{idleTimeLeft}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Time until idle timeout. Resets on interaction.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
 
             {/* Right side - all other buttons */}
