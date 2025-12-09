@@ -102,7 +102,16 @@ export const useConversationHistory = ({
 }: UseConversationHistoryParams): UseConversationHistoryResult => {
   const { executionProcessesVisible: executionProcessesRaw } =
     useExecutionProcessesContext();
-  const executionProcesses = useRef<ExecutionProcess[]>(executionProcessesRaw);
+
+  // CRITICAL: Filter execution processes to only those belonging to the current attempt
+  // This prevents showing data from Card A when viewing Card B during transitions
+  // when the WebSocket stream hasn't yet delivered the new attempt's processes
+  const executionProcessesForAttempt = useMemo(
+    () => executionProcessesRaw.filter((ep) => ep.task_attempt_id === attempt.id),
+    [executionProcessesRaw, attempt.id]
+  );
+
+  const executionProcesses = useRef<ExecutionProcess[]>(executionProcessesForAttempt);
   const displayedExecutionProcesses = useRef<ExecutionProcessStateStore>({});
   const loadedInitialEntries = useRef(false);
   const streamingProcessIdsRef = useRef<Set<string>>(new Set());
@@ -124,15 +133,15 @@ export const useConversationHistory = ({
     onEntriesUpdatedRef.current = onEntriesUpdated;
   }, [onEntriesUpdated]);
 
-  // Keep executionProcesses up to date
+  // Keep executionProcesses up to date - only include processes for current attempt
   useEffect(() => {
-    executionProcesses.current = executionProcessesRaw.filter(
+    executionProcesses.current = executionProcessesForAttempt.filter(
       (ep) =>
         ep.run_reason === 'setupscript' ||
         ep.run_reason === 'cleanupscript' ||
         ep.run_reason === 'codingagent'
     );
-  }, [executionProcessesRaw]);
+  }, [executionProcessesForAttempt]);
 
   const loadEntriesForHistoricExecutionProcess = (
     executionProcess: ExecutionProcess,
@@ -567,14 +576,15 @@ export const useConversationHistory = ({
     });
   }, []);
 
+  // Use filtered processes for keys to ensure we only react to changes for current attempt
   const idListKey = useMemo(
-    () => executionProcessesRaw?.map((p) => p.id).join(','),
-    [executionProcessesRaw]
+    () => executionProcessesForAttempt?.map((p) => p.id).join(','),
+    [executionProcessesForAttempt]
   );
 
   const idStatusKey = useMemo(
-    () => executionProcessesRaw?.map((p) => `${p.id}:${p.status}`).join(','),
-    [executionProcessesRaw]
+    () => executionProcessesForAttempt?.map((p) => `${p.id}:${p.status}`).join(','),
+    [executionProcessesForAttempt]
   );
 
   // Initial load when attempt changes
@@ -614,11 +624,8 @@ export const useConversationHistory = ({
     if (activeProcesses.length === 0) return;
 
     for (const activeProcess of activeProcesses) {
-      // Verify this process belongs to the current attempt by checking it's in the raw list
-      // This guards against race conditions during attempt transitions
-      if (!executionProcessesRaw.some((p) => p.id === activeProcess.id)) {
-        continue;
-      }
+      // No need to verify task_attempt_id here since executionProcesses.current
+      // is already filtered to only include processes for the current attempt
 
       if (!displayedExecutionProcesses.current[activeProcess.id]) {
         const runningOrInitial =
@@ -648,16 +655,15 @@ export const useConversationHistory = ({
     emitEntries,
     ensureProcessVisible,
     loadRunningAndEmitWithBackoff,
-    executionProcessesRaw,
   ]);
 
   // If an execution process is removed, remove it from the state
   useEffect(() => {
-    if (!executionProcessesRaw) return;
+    if (!executionProcessesForAttempt) return;
 
     const removedProcessIds = Object.keys(
       displayedExecutionProcesses.current
-    ).filter((id) => !executionProcessesRaw.some((p) => p.id === id));
+    ).filter((id) => !executionProcessesForAttempt.some((p) => p.id === id));
 
     if (removedProcessIds.length > 0) {
       mergeIntoDisplayed((state) => {
@@ -666,7 +672,7 @@ export const useConversationHistory = ({
         });
       });
     }
-  }, [attempt.id, idListKey, executionProcessesRaw]);
+  }, [attempt.id, idListKey, executionProcessesForAttempt]);
 
   // Reset state when attempt changes - but don't emit immediately to avoid flicker
   // The initial load effect will emit once data is ready
