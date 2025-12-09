@@ -2,11 +2,14 @@ import {
   createContext,
   useContext,
   useMemo,
+  useEffect,
+  useRef,
   type ReactNode,
 } from 'react';
 import { useExecutorIdleTimeout } from '@/hooks/useExecutorIdleTimeout';
+import { useExecutionProcessesContext } from '@/contexts/ExecutionProcessesContext';
 import { useEntries } from '@/contexts/EntriesContext';
-import type { PatchTypeWithKey } from '@/hooks/useConversationHistory';
+import type { ExecutionProcess } from 'shared/types';
 
 interface IdleTimeoutContextType {
   timeLeft: number;
@@ -23,28 +26,21 @@ interface IdleTimeoutProviderProps {
 }
 
 /**
- * Calculate the most recent user interaction timestamp from entries.
- * Only counts user_message and user_feedback (tool denials) as user interactions.
- * Tool calls from the agent are tracked separately via the reset() function.
+ * Get the most recent activity timestamp from execution processes.
+ * Uses updated_at which reflects the last activity on the process.
  */
-function getLastUserInteractionTimestamp(
-  entries: PatchTypeWithKey[]
+function getLastActivityFromProcesses(
+  processes: ExecutionProcess[]
 ): string | null {
-  if (entries.length === 0) return null;
+  if (processes.length === 0) return null;
 
   let latest: string | null = null;
 
-  for (const entry of entries) {
-    // Only NORMALIZED_ENTRY has timestamps
-    if (entry.type !== 'NORMALIZED_ENTRY') continue;
-
-    const entryType = entry.content.entry_type.type;
-    // Only count user messages and user feedback (tool denials) as user interactions
-    if (entryType !== 'user_message' && entryType !== 'user_feedback') continue;
-
-    const timestamp = entry.content.timestamp;
-    if (timestamp && (!latest || timestamp > latest)) {
-      latest = timestamp;
+  for (const process of processes) {
+    // Use updated_at as it reflects the most recent activity
+    const activityTime = process.updated_at;
+    if (!latest || activityTime > latest) {
+      latest = activityTime;
     }
   }
 
@@ -54,23 +50,40 @@ function getLastUserInteractionTimestamp(
 export function IdleTimeoutProvider({
   children,
 }: IdleTimeoutProviderProps) {
-  // Get entries - these contain user messages and feedback with timestamps
-  const { entries } = useEntries();
+  // Get execution processes - these have real timestamps
+  const { executionProcessesVisible: processes, isLoading } = useExecutionProcessesContext();
 
-  // Calculate the last user interaction timestamp from entries
+  // Calculate the last activity timestamp from processes
   const lastActivityAt = useMemo(
-    () => getLastUserInteractionTimestamp(entries),
-    [entries]
+    () => getLastActivityFromProcesses(processes),
+    [processes]
   );
 
-  // Ready when we have entries loaded (agent has started)
-  // If no user interaction yet, timer will show 5:00 (full time)
-  const isReady = entries.length > 0;
+  // Ready when processes are loaded and we have at least one
+  const isReady = !isLoading && processes.length > 0;
 
   const { timeLeft, percent, formattedTime, reset } = useExecutorIdleTimeout({
     timeoutSeconds: 5 * 60, // 5 minutes
     lastActivityAt,
   });
+
+  // Watch for new tool calls in entries and reset timer
+  const { entries } = useEntries();
+  const prevToolCountRef = useRef(0);
+
+  useEffect(() => {
+    // Count tool_use entries
+    const toolCount = entries.filter((entry) => {
+      if (entry.type !== 'NORMALIZED_ENTRY') return false;
+      return entry.content.entry_type.type === 'tool_use';
+    }).length;
+
+    // Reset if new tool calls appeared
+    if (toolCount > prevToolCountRef.current && prevToolCountRef.current > 0) {
+      reset();
+    }
+    prevToolCountRef.current = toolCount;
+  }, [entries, reset]);
 
   const value = useMemo(
     () => ({
