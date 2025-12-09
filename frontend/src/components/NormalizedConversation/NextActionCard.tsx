@@ -46,7 +46,6 @@ import {
 } from '@/components/ui/tooltip';
 import { useIdleTimeout } from '@/contexts/IdleTimeoutContext';
 import { cn } from '@/lib/utils';
-import { writeClipboardViaBridge } from '@/vscode/bridge';
 
 type NextActionCardProps = {
   attemptId?: string;
@@ -107,7 +106,22 @@ export function NextActionCard({
     if (!containerRef) return;
 
     try {
-      await writeClipboardViaBridge(containerRef);
+      // Check if Clipboard API is available
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(containerRef);
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = containerRef;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

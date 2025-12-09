@@ -18,7 +18,6 @@ import type { ExecutionProcessStatus, ExecutionProcess } from 'shared/types';
 
 import { useProcessSelection } from '@/contexts/ProcessSelectionContext';
 import { useRetryUi } from '@/contexts/RetryUiContext';
-import { writeClipboardViaBridge } from '@/vscode/bridge';
 
 interface ProcessesTabProps {
   attemptId?: string;
@@ -57,7 +56,22 @@ function ProcessesTab({ attemptId }: ProcessesTabProps) {
 
     const text = logs.map((entry) => entry.content).join('\n');
     try {
-      await writeClipboardViaBridge(text);
+      // Check if Clipboard API is available
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

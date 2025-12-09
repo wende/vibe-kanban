@@ -25,7 +25,6 @@ import { NoServerContent } from '@/components/tasks/TaskDetails/preview/NoServer
 import { ReadyContent } from '@/components/tasks/TaskDetails/preview/ReadyContent';
 import { Terminal } from '@/components/Terminal';
 import { VerticalResizeHandle } from '@/components/common/VerticalResizeHandle';
-import { writeClipboardViaBridge } from '@/vscode/bridge';
 
 export function PreviewPanel() {
   const [iframeError, setIframeError] = useState(false);
@@ -79,7 +78,26 @@ export function PreviewPanel() {
 
   const handleCopyUrl = async () => {
     if (previewState.url) {
-      await writeClipboardViaBridge(previewState.url);
+      try {
+        // Check if Clipboard API is available
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(previewState.url);
+        } else {
+          // Fallback for older browsers or non-secure contexts
+          const textArea = document.createElement('textarea');
+          textArea.value = previewState.url;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          document.execCommand('copy');
+          textArea.remove();
+        }
+      } catch (err) {
+        console.warn('Copy to clipboard failed:', err);
+      }
     }
   };
 
