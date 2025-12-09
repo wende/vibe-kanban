@@ -201,9 +201,9 @@ export const useJsonPatchWsStream = <T extends object>(
         retryTimerRef.current = null;
       }
       finishedRef.current = false;
-      dataRef.current = undefined;
-      currentEndpointRef.current = undefined;
-      setData(undefined);
+      // Note: Don't clear dataRef or call setData here - data should be preserved
+      // across reconnects. Data is cleared explicitly in the effect body when
+      // endpoint changes or when !enabled/!endpoint (lines 75, 87-88).
     };
   }, [
     endpoint,
