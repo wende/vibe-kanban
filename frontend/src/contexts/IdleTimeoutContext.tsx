@@ -2,7 +2,6 @@ import {
   createContext,
   useContext,
   useMemo,
-  useRef,
   type ReactNode,
 } from 'react';
 import { useExecutorIdleTimeout } from '@/hooks/useExecutorIdleTimeout';
@@ -64,15 +63,9 @@ export function IdleTimeoutProvider({
     [entries]
   );
 
-  // Track if we've received initial data - once we have entries, we're ready
-  const hasInitialDataRef = useRef(false);
-  if (entries.length > 0) {
-    hasInitialDataRef.current = true;
-  }
-
-  // Only enable the timer once we have initial data loaded
-  // This prevents the timer from showing 5:00 while waiting for data
-  const isReady = hasInitialDataRef.current;
+  // Ready when we have a valid lastActivityAt (found a user interaction)
+  // This prevents showing 5:00 when there's no interaction history yet
+  const isReady = lastActivityAt !== null;
 
   const { timeLeft, percent, formattedTime, reset } = useExecutorIdleTimeout({
     timeoutSeconds: 5 * 60, // 5 minutes
