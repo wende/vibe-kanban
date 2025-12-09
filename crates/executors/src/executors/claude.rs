@@ -24,7 +24,7 @@ use self::{
 };
 use crate::{
     approvals::ExecutorApprovalService,
-    command::{apply_overrides, CmdOverrides, CommandBuilder, CommandParts},
+    command::{CmdOverrides, CommandBuilder, CommandParts, apply_overrides},
     env::ExecutionEnv,
     executors::{
         AppendPrompt, AvailabilityInfo, ExecutorError, SpawnedChild, StandardCodingAgentExecutor,
@@ -397,10 +397,7 @@ impl ClaudeCode {
                 return;
             }
 
-            if let Err(e) = protocol_peer
-                .set_permission_mode(permission_mode)
-                .await
-            {
+            if let Err(e) = protocol_peer.set_permission_mode(permission_mode).await {
                 tracing::warn!("Failed to set permission mode to {permission_mode}: {e}");
             }
 

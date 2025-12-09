@@ -109,7 +109,9 @@ async fn main() -> Result<(), VibeKanbanError> {
     let actual_port = ipv4_listener.local_addr()?.port();
 
     // Try to also bind to IPv6 on the same port (best-effort, may fail on some systems)
-    let ipv6_listener = tokio::net::TcpListener::bind(format!("[::1]:{actual_port}")).await.ok();
+    let ipv6_listener = tokio::net::TcpListener::bind(format!("[::1]:{actual_port}"))
+        .await
+        .ok();
     if ipv6_listener.is_some() {
         tracing::debug!("Bound to both IPv4 and IPv6 on port {}", actual_port);
     } else {

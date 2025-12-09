@@ -89,8 +89,7 @@ impl ExecutionProcessLogs {
             return Ok(());
         }
 
-        let jsonl = Self::serialize_logs(messages)
-            .map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
+        let jsonl = Self::serialize_logs(messages).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
         let byte_size = jsonl.len() as i64;
 
         sqlx::query!(

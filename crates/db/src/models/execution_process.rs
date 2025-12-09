@@ -209,7 +209,11 @@ impl ExecutionProcess {
         if attempt_ids.is_empty() {
             return Ok(vec![]);
         }
-        let placeholders = attempt_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let placeholders = attempt_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
         let query = format!(
             r#"SELECT id,
                     task_attempt_id,

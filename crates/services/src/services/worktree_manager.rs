@@ -575,7 +575,9 @@ impl WorktreeManager {
         // On macOS, /var is a symlink to /private/var, so we need to handle both forms.
         // Canonicalize the base first (create it if needed so we can canonicalize)
         let _ = std::fs::create_dir_all(&worktree_base);
-        let canonical_base = worktree_base.canonicalize().unwrap_or(worktree_base.clone());
+        let canonical_base = worktree_base
+            .canonicalize()
+            .unwrap_or(worktree_base.clone());
 
         let is_inside_base = if let Ok(canonical_path) = worktree_path.canonicalize() {
             // Path exists - compare canonical forms

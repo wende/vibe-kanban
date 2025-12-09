@@ -32,7 +32,9 @@ use executors::{
     },
     approvals::{ExecutorApprovalService, NoopExecutorApprovalService},
     env::ExecutionEnv,
-    executors::{BaseCodingAgent, ExecutorExitResult, ExecutorExitSignal, InputSender, InterruptSender},
+    executors::{
+        BaseCodingAgent, ExecutorExitResult, ExecutorExitSignal, InputSender, InterruptSender,
+    },
     logs::{
         NormalizedEntryType,
         utils::{
@@ -72,7 +74,9 @@ use crate::{command, copy};
 /// On macOS, /var is a symlink to /private/var, so paths may have different prefixes.
 fn is_path_in_managed_worktree_dir(path: &Path, worktree_base: &Path) -> bool {
     // Canonicalize the base (should always exist)
-    let canonical_base = worktree_base.canonicalize().unwrap_or(worktree_base.to_path_buf());
+    let canonical_base = worktree_base
+        .canonicalize()
+        .unwrap_or(worktree_base.to_path_buf());
 
     // For the path, try canonical form first, fall back to string comparison
     if let Ok(canonical_path) = path.canonicalize() {
@@ -297,8 +301,7 @@ impl LocalContainerService {
             }
 
             let worktree_path_str = path.to_string_lossy().to_string();
-            if let Ok(false) =
-                TaskAttempt::container_ref_exists(&db.pool, &worktree_path_str).await
+            if let Ok(false) = TaskAttempt::container_ref_exists(&db.pool, &worktree_path_str).await
             {
                 // This is an orphaned worktree - delete it
                 tracing::info!("Found orphaned worktree: {}", worktree_path_str);
@@ -432,10 +435,13 @@ impl LocalContainerService {
         child_store: &Arc<RwLock<HashMap<Uuid, Arc<RwLock<AsyncGroupChild>>>>>,
         git: &GitService,
     ) -> Result<(), DeploymentError> {
-        use db::models::execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus};
-        use db::models::task::TaskStatus;
-        use db::models::task_attempt::TaskAttempt;
-        use db::models::task::Task;
+        use db::models::{
+            execution_process::{
+                ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus,
+            },
+            task::{Task, TaskStatus},
+            task_attempt::TaskAttempt,
+        };
 
         let running_processes = ExecutionProcess::find_running(&db.pool).await?;
         if running_processes.is_empty() {
@@ -483,12 +489,9 @@ impl LocalContainerService {
             {
                 let wt = std::path::PathBuf::from(container_ref);
                 if let Ok(head) = git.get_head_info(&wt) {
-                    let _ = ExecutionProcess::update_after_head_commit(
-                        &db.pool,
-                        process.id,
-                        &head.oid,
-                    )
-                    .await;
+                    let _ =
+                        ExecutionProcess::update_after_head_commit(&db.pool, process.id, &head.oid)
+                            .await;
                 }
             }
 
@@ -1698,10 +1701,7 @@ impl ContainerService for LocalContainerService {
         if let Some(input_sender) = self.get_input_sender(&execution_process_id).await {
             match input_sender.send(input).await {
                 Ok(()) => {
-                    tracing::debug!(
-                        "Sent input to execution process {}",
-                        execution_process_id
-                    );
+                    tracing::debug!("Sent input to execution process {}", execution_process_id);
                     Ok(true)
                 }
                 Err(e) => {

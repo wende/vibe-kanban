@@ -1,8 +1,11 @@
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
-use std::collections::HashMap;
-use std::io::{Read, Write};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+    path::PathBuf,
+    sync::Arc,
+};
+
+use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 use thiserror::Error;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -77,11 +80,9 @@ impl TerminalService {
             pixel_height: 0,
         };
 
-        let (master, reader, writer) = tokio::task::spawn_blocking(move || {
-            spawn_pty(size, cwd)
-        })
-        .await
-        .map_err(|e| TerminalError::SpawnTaskPanic(e.to_string()))??;
+        let (master, reader, writer) = tokio::task::spawn_blocking(move || spawn_pty(size, cwd))
+            .await
+            .map_err(|e| TerminalError::SpawnTaskPanic(e.to_string()))??;
 
         let session_id = Uuid::new_v4();
         self.sessions
@@ -130,8 +131,14 @@ impl TerminalService {
 fn spawn_pty(
     size: PtySize,
     cwd: Option<PathBuf>,
-) -> Result<(Box<dyn MasterPty + Send>, Box<dyn Read + Send>, Box<dyn Write + Send>), TerminalError>
-{
+) -> Result<
+    (
+        Box<dyn MasterPty + Send>,
+        Box<dyn Read + Send>,
+        Box<dyn Write + Send>,
+    ),
+    TerminalError,
+> {
     let pty_system = native_pty_system();
     let pair = pty_system.openpty(size)?;
 

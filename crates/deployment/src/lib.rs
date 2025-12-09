@@ -3,8 +3,13 @@ use std::sync::Arc;
 use anyhow::Error as AnyhowError;
 use async_trait::async_trait;
 use axum::response::sse::Event;
-use db::{DBService, models::task_attempt::TaskAttemptError, models::project::{Project, CreateProject}};
-use sqlx::types::Uuid;
+use db::{
+    DBService,
+    models::{
+        project::{CreateProject, Project},
+        task_attempt::TaskAttemptError,
+    },
+};
 use executors::executors::ExecutorError;
 use futures::{StreamExt, TryStreamExt};
 use git2::Error as Git2Error;
@@ -27,7 +32,7 @@ use services::services::{
     terminal::TerminalService,
     worktree_manager::WorktreeError,
 };
-use sqlx::Error as SqlxError;
+use sqlx::{Error as SqlxError, types::Uuid};
 use thiserror::Error;
 use tokio::sync::RwLock;
 use utils::sentry as sentry_utils;

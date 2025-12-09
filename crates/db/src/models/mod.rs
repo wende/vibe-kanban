@@ -1,5 +1,6 @@
 pub mod execution_process;
 pub mod execution_process_logs;
+pub mod execution_process_normalized_entries;
 pub mod executor_session;
 pub mod image;
 pub mod merge;

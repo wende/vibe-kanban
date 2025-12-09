@@ -38,11 +38,8 @@ pub async fn get_execution_processes_for_attempts(
     State(deployment): State<DeploymentImpl>,
     ResponseJson(body): ResponseJson<BatchRequestBody>,
 ) -> Result<ResponseJson<ApiResponse<Vec<ExecutionProcess>>>, ApiError> {
-    let processes = ExecutionProcess::find_by_attempt_ids(
-        &deployment.db().pool,
-        &body.attempt_ids,
-    )
-    .await?;
+    let processes =
+        ExecutionProcess::find_by_attempt_ids(&deployment.db().pool, &body.attempt_ids).await?;
 
     Ok(ResponseJson(ApiResponse::success(processes)))
 }

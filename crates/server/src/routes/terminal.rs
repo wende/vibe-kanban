@@ -1,14 +1,20 @@
+use std::{
+    io::{Read, Write},
+    path::PathBuf,
+};
+
 use axum::{
     Router,
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, Query, State},
+    extract::{
+        Query, State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
+    },
     response::IntoResponse,
     routing::get,
 };
 use deployment::Deployment;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
-use std::io::{Read, Write};
-use std::path::PathBuf;
 use tokio::sync::mpsc;
 
 use crate::DeploymentImpl;
@@ -32,8 +38,12 @@ pub async fn terminal_ws(
     State(deployment): State<DeploymentImpl>,
     Query(query): Query<TerminalQuery>,
 ) -> impl IntoResponse {
-    tracing::info!("Terminal WebSocket connection requested: cols={:?}, rows={:?}, cwd={:?}",
-        query.cols, query.rows, query.cwd);
+    tracing::info!(
+        "Terminal WebSocket connection requested: cols={:?}, rows={:?}, cwd={:?}",
+        query.cols,
+        query.rows,
+        query.cwd
+    );
     ws.on_upgrade(move |socket| handle_terminal_ws(socket, deployment, query))
 }
 

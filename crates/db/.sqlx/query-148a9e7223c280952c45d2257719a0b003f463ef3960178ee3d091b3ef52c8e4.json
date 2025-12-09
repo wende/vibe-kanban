@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO execution_process_normalized_entries\n                   (execution_id, entry_index, entry_json, created_at)\n                   VALUES ($1, $2, $3, datetime('now', 'subsec'))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "148a9e7223c280952c45d2257719a0b003f463ef3960178ee3d091b3ef52c8e4"
+}

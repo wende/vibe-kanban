@@ -207,7 +207,10 @@ mod tests {
                 .to_string();
         }
 
-        assert_eq!(message, "Fix authentication bug\n\nResolve issue with token validation");
+        assert_eq!(
+            message,
+            "Fix authentication bug\n\nResolve issue with token validation"
+        );
         assert!(!message.starts_with("```"));
         assert!(!message.ends_with("```"));
     }

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                execution_id as \"execution_id!: Uuid\",\n                entry_index,\n                entry_json,\n                created_at as \"created_at!: DateTime<Utc>\"\n               FROM execution_process_normalized_entries\n               WHERE execution_id = $1\n               ORDER BY entry_index ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "execution_id!: Uuid",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "entry_index",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "entry_json",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at!: DateTime<Utc>",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b8271da0e284d0429b1728e258751f9921782a68b6d8ea3174dabfb06ad160f2"
+}

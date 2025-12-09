@@ -14,6 +14,7 @@ use db::{
             ExecutionProcessStatus,
         },
         execution_process_logs::ExecutionProcessLogs,
+        execution_process_normalized_entries::ExecutionProcessNormalizedEntry,
         executor_session::{CreateExecutorSession, ExecutorSession},
         task::{Task, TaskStatus},
         task_attempt::{TaskAttempt, TaskAttemptError},
@@ -26,7 +27,10 @@ use executors::{
         script::{ScriptContext, ScriptRequest, ScriptRequestLanguage},
     },
     executors::{ExecutorError, StandardCodingAgentExecutor},
-    logs::{NormalizedEntry, NormalizedEntryError, NormalizedEntryType, utils::ConversationPatch},
+    logs::{
+        NormalizedEntry, NormalizedEntryError, NormalizedEntryType,
+        utils::{ConversationPatch, extract_normalized_entry_from_patch},
+    },
     profile::{ExecutorConfigs, ExecutorProfileId},
 };
 use futures::{StreamExt, future};
@@ -442,9 +446,7 @@ pub trait ContainerService {
                         id
                     );
                     // Return a stream that just signals finished - the periodic cleanup will mark it as failed
-                    return Some(
-                        futures::stream::once(async { Ok(LogMsg::Finished) }).boxed()
-                    );
+                    return Some(futures::stream::once(async { Ok(LogMsg::Finished) }).boxed());
                 }
             }
 
@@ -507,13 +509,35 @@ pub trait ContainerService {
                         id
                     );
                     // Return a stream that just signals finished - the periodic cleanup will mark it as failed
-                    return Some(
-                        futures::stream::once(async { Ok(LogMsg::Finished) }).boxed()
-                    );
+                    return Some(futures::stream::once(async { Ok(LogMsg::Finished) }).boxed());
                 }
             }
 
-            // Fallback: load from DB and normalize (for completed/failed processes)
+            // Try stored normalized entries first (fast path for new executions)
+            if let Ok(normalized_entries) =
+                ExecutionProcessNormalizedEntry::find_by_execution_id(&self.db().pool, *id).await
+            {
+                if !normalized_entries.is_empty() {
+                    let stream =
+                        futures::stream::iter(normalized_entries.into_iter().filter_map(|e| {
+                            serde_json::from_str::<NormalizedEntry>(&e.entry_json)
+                                .ok()
+                                .map(|entry| {
+                                    let patch = ConversationPatch::add_normalized_entry(
+                                        e.entry_index as usize,
+                                        entry,
+                                    );
+                                    Ok::<_, std::io::Error>(LogMsg::JsonPatch(patch))
+                                })
+                        }))
+                        .chain(futures::stream::once(async { Ok(LogMsg::Finished) }))
+                        .boxed();
+
+                    return Some(stream);
+                }
+            }
+
+            // Fallback: load from DB and normalize (for old data without stored entries)
             let log_records =
                 match ExecutionProcessLogs::find_by_execution_id(&self.db().pool, *id).await {
                     Ok(records) if !records.is_empty() => records,
@@ -701,9 +725,8 @@ pub trait ContainerService {
                         LogMsg::Stdout(_) | LogMsg::Stderr(_) => {
                             if should_buffer {
                                 // Buffer the message for coding agents
-                                let msg_size = serde_json::to_string(&msg)
-                                    .map(|s| s.len())
-                                    .unwrap_or(0);
+                                let msg_size =
+                                    serde_json::to_string(&msg).map(|s| s.len()).unwrap_or(0);
                                 buffer_bytes += msg_size;
                                 log_buffer.push(msg);
 
@@ -793,6 +816,52 @@ pub trait ContainerService {
                                     );
                                 }
                             }
+
+                            // Snapshot normalized entries to DB for fast historic loading
+                            if should_buffer {
+                                let history = store.get_history();
+
+                                // Collect entries, keeping only the last version of each index
+                                // (replace patches update existing indices during streaming)
+                                let mut entries_map: std::collections::HashMap<
+                                    usize,
+                                    NormalizedEntry,
+                                > = std::collections::HashMap::new();
+
+                                for msg in &history {
+                                    if let LogMsg::JsonPatch(patch) = msg
+                                        && let Some((idx, entry)) =
+                                            extract_normalized_entry_from_patch(patch)
+                                    {
+                                        entries_map.insert(idx, entry);
+                                    }
+                                }
+
+                                // Convert to sorted vec for insertion
+                                let mut entries: Vec<(usize, String)> = entries_map
+                                    .into_iter()
+                                    .filter_map(|(idx, entry)| {
+                                        serde_json::to_string(&entry).ok().map(|json| (idx, json))
+                                    })
+                                    .collect();
+                                entries.sort_by_key(|(idx, _)| *idx);
+
+                                if !entries.is_empty()
+                                    && let Err(e) = ExecutionProcessNormalizedEntry::insert_batch(
+                                        &db.pool,
+                                        execution_id,
+                                        &entries,
+                                    )
+                                    .await
+                                {
+                                    tracing::error!(
+                                        "Failed to store normalized entries for {}: {}",
+                                        execution_id,
+                                        e
+                                    );
+                                }
+                            }
+
                             break;
                         }
                         LogMsg::JsonPatch(_) => continue,
@@ -1094,7 +1163,10 @@ pub trait ContainerService {
             }
         }
 
-        self.spawn_stream_raw_logs_to_db(&execution_process.id, execution_process.run_reason.clone());
+        self.spawn_stream_raw_logs_to_db(
+            &execution_process.id,
+            execution_process.run_reason.clone(),
+        );
         Ok(execution_process)
     }
 

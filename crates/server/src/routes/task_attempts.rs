@@ -2381,10 +2381,7 @@ pub async fn generate_commit_message(
 pub async fn generate_pr_title(
     Extension(task_attempt): Extension<TaskAttempt>,
     State(deployment): State<DeploymentImpl>,
-) -> Result<
-    ResponseJson<ApiResponse<GeneratePrTitleResponse, GeneratePrTitleError>>,
-    ApiError,
-> {
+) -> Result<ResponseJson<ApiResponse<GeneratePrTitleResponse, GeneratePrTitleError>>, ApiError> {
     let ws_path = ensure_worktree_path(&deployment, &task_attempt).await?;
 
     // Get the diff between branches (committed changes, not uncommitted)
@@ -2418,11 +2415,7 @@ pub async fn generate_pr_title(
 
     // Split the message into title (first line) and body (rest)
     let mut lines = message.split('\n');
-    let title = lines
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_string();
+    let title = lines.next().unwrap_or("").trim().to_string();
     let body_text = lines.collect::<Vec<_>>().join("\n").trim().to_string();
     let body = if body_text.is_empty() {
         None
