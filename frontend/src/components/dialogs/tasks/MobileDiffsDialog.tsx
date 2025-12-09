@@ -66,7 +66,7 @@ export function MobileDiffsDialog({
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [hasInitialized, setHasInitialized] = useState(false);
 
-  const { diffs, error } = useDiffStream(selectedAttempt?.id ?? null, open);
+  const { diffs, error } = useDiffStream(selectedAttempt?.id ?? null, true);
   const { fileCount, added, deleted } = useDiffSummary(
     selectedAttempt?.id ?? null
   );
