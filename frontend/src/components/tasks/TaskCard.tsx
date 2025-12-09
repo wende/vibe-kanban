@@ -183,12 +183,41 @@ export const TaskCard = memo(function TaskCard({
   const idleTimeoutState = useIdleTimeoutForAttempt(task.latest_task_attempt_id);
 
   // Calculate timer from task.updated_at if no active provider
-  const calculatedTimeLeft = useMemo(() => {
+  // Use state + interval to keep it updated over time
+  const [calculatedTimeLeft, setCalculatedTimeLeft] = useState(() => {
     if (!task.updated_at) return 0;
     const updatedTime = new Date(task.updated_at).getTime();
     const elapsed = Math.floor((Date.now() - updatedTime) / 1000);
     return Math.max(0, IDLE_TIMEOUT_SECONDS - elapsed);
-  }, [task.updated_at]);
+  });
+
+  useEffect(() => {
+    // Recalculate immediately when updated_at changes
+    if (!task.updated_at) {
+      setCalculatedTimeLeft(0);
+      return;
+    }
+    const updatedTime = new Date(task.updated_at).getTime();
+    const calculateTimeLeft = () => {
+      const elapsed = Math.floor((Date.now() - updatedTime) / 1000);
+      return Math.max(0, IDLE_TIMEOUT_SECONDS - elapsed);
+    };
+    setCalculatedTimeLeft(calculateTimeLeft());
+
+    // Only run interval if there's time remaining and no synced state
+    const initialTimeLeft = calculateTimeLeft();
+    if (initialTimeLeft <= 0 || idleTimeoutState) return;
+
+    const interval = setInterval(() => {
+      const newTimeLeft = calculateTimeLeft();
+      setCalculatedTimeLeft(newTimeLeft);
+      if (newTimeLeft <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [task.updated_at, idleTimeoutState]);
 
   // Use synced state if available, otherwise use calculated value
   const timeLeft = idleTimeoutState?.timeLeft ?? calculatedTimeLeft;
