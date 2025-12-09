@@ -63,9 +63,9 @@ export function IdleTimeoutProvider({
     [entries]
   );
 
-  // Ready when we have a valid lastActivityAt (found a user interaction)
-  // This prevents showing 5:00 when there's no interaction history yet
-  const isReady = lastActivityAt !== null;
+  // Ready when we have entries loaded (agent has started)
+  // If no user interaction yet, timer will show 5:00 (full time)
+  const isReady = entries.length > 0;
 
   const { timeLeft, percent, formattedTime, reset } = useExecutorIdleTimeout({
     timeoutSeconds: 5 * 60, // 5 minutes
