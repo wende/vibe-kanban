@@ -172,11 +172,12 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
         let conversationHistory: string | null = null;
 
         // Fetch conversation history if continuing from another attempt
+        // Use smart compact to strip tool results for a more compact context
         if (sourceAttemptId && includeHistory) {
           try {
             setIsLoadingHistory(true);
             const result =
-              await attemptsApi.exportConversation(sourceAttemptId);
+              await attemptsApi.exportSmartCompact(sourceAttemptId);
             conversationHistory = result.markdown;
           } catch (err) {
             console.error('Failed to export conversation:', err);
