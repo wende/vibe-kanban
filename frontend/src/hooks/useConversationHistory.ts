@@ -603,13 +603,19 @@ export const useConversationHistory = ({
           ep.run_reason === 'codingagent'
       );
 
+      // If no processes have arrived yet, wait for them
+      // (WebSocket may not have delivered them yet)
+      if (relevantProcesses.length === 0) {
+        return;
+      }
+
       // Get non-running (historical) processes
       const historicProcesses = relevantProcesses.filter(
         (ep) => ep.status !== ExecutionProcessStatus.running
       );
 
-      // If there are no historical processes, mark as loaded so active process
-      // streaming can begin. Otherwise, load the historical entries first.
+      // If there are no historical processes (only running ones), mark as loaded
+      // so active process streaming can begin
       if (historicProcesses.length === 0) {
         loadedInitialEntries.current = true;
         return;
