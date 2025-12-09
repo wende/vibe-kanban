@@ -281,7 +281,9 @@ export const TaskCard = memo(function TaskCard({
         sharedTask || task.shared_task_id
           ? 'relative overflow-hidden pl-5 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-card-foreground before:content-[""]'
           : undefined,
-        hasActiveTimer && 'bg-green-50 dark:bg-green-950/30'
+        hasActiveTimer && timeLeft < 60
+          ? 'bg-orange-50 dark:bg-orange-950/30'
+          : hasActiveTimer && 'bg-green-50 dark:bg-green-950/30'
       )}
     >
       <div className="flex flex-col gap-2">
