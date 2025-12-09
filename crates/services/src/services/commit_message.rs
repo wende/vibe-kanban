@@ -6,7 +6,6 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::io::AsyncWriteExt as _;
 
 #[derive(Debug, Error)]
 pub enum CommitMessageError {
@@ -134,28 +133,17 @@ pub async fn generate_commit_message(diff: &str) -> Result<String, CommitMessage
     let prompt = format!("{}{}", COMMIT_MESSAGE_PROMPT, truncated_diff);
 
     // Use Claude Code CLI with Haiku model for fast, cheap commit message generation
-    // Pipe prompt via stdin to handle large diffs
-    let mut child = tokio::process::Command::new("claude")
-        .args(["--print", "--model", "haiku"])
-        .stdin(Stdio::piped())
+    // Pass prompt as positional argument with --print flag for non-interactive mode
+    let output = tokio::process::Command::new("claude")
+        .args(["--print", "--model", "haiku", &prompt])
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
+        .output()
+        .await
         .map_err(|e| {
-            CommitMessageError::ClaudeCodeFailed(format!("Failed to spawn claude: {}", e))
+            CommitMessageError::ClaudeCodeFailed(format!("Failed to run claude: {}", e))
         })?;
-
-    // Write prompt to stdin
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(prompt.as_bytes()).await.map_err(|e| {
-            CommitMessageError::ClaudeCodeFailed(format!("Failed to write to stdin: {}", e))
-        })?;
-        // stdin is dropped here, closing it
-    }
-
-    let output = child.wait_with_output().await.map_err(|e| {
-        CommitMessageError::ClaudeCodeFailed(format!("Failed to wait for claude: {}", e))
-    })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
