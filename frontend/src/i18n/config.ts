@@ -68,9 +68,40 @@ const resources = {
   },
 };
 
+// Cache for logged missing keys - prevents duplicate console messages
+const loggedMissingKeys = new Set<string>();
+
+// Custom logger to reduce console spam from missing translation keys
+const customLogger = {
+  type: 'logger' as const,
+  init() {
+    // no-op
+  },
+  log(args: unknown[]) {
+    console.log('[i18next]', ...args);
+  },
+  warn(args: unknown[]) {
+    const message = args[0];
+    // Check if this is a missing key warning
+    if (typeof message === 'string' && message.includes('missingKey')) {
+      const key = `${message}`;
+      if (!loggedMissingKeys.has(key)) {
+        loggedMissingKeys.add(key);
+        console.warn('[i18next]', ...args);
+      }
+    } else {
+      console.warn('[i18next]', ...args);
+    }
+  },
+  error(args: unknown[]) {
+    console.error('[i18next]', ...args);
+  },
+};
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
+  .use(customLogger)
   .init({
     resources,
     fallbackLng: {

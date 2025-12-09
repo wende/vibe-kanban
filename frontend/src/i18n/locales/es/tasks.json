@@ -67,7 +67,8 @@
     "tryAgain": "Try Again",
     "runSetup": "Ejecutar Configuración",
     "setupHelpText": "{{agent}} no está configurado correctamente. Haz clic en 'Ejecutar Configuración' para instalarlo e iniciar sesión.",
-    "devScriptMissingTooltip": "To start the dev server, add a dev script to this project"
+    "devScriptMissingTooltip": "To start the dev server, add a dev script to this project",
+    "selectGitHubComments": "Seleccionar comentarios de GitHub"
   },
   "stopShareDialog": {
     "title": "Detener uso compartido de la tarea",
@@ -177,6 +178,7 @@
   "followUp": {
     "clearReviewComments": "Clear Review Comments",
     "compact": "Compact conversation",
+    "compactTooltip": "Contraer historial de ejecución",
     "edit": "Edit",
     "queueForNextTurn": "Queue for next turn",
     "queuing": "Queuing…",

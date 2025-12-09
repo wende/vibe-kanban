@@ -144,6 +144,8 @@
   },
   "followUp": {
     "stop": "停止",
+    "compact": "压缩对话",
+    "compactTooltip": "压缩执行历史记录",
     "clearReviewComments": "清除审查评论",
     "resolveConflicts": "解决冲突",
     "send": "发送",
@@ -198,7 +200,8 @@
     "tryAgain": "重试",
     "runSetup": "运行设置",
     "setupHelpText": "{{agent}} 未正确设置。点击运行设置以安装并登录。",
-    "devScriptMissingTooltip": "要启动开发服务器，请为此项目添加开发脚本"
+    "devScriptMissingTooltip": "要启动开发服务器，请为此项目添加开发脚本",
+    "selectGitHubComments": "选择 GitHub 评论"
   },
   "git": {
     "labels": {

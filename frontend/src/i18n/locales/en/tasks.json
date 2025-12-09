@@ -150,6 +150,7 @@
   "followUp": {
     "stop": "Stop",
     "compact": "Compact conversation",
+    "compactTooltip": "Compact execution history",
     "clearReviewComments": "Clear Review Comments",
     "resolveConflicts": "Resolve conflicts",
     "send": "Send",
@@ -206,7 +207,8 @@
     "tryDifferentAgentTooltip": "Continue with a different coding agent, passing conversation history",
     "runSetup": "Run Setup",
     "setupHelpText": "{{agent}} isn't setup correctly. Click 'Run Setup' to install it and login.",
-    "devScriptMissingTooltip": "To start the dev server, add a dev script to this project"
+    "devScriptMissingTooltip": "To start the dev server, add a dev script to this project",
+    "selectGitHubComments": "Select GitHub comments"
   },
   "git": {
     "labels": {
