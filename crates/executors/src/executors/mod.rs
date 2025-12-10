@@ -70,6 +70,8 @@ pub enum ExecutorError {
     SetupHelperNotSupported,
     #[error("Auth required: {0}")]
     AuthRequired(String),
+    #[error("Pre-command failed: {command}\nError: {error}")]
+    PreCommandFailed { command: String, error: String },
 }
 
 #[enum_dispatch]

@@ -58,6 +58,12 @@ pub struct CmdOverrides {
     )]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub env: Option<HashMap<String, String>>,
+    #[schemars(
+        title = "Pre-Commands",
+        description = "Shell commands to run before starting the executor (e.g., sourcing shell RC files)"
+    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_commands: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS, JsonSchema)]

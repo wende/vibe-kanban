@@ -51,6 +51,10 @@ impl StandardCodingAgentExecutor for Amp {
         prompt: &str,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
+        // Build env with profile settings and execute pre-commands
+        let env_with_profile = env.clone().with_profile(&self.cmd);
+        env_with_profile.execute_pre_commands(current_dir).await?;
+
         let command_parts = self.build_command_builder().build_initial()?;
         let (executable_path, args) = command_parts.into_resolved().await?;
 
@@ -65,9 +69,7 @@ impl StandardCodingAgentExecutor for Amp {
             .current_dir(current_dir)
             .args(&args);
 
-        env.clone()
-            .with_profile(&self.cmd)
-            .apply_to_command(&mut command);
+        env_with_profile.apply_to_command(&mut command);
 
         let mut child = command.group_spawn()?;
 

@@ -92,9 +92,11 @@ impl StandardCodingAgentExecutor for CursorAgent {
             .current_dir(current_dir)
             .args(&args);
 
-        env.clone()
-            .with_profile(&self.cmd)
-            .apply_to_command(&mut command);
+        // Build env with profile settings and execute pre-commands
+        let env_with_profile = env.clone().with_profile(&self.cmd);
+        env_with_profile.execute_pre_commands(current_dir).await?;
+
+        env_with_profile.apply_to_command(&mut command);
 
         let mut child = command.group_spawn()?;
 
@@ -131,9 +133,11 @@ impl StandardCodingAgentExecutor for CursorAgent {
             .current_dir(current_dir)
             .args(&args);
 
-        env.clone()
-            .with_profile(&self.cmd)
-            .apply_to_command(&mut command);
+        // Build env with profile settings and execute pre-commands
+        let env_with_profile = env.clone().with_profile(&self.cmd);
+        env_with_profile.execute_pre_commands(current_dir).await?;
+
+        env_with_profile.apply_to_command(&mut command);
 
         let mut child = command.group_spawn()?;
 

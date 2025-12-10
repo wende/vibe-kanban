@@ -104,6 +104,10 @@ impl StandardCodingAgentExecutor for Copilot {
         prompt: &str,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
+        // Build env with profile settings and execute pre-commands
+        let env_with_profile = env.clone().with_profile(&self.cmd);
+        env_with_profile.execute_pre_commands(current_dir).await?;
+
         let log_dir = Self::create_temp_log_dir(current_dir).await?;
         let command_parts = self
             .build_command_builder(&log_dir.to_string_lossy())
@@ -122,9 +126,7 @@ impl StandardCodingAgentExecutor for Copilot {
             .args(&args)
             .env("NODE_NO_WARNINGS", "1");
 
-        env.clone()
-            .with_profile(&self.cmd)
-            .apply_to_command(&mut command);
+        env_with_profile.apply_to_command(&mut command);
 
         let mut child = command.group_spawn()?;
 
@@ -147,6 +149,10 @@ impl StandardCodingAgentExecutor for Copilot {
         session_id: &str,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
+        // Build env with profile settings and execute pre-commands
+        let env_with_profile = env.clone().with_profile(&self.cmd);
+        env_with_profile.execute_pre_commands(current_dir).await?;
+
         let log_dir = Self::create_temp_log_dir(current_dir).await?;
         let command_parts = self
             .build_command_builder(&log_dir.to_string_lossy())
@@ -166,9 +172,7 @@ impl StandardCodingAgentExecutor for Copilot {
             .args(&args)
             .env("NODE_NO_WARNINGS", "1");
 
-        env.clone()
-            .with_profile(&self.cmd)
-            .apply_to_command(&mut command);
+        env_with_profile.apply_to_command(&mut command);
 
         let mut child = command.group_spawn()?;
 

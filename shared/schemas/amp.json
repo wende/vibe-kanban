@@ -48,6 +48,17 @@
       "additionalProperties": {
         "type": "string"
       }
+    },
+    "pre_commands": {
+      "title": "Pre-Commands",
+      "description": "Shell commands to run before starting the executor (e.g., sourcing shell RC files)",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
     }
   },
   "type": "object"

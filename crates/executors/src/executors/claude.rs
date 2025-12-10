@@ -333,6 +333,10 @@ impl ClaudeCode {
         command_parts: CommandParts,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
+        // Build env with profile settings and execute pre-commands
+        let env_with_profile = env.clone().with_profile(&self.cmd);
+        env_with_profile.execute_pre_commands(current_dir).await?;
+
         let (program_path, args) = command_parts.into_resolved().await?;
         let combined_prompt = self.append_prompt.combine_prompt(prompt);
 
@@ -345,9 +349,7 @@ impl ClaudeCode {
             .current_dir(current_dir)
             .args(&args);
 
-        env.clone()
-            .with_profile(&self.cmd)
-            .apply_to_command(&mut command);
+        env_with_profile.apply_to_command(&mut command);
 
         // Remove ANTHROPIC_API_KEY if disable_api_key is enabled
         if self.disable_api_key.unwrap_or(false) {
@@ -2244,6 +2246,7 @@ mod tests {
                 base_command_override: None,
                 additional_params: None,
                 env: None,
+                pre_commands: None,
             },
             approvals_service: None,
             disable_api_key: None,

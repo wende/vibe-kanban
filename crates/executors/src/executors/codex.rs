@@ -299,6 +299,10 @@ impl Codex {
         resume_session: Option<&str>,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
+        // Build env with profile settings and execute pre-commands
+        let env_with_profile = env.clone().with_profile(&self.cmd);
+        env_with_profile.execute_pre_commands(current_dir).await?;
+
         let combined_prompt = self.append_prompt.combine_prompt(prompt);
         let (program_path, args) = command_parts.into_resolved().await?;
 
@@ -314,9 +318,7 @@ impl Codex {
             .env("NO_COLOR", "1")
             .env("RUST_LOG", "error");
 
-        env.clone()
-            .with_profile(&self.cmd)
-            .apply_to_command(&mut process);
+        env_with_profile.apply_to_command(&mut process);
 
         let mut child = process.group_spawn()?;
 

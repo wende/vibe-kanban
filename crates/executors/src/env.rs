@@ -1,19 +1,21 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use tokio::process::Command;
 
-use crate::command::CmdOverrides;
+use crate::{command::CmdOverrides, executors::ExecutorError};
 
-/// Environment variables to inject into executor processes
+/// Environment variables and pre-commands to inject into executor processes
 #[derive(Debug, Clone, Default)]
 pub struct ExecutionEnv {
     pub vars: HashMap<String, String>,
+    pub pre_commands: Vec<String>,
 }
 
 impl ExecutionEnv {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
+            pre_commands: Vec::new(),
         }
     }
 
@@ -35,12 +37,46 @@ impl ExecutionEnv {
     }
 
     /// Return a new env with profile env from CmdOverrides merged in.
-    pub fn with_profile(self, cmd: &CmdOverrides) -> Self {
+    pub fn with_profile(mut self, cmd: &CmdOverrides) -> Self {
         if let Some(ref profile_env) = cmd.env {
-            self.with_overrides(profile_env)
-        } else {
-            self
+            self = self.with_overrides(profile_env);
         }
+        if let Some(ref pre_cmds) = cmd.pre_commands {
+            self.pre_commands.extend(pre_cmds.clone());
+        }
+        self
+    }
+
+    /// Add a pre-command to run before the executor starts
+    pub fn add_pre_command(&mut self, cmd: impl Into<String>) {
+        self.pre_commands.push(cmd.into());
+    }
+
+    /// Execute all pre-commands in order, stopping on first failure
+    pub async fn execute_pre_commands(&self, current_dir: &Path) -> Result<(), ExecutorError> {
+        for cmd in &self.pre_commands {
+            tracing::debug!("Executing pre-command: {}", cmd);
+
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg(cmd)
+                .current_dir(current_dir)
+                .output()
+                .await
+                .map_err(|e| ExecutorError::PreCommandFailed {
+                    command: cmd.clone(),
+                    error: e.to_string(),
+                })?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(ExecutorError::PreCommandFailed {
+                    command: cmd.clone(),
+                    error: stderr.to_string(),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Apply all environment variables to a Command
