@@ -27,7 +27,7 @@ export type PatchTypeWithKey = PatchType & {
   executionProcessId: string;
 };
 
-export type AddEntryType = 'initial' | 'running' | 'historic';
+export type AddEntryType = 'initial' | 'running' | 'historic' | 'new_process';
 
 export type OnEntriesUpdated = (
   newEntries: PatchTypeWithKey[],
@@ -665,15 +665,18 @@ export const useConversationHistory = ({
       // No need to verify task_attempt_id here since executionProcesses.current
       // is already filtered to only include processes for the current attempt
 
-      if (!displayedExecutionProcesses.current[activeProcess.id]) {
-        const runningOrInitial =
-          Object.keys(displayedExecutionProcesses.current).length > 1
-            ? 'running'
-            : 'initial';
+      // Track if this is a genuinely new process (not just becoming visible)
+      const isNewProcess = !displayedExecutionProcesses.current[activeProcess.id];
+
+      if (isNewProcess) {
+        // Use 'new_process' type to signal that the UI should scroll to bottom
+        // regardless of current scroll position - a new execution just started
+        const hasExistingProcesses =
+          Object.keys(displayedExecutionProcesses.current).length > 0;
         ensureProcessVisible(activeProcess);
         emitEntries(
           displayedExecutionProcesses.current,
-          runningOrInitial,
+          hasExistingProcesses ? 'new_process' : 'initial',
           false
         );
       }
