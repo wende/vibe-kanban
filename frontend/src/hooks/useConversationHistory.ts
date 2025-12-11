@@ -617,9 +617,23 @@ export const useConversationHistory = ({
       );
 
       // If there are no historical processes (only running ones), mark as loaded
-      // so active process streaming can begin
+      // so active process streaming can begin, and start streaming immediately
+      // This handles new first-time attempts where processes arrive after WebSocket connection
       if (historicProcesses.length === 0) {
         loadedInitialEntries.current = true;
+        // Start streaming for running processes immediately
+        const runningProcesses = relevantProcesses.filter(
+          (ep) => ep.status === ExecutionProcessStatus.running
+        );
+        for (const p of runningProcesses) {
+          ensureProcessVisible(p);
+          // Start streaming if not already streaming this process
+          if (lastActiveProcessId.current !== p.id) {
+            lastActiveProcessId.current = p.id;
+            loadRunningAndEmitWithBackoff(p, attemptIdAtCallTime);
+          }
+        }
+        emitEntries(displayedExecutionProcesses.current, 'initial', false);
         return;
       }
 
@@ -637,7 +651,7 @@ export const useConversationHistory = ({
     return () => {
       cancelled = true;
     };
-  }, [attempt.id, idListKey, loadInitialEntries, emitEntries, executionProcessesForAttempt]); // include idListKey so new processes trigger reload
+  }, [attempt.id, idListKey, loadInitialEntries, emitEntries, executionProcessesForAttempt, ensureProcessVisible, loadRunningAndEmitWithBackoff]); // include idListKey so new processes trigger reload
 
   useEffect(() => {
     // Skip if we haven't loaded initial entries yet - this prevents race conditions
