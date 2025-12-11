@@ -1571,8 +1571,9 @@ impl ContainerService for LocalContainerService {
             let container_ref = self.ensure_container_exists(task_attempt).await?;
             PathBuf::from(container_ref)
         };
+        // Use worktree_path for base commit calculation since that's where we'll compute the diff
         let base_commit = self.git().get_base_commit(
-            &project_repo_path,
+            &worktree_path,
             &task_attempt.branch,
             &task_attempt.target_branch,
         )?;
