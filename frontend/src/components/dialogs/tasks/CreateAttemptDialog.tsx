@@ -187,20 +187,20 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
           }
         }
 
-        // When continuing from another attempt (Change Agent), preserve the original
-        // target branch as the base branch, not the working branch
-        const baseBranch =
-          sourceAttemptId && sourceAttempt
-            ? sourceAttempt.target_branch
-            : effectiveBranch;
+        // When continuing from another attempt (Change Agent):
+        // - baseBranch is the working branch to continue on (sourceAttempt.branch)
+        // - targetBranch preserves the original target (sourceAttempt.target_branch)
+        const isChangingAgent = sourceAttemptId && sourceAttempt;
 
         await createAttempt({
           profile: effectiveProfile,
-          baseBranch,
+          baseBranch: isChangingAgent ? sourceAttempt.branch : effectiveBranch,
           customBranch: customBranch,
           conversationHistory,
           // Use existing branch when continuing from another attempt
           useExistingBranch: !!sourceAttemptId,
+          // Preserve the original target branch when changing agents
+          targetBranch: isChangingAgent ? sourceAttempt.target_branch : null,
         });
 
         modal.hide();

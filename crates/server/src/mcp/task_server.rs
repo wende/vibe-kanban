@@ -584,6 +584,7 @@ impl TaskServer {
             base_branch,
             use_existing_branch: false,
             custom_branch: None,
+            target_branch: None,
             conversation_history: None,
         };
 

@@ -1160,6 +1160,7 @@ impl ContainerService for LocalContainerService {
         base_branch: &str,
         custom_branch: Option<String>,
         use_existing_branch: bool,
+        target_branch: Option<String>,
         conversation_history: Option<String>,
     ) -> Result<TaskAttempt, ContainerError> {
         let attempt_id = Uuid::new_v4();
@@ -1172,11 +1173,19 @@ impl ContainerService for LocalContainerService {
                 .await
         };
 
+        // When use_existing_branch is true and target_branch is provided,
+        // use the provided target_branch. Otherwise fall back to base_branch.
+        let effective_target_branch = if use_existing_branch {
+            target_branch.unwrap_or_else(|| base_branch.to_string())
+        } else {
+            base_branch.to_string()
+        };
+
         let task_attempt = TaskAttempt::create(
             &self.db.pool,
             &db::models::task_attempt::CreateTaskAttempt {
                 executor: executor_profile_id.executor,
-                base_branch: base_branch.to_string(),
+                base_branch: effective_target_branch,
                 branch: git_branch_name.clone(),
                 is_orchestrator: false,
             },

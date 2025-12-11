@@ -10,6 +10,8 @@ type CreateAttemptArgs = {
   conversationHistory?: string | null;
   /** Use the existing branch instead of creating a new one */
   useExistingBranch?: boolean;
+  /** Target branch for the new attempt (used when changing agents to preserve original target) */
+  targetBranch?: string | null;
 };
 
 type UseAttemptCreationArgs = {
@@ -30,6 +32,7 @@ export function useAttemptCreation({
       customBranch,
       conversationHistory,
       useExistingBranch,
+      targetBranch,
     }: CreateAttemptArgs) =>
       attemptsApi.create({
         task_id: taskId,
@@ -37,6 +40,7 @@ export function useAttemptCreation({
         base_branch: baseBranch,
         use_existing_branch: useExistingBranch ?? false,
         custom_branch: customBranch?.trim() || null,
+        target_branch: targetBranch ?? null,
         conversation_history: conversationHistory ?? null,
       }),
     onSuccess: (newAttempt: TaskAttempt) => {
