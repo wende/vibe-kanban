@@ -309,7 +309,9 @@
     "loadingHistory": "Loading history...",
     "start": "Start",
     "includeHistory": "Include conversation history",
-    "includeHistoryDescription": "The new agent will receive context about what was discussed and attempted."
+    "includeHistoryDescription": "The new agent will receive context about what was discussed and attempted.",
+    "additionalMessage": "Additional message (optional)",
+    "additionalMessagePlaceholder": "Add instructions or context for the new agent..."
   },
   "viewProcessesDialog": {
     "title": "Execution processes"
