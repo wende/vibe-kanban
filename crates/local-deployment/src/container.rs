@@ -1081,11 +1081,13 @@ impl ContainerService for LocalContainerService {
             return Ok(container_ref);
         }
 
-        // When branch == target_branch, we're using an existing branch (no new branch needed)
-        let using_existing_branch = task_attempt.branch == task_attempt.target_branch;
-
-        // Check if the branch is already checked out in a worktree
+        // Check if we're using an existing branch (no new branch needed)
+        // This happens when the branch already exists in the repo (e.g., Change Agent scenario)
         let git_service = GitService::new();
+        let branch_exists = git_service
+            .check_branch_exists(&project.git_repo_path, &task_attempt.branch)
+            .unwrap_or(false);
+        let using_existing_branch = branch_exists;
         let existing_worktree_path = if using_existing_branch {
             git_service
                 .check_branch_in_worktree(&project.git_repo_path, &task_attempt.branch)
