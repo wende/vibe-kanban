@@ -21,10 +21,50 @@ All notable changes to Vibe Kanban.
 
 ### Added
 
-#### Performance
+#### Performance & Optimization
 
 - **Batched Log Writes for Coding Agents** - Optimized database I/O by batching execution process log writes. Buffers up to 100 messages, 10KB, or flushes every 5 seconds. Non-coding-agent executions continue using immediate writes for real-time visibility.
 - **react-virtuoso Migration** - Replaced paid `@virtuoso.dev/message-list` with free `react-virtuoso` library for conversation rendering
+- **Faster Conversation Loading** - Improved conversation loading performance by implementing incremental loading. Loads only the last message initially, then loads history backwards incrementally for faster initial execution load
+- **Smart Conversation Compaction** - Revolutionary context management system that addresses the critical cost/performance bottleneck of long-running AI conversations:
+  - **Advanced Content Filtering**: Intelligently strips tool call results, command outputs, file edit diffs, search results, web fetch content, and inner thinking entries while preserving essential context
+  - **Context Window Optimization**: Reduces conversation context from potentially 100k+ tokens to ~30k tokens maximum, dramatically reducing API costs and improving response times
+  - **State Preservation**: Maintains critical information like user messages, assistant responses, tool usage summaries (without results), error messages, and todo management operations
+  - **Smart Export Engine**: Sophisticated Rust-based export system with 50+ unit tests that handles edge cases like UTF-8 truncation, markdown formatting, and conversation flow preservation
+  - **Seamless Integration**: One-click button in NextActionCard with sparkles icon that exports compacted context and immediately restarts conversation with `reset_conversation: true`
+  - **Cost Savings**: Prevents exponential cost increases when cache counters expire, enabling continued agent usage without prohibitive expenses
+
+#### Mobile Experience
+
+- **Mobile Diff View Fixes** - Resolved multiple mobile diff display issues:
+  - Fixed "Failed to load diff, connection failed" error on mobile devices by keeping WebSocket connection alive based on selected attempt rather than dialog open state
+  - Corrected positioning issues where diff summary bar overlapped with actual diff content
+  - Improved mobile diff rendering reliability and performance
+
+- **Mobile UI Enhancements** - Various mobile interface improvements:
+  - Responsive design adjustments for better mobile usability
+  - Mobile-optimized commit message modal
+  - Improved file changes display on mobile devices
+  - Better touch targets and vertical stacking for mobile screens
+
+#### Core Features
+
+- **Enhanced Agent Switching** - Improved "Change Agent" functionality to use the same smart compaction method for better conversation continuity
+- **Advanced Idle Timeout System** - Sophisticated real-time activity tracking system with visual feedback:
+  - **Multi-Layer Timer Architecture**: Global store with sync-external-store for cross-component state sharing, context providers for scoped updates, and local component state for immediate UI feedback
+  - **Smart Activity Detection**: Tracks execution process updates, tool call activities, and user interactions with 5-minute timeout window
+  - **Visual Progress Indicators**: Color-coded timer display (green/orange/red) in NextActionCard showing remaining time with MM:SS format
+  - **Card State Visualization**: Dynamic background colors (green-50/orange-50) that fade as timeout approaches, with <60 seconds showing orange warning state
+  - **Persistent State Management**: Timer state survives component unmounts and card switching, ensuring consistent visual feedback across the application
+  - **Real-time Updates**: 1-second interval updates with sophisticated state synchronization to prevent timer desync issues when switching between cards
+  - **Context-aware Resets**: Automatically resets on new tool calls, process updates, and user interactions to maintain accurate activity tracking
+- **Simplified Claude CLI** - Streamlined commit message generation by passing prompt as positional argument instead of piping via stdin
+
+#### Database & Architecture
+
+- **Normalized Conversation Entries** - Added new database schema for normalized conversation entries to improve query performance and data structure
+- **Execution Process Improvements** - Enhanced execution process handling with better caching and state management
+- **Repository Search Optimization** - Improved repository search performance by limiting search depth and scope to home directory and projects folder only
 
 #### Virtual Terminal
 
@@ -84,6 +124,7 @@ All notable changes to Vibe Kanban.
 - **Copy Path Action** - Copy worktree path to clipboard from Actions dropdown
 - **Push Button** - Replaced Rebase* button with push-to-origin functionality, setting upstream if not established
 - **Dev Server Status Indicator** - Visual indicator on task cards showing when a dev server is running
+- **Backend Running Indicator** - Visual indicator showing when backend processes are active on task cards
 
 #### UI Improvements
 - **Mobile-responsive Kanban board** - Columns stack vertically on screens < 1280px
@@ -111,6 +152,7 @@ All notable changes to Vibe Kanban.
 - **Hot code reloading** - Frontend development with instant updates
 
 - **New Logo** - Custom Hivemind logo replacing original vibe-kanban branding
+- **Terminal and Logs Draggable Pane** - Added draggable vertical resize handle for terminal/logs panel to improve workspace flexibility
 - **Clear Button** - Clear completed/cancelled tasks with button above Done and Cancelled columns
 - **Collapse Button Repositioned** - DiffsPanel collapse button moved away from close button
 - **Unread Message Marker** - Visual indicator for unread messages in conversation
@@ -138,10 +180,16 @@ All notable changes to Vibe Kanban.
 
 - **File search cache improvements** - Better caching for file search operations
 
+- **Mobile Diff Reliability** - Fixed multiple mobile diff viewing issues:
+  - Resolved "Failed to load diff, connection failed" error on mobile devices
+  - Fixed positioning where diff summary bar overlapped actual diff content
+  - Improved WebSocket connection handling for mobile diff viewing
+
 - **Grabbed Card Z-Index** - Fixed grabbed kanban cards displaying below other cards during drag
 - **Local Deployment Issues** - Bug fixes for local deployment functionality
 - **Setup Environment** - Fixed environment setup issues
 - **Cards Mix Contexts** - Fixed cards incorrectly showing progress of other running tasks due to background cache preloading
+- **Missing Execution Output** - Fixed issue where new executions weren't printing outputs after recent caching changes
 - **Sidebar Overlapping Text** - Fixed tool execution output overlapping text in sidebar
 - **Card Sidebar Flickering** - Fixed flickering in task card sidebar
 - **Context Zeroing** - Fixed Claude Code context being zeroed incorrectly
@@ -159,11 +207,25 @@ All notable changes to Vibe Kanban.
 - **Change Agent Bug** - Fixed issues when switching agents mid-conversation
 - **Creating New Card Old Contents** - Fixed new cards showing content from previous cards
 - **Minification Error** - Fixed production build minification issues
+- **Copy-Paste Issues** - Fixed various copy-paste functionality bugs
+- **Card Content Mixing** - Fixed cards incorrectly mixing content from other cards due to background cache preloading issues
+- **Idle Timeout State Propagation** - Fixed critical timer synchronization bugs where cards would show incorrect green/orange states when switching between tasks, ensuring consistent visual expiration indicators across card transitions
+- **New Task Focus** - Fixed issue where creating new task showed previous card's execution content in sidebar
+- **Commit Changes Overflow** - Fixed commit changes modal overflow issues with long file names
+- **macOS Path Handling** - Fixed worktree path comparison issues on macOS where /var symlinks to /private/var
 
 ### Changed
 
 - Config versioning updated to v9 with new task card display options
 - Reduced debug logging noise for orchestrator tasks
+- **Conversation State Management Overhaul**: Enhanced conversation lifecycle with proper context reset after compact operations, preventing state leakage between compaction cycles
+- **WebSocket Connection Architecture**: Refined connection management for mobile devices, eliminating race conditions in rapid connect/disconnect cycles
+- **Execution Process Optimization**: Advanced batched logging system that buffers up to 100 messages or 10KB, flushing every 5 seconds for coding agents while maintaining real-time visibility for other execution types
+- **Idle Timeout System Architecture**: Replaced simple timer with sophisticated multi-layer state management system for accurate cross-component activity tracking
+- **Mobile Diff Reliability**: Enhanced WebSocket persistence strategy keeping connections alive based on attempt selection rather than dialog state, resolving mobile-specific connection failures
+- **Improved Project Context Management** - Enhanced React context provider structure to prevent circular dependencies and improve error handling
+- **Streamlined Commit Message Generation** - Simplified Claude CLI invocation by using positional arguments instead of stdin piping
+- **Repository Search Scope** - Limited repository search to home directory and projects folder with depth 1 for better performance
 
 ### Removed
 
