@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 const STORAGE_KEY = 'task-last-viewed';
+const UNREAD_GLOW_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 type LastViewedStore = Record<string, string>; // taskId -> ISO timestamp
 
@@ -65,6 +66,14 @@ export function TaskReadStatusProvider({ children }: { children: ReactNode }) {
 
   const hasUnread = useCallback(
     (taskId: string, updatedAt: string | Date): boolean => {
+      const updatedDate = new Date(updatedAt);
+      const now = Date.now();
+
+      // Don't show glow if the update is older than 5 minutes
+      if (now - updatedDate.getTime() > UNREAD_GLOW_TIMEOUT_MS) {
+        return false;
+      }
+
       const lastViewedTime = lastViewed[taskId];
       if (!lastViewedTime) {
         // Never viewed - show as unread
@@ -72,7 +81,6 @@ export function TaskReadStatusProvider({ children }: { children: ReactNode }) {
       }
 
       const lastViewedDate = new Date(lastViewedTime);
-      const updatedDate = new Date(updatedAt);
 
       return updatedDate > lastViewedDate;
     },
