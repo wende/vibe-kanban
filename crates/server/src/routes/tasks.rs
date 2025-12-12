@@ -180,6 +180,7 @@ pub async fn create_task_and_start(
             &payload.base_branch,
             payload.custom_branch,
             payload.use_existing_branch,
+            None, // target_branch
             None, // conversation_history for a new task is always None
         )
         .await;
@@ -261,6 +262,7 @@ pub async fn start_task_attempt(
             &payload.base_branch,
             payload.branch,
             false, // use_existing_branch
+            None,  // target_branch
             None,  // conversation_history
         )
         .await;

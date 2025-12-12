@@ -27,7 +27,7 @@ export type PatchTypeWithKey = PatchType & {
   executionProcessId: string;
 };
 
-export type AddEntryType = 'initial' | 'running' | 'historic';
+export type AddEntryType = 'initial' | 'running' | 'historic' | 'new_process';
 
 export type OnEntriesUpdated = (
   newEntries: PatchTypeWithKey[],
@@ -617,9 +617,23 @@ export const useConversationHistory = ({
       );
 
       // If there are no historical processes (only running ones), mark as loaded
-      // so active process streaming can begin
+      // so active process streaming can begin, and start streaming immediately
+      // This handles new first-time attempts where processes arrive after WebSocket connection
       if (historicProcesses.length === 0) {
         loadedInitialEntries.current = true;
+        // Start streaming for running processes immediately
+        const runningProcesses = relevantProcesses.filter(
+          (ep) => ep.status === ExecutionProcessStatus.running
+        );
+        for (const p of runningProcesses) {
+          ensureProcessVisible(p);
+          // Start streaming if not already streaming this process
+          if (lastActiveProcessId.current !== p.id) {
+            lastActiveProcessId.current = p.id;
+            loadRunningAndEmitWithBackoff(p, attemptIdAtCallTime);
+          }
+        }
+        emitEntries(displayedExecutionProcesses.current, 'initial', false);
         return;
       }
 
@@ -637,7 +651,7 @@ export const useConversationHistory = ({
     return () => {
       cancelled = true;
     };
-  }, [attempt.id, idListKey, loadInitialEntries, emitEntries, executionProcessesForAttempt]); // include idListKey so new processes trigger reload
+  }, [attempt.id, idListKey, loadInitialEntries, emitEntries, executionProcessesForAttempt, ensureProcessVisible, loadRunningAndEmitWithBackoff]); // include idListKey so new processes trigger reload
 
   useEffect(() => {
     // Skip if we haven't loaded initial entries yet - this prevents race conditions
@@ -651,15 +665,18 @@ export const useConversationHistory = ({
       // No need to verify task_attempt_id here since executionProcesses.current
       // is already filtered to only include processes for the current attempt
 
-      if (!displayedExecutionProcesses.current[activeProcess.id]) {
-        const runningOrInitial =
-          Object.keys(displayedExecutionProcesses.current).length > 1
-            ? 'running'
-            : 'initial';
+      // Track if this is a genuinely new process (not just becoming visible)
+      const isNewProcess = !displayedExecutionProcesses.current[activeProcess.id];
+
+      if (isNewProcess) {
+        // Use 'new_process' type to signal that the UI should scroll to bottom
+        // regardless of current scroll position - a new execution just started
+        const hasExistingProcesses =
+          Object.keys(displayedExecutionProcesses.current).length > 0;
         ensureProcessVisible(activeProcess);
         emitEntries(
           displayedExecutionProcesses.current,
-          runningOrInitial,
+          hasExistingProcesses ? 'new_process' : 'initial',
           false
         );
       }

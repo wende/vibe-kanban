@@ -147,6 +147,9 @@ pub struct CreateTaskAttemptBody {
     /// Custom branch name to use instead of auto-generating one.
     /// Takes precedence over use_existing_branch when set.
     pub custom_branch: Option<String>,
+    /// Target branch for the new attempt. Only used when use_existing_branch is true.
+    /// This preserves the original target branch when changing agents.
+    pub target_branch: Option<String>,
     /// Conversation history from a previous attempt to prepend to the prompt.
     /// Used when continuing a task with a different agent.
     pub conversation_history: Option<String>,
@@ -185,6 +188,7 @@ pub async fn create_task_attempt(
             &payload.base_branch,
             payload.custom_branch,
             payload.use_existing_branch,
+            payload.target_branch,
             payload.conversation_history,
         )
         .await;

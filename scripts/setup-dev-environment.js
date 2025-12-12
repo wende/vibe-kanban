@@ -126,9 +126,10 @@ async function allocatePorts() {
     }
   }
 
-  // Find new free ports
-  const frontendPort = await findFreePort(3000);
-  const backendPort = await findFreePort(frontendPort + 1);
+  // Find new free ports starting from a random high port
+  const randomStart = Math.floor(Math.random() * (60000 - 10000)) + 10000;
+  const frontendPort = await findFreePort(randomStart);
+  const backendPort = frontendPort + 1;
 
   const ports = {
     frontend: frontendPort,

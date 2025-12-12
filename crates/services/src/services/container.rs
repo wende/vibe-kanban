@@ -94,6 +94,7 @@ pub trait ContainerService {
         base_branch: &str,
         custom_branch: Option<String>,
         use_existing_branch: bool,
+        target_branch: Option<String>,
         conversation_history: Option<String>,
     ) -> Result<TaskAttempt, ContainerError>;
 

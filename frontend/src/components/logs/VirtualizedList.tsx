@@ -84,8 +84,14 @@ const VirtualizedList = ({
         isInitialLoadRef.current = false;
         // Initial load: jump to bottom instantly
         scrollToBottom('auto');
+      } else if (addType === 'new_process' && !wasInitialLoad) {
+        // A new execution process started - always scroll to bottom to show the new output
+        // This handles follow-ups and agent changes regardless of current scroll position
+        scrollToBottom('smooth');
+        // Reset atBottom state since we're forcing scroll to bottom
+        setAtBottom(true);
       } else if (addType === 'running' && atBottom && !wasInitialLoad) {
-        // New streaming content while at bottom: smooth scroll
+        // Ongoing streaming content while at bottom: smooth scroll to follow
         scrollToBottom('smooth');
       }
     },

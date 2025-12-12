@@ -60,6 +60,7 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
     );
     const [customBranch, setCustomBranch] = useState<string>('');
     const [includeHistory, setIncludeHistory] = useState(true);
+    const [additionalMessage, setAdditionalMessage] = useState<string>('');
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
     // Get source attempt details when continuing from another attempt
@@ -103,6 +104,7 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
         setUserSelectedBranch(null);
         setCustomBranch('');
         setIncludeHistory(true);
+        setAdditionalMessage('');
       }
     }, [modal.visible]);
 
@@ -179,6 +181,10 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
             const result =
               await attemptsApi.exportSmartCompact(sourceAttemptId);
             conversationHistory = result.markdown;
+            // Append additional message if provided
+            if (additionalMessage.trim()) {
+              conversationHistory += `\n\nUsing context above, respond to user's prompt: ${additionalMessage.trim()}`;
+            }
           } catch (err) {
             console.error('Failed to export conversation:', err);
             // Continue without history
@@ -187,13 +193,20 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
           }
         }
 
+        // When continuing from another attempt (Change Agent):
+        // - baseBranch is the working branch to continue on (sourceAttempt.branch)
+        // - targetBranch preserves the original target (sourceAttempt.target_branch)
+        const isChangingAgent = sourceAttemptId && sourceAttempt;
+
         await createAttempt({
           profile: effectiveProfile,
-          baseBranch: effectiveBranch,
+          baseBranch: isChangingAgent ? sourceAttempt.branch : effectiveBranch,
           customBranch: customBranch,
           conversationHistory,
           // Use existing branch when continuing from another attempt
           useExistingBranch: !!sourceAttemptId,
+          // Preserve the original target branch when changing agents
+          targetBranch: isChangingAgent ? sourceAttempt.target_branch : null,
         });
 
         modal.hide();
@@ -283,27 +296,50 @@ const CreateAttemptDialogImpl = NiceModal.create<CreateAttemptDialogProps>(
             )}
 
             {sourceAttemptId && (
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="include-history"
-                    checked={includeHistory}
-                    onCheckedChange={(checked) =>
-                      setIncludeHistory(checked === true)
-                    }
-                    disabled={isCreating || isLoadingHistory}
-                  />
-                  <Label
-                    htmlFor="include-history"
-                    className="text-sm font-medium cursor-pointer"
-                  >
-                    {t('createAttemptDialog.includeHistory')}
-                  </Label>
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="include-history"
+                      checked={includeHistory}
+                      onCheckedChange={(checked) =>
+                        setIncludeHistory(checked === true)
+                      }
+                      disabled={isCreating || isLoadingHistory}
+                    />
+                    <Label
+                      htmlFor="include-history"
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      {t('createAttemptDialog.includeHistory')}
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground ml-6">
+                    {t('createAttemptDialog.includeHistoryDescription')}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground ml-6">
-                  {t('createAttemptDialog.includeHistoryDescription')}
-                </p>
-              </div>
+
+                {includeHistory && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="additional-message"
+                      className="text-sm font-medium text-muted-foreground"
+                    >
+                      {t('createAttemptDialog.additionalMessage')}
+                    </Label>
+                    <textarea
+                      id="additional-message"
+                      value={additionalMessage}
+                      onChange={(e) => setAdditionalMessage(e.target.value)}
+                      placeholder={t(
+                        'createAttemptDialog.additionalMessagePlaceholder'
+                      )}
+                      className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isCreating || isLoadingHistory}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {error && (

@@ -248,20 +248,25 @@ export type ImageResponse = { id: string, file_path: string, original_name: stri
 
 export type ImageMetadata = { exists: boolean, file_name: string | null, path: string | null, size_bytes: bigint | null, format: string | null, proxy_url: string | null, };
 
-export type CreateTaskAttemptBody = { task_id: string, 
+export type CreateTaskAttemptBody = { task_id: string,
 /**
  * Executor profile specification
  */
-executor_profile_id: ExecutorProfileId, base_branch: string, 
+executor_profile_id: ExecutorProfileId, base_branch: string,
 /**
  * If true, use base_branch as the working branch instead of creating a new one
  */
-use_existing_branch: boolean, 
+use_existing_branch: boolean,
 /**
  * Custom branch name to use instead of auto-generating one.
  * Takes precedence over use_existing_branch when set.
  */
-custom_branch: string | null, 
+custom_branch: string | null,
+/**
+ * Target branch for the new attempt. Only used when use_existing_branch is true.
+ * This preserves the original target branch when changing agents.
+ */
+target_branch: string | null,
 /**
  * Conversation history from a previous attempt to prepend to the prompt.
  * Used when continuing a task with a different agent.

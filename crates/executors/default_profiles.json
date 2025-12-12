@@ -93,6 +93,26 @@
           "model": "gpt-5.1-codex-max",
           "sandbox": "danger-full-access"
         }
+      },
+      "GPT_5_2": {
+        "CODEX": {
+          "model": "gpt-5.2",
+          "sandbox": "danger-full-access"
+        }
+      },
+      "GPT_5_2_HIGH": {
+        "CODEX": {
+          "model": "gpt-5.2",
+          "sandbox": "danger-full-access",
+          "model_reasoning_effort": "high"
+        }
+      },
+      "GPT_5_2_XHIGH": {
+        "CODEX": {
+          "model": "gpt-5.2",
+          "sandbox": "danger-full-access",
+          "model_reasoning_effort": "xhigh"
+        }
       }
     },
     "OPENCODE": {

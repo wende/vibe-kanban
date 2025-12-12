@@ -1081,11 +1081,13 @@ impl ContainerService for LocalContainerService {
             return Ok(container_ref);
         }
 
-        // When branch == target_branch, we're using an existing branch (no new branch needed)
-        let using_existing_branch = task_attempt.branch == task_attempt.target_branch;
-
-        // Check if the branch is already checked out in a worktree
+        // Check if we're using an existing branch (no new branch needed)
+        // This happens when the branch already exists in the repo (e.g., Change Agent scenario)
         let git_service = GitService::new();
+        let branch_exists = git_service
+            .check_branch_exists(&project.git_repo_path, &task_attempt.branch)
+            .unwrap_or(false);
+        let using_existing_branch = branch_exists;
         let existing_worktree_path = if using_existing_branch {
             git_service
                 .check_branch_in_worktree(&project.git_repo_path, &task_attempt.branch)
@@ -1160,6 +1162,7 @@ impl ContainerService for LocalContainerService {
         base_branch: &str,
         custom_branch: Option<String>,
         use_existing_branch: bool,
+        target_branch: Option<String>,
         conversation_history: Option<String>,
     ) -> Result<TaskAttempt, ContainerError> {
         let attempt_id = Uuid::new_v4();
@@ -1172,11 +1175,19 @@ impl ContainerService for LocalContainerService {
                 .await
         };
 
+        // When use_existing_branch is true and target_branch is provided,
+        // use the provided target_branch. Otherwise fall back to base_branch.
+        let effective_target_branch = if use_existing_branch {
+            target_branch.unwrap_or_else(|| base_branch.to_string())
+        } else {
+            base_branch.to_string()
+        };
+
         let task_attempt = TaskAttempt::create(
             &self.db.pool,
             &db::models::task_attempt::CreateTaskAttempt {
                 executor: executor_profile_id.executor,
-                base_branch: base_branch.to_string(),
+                base_branch: effective_target_branch,
                 branch: git_branch_name.clone(),
                 is_orchestrator: false,
             },
@@ -1571,8 +1582,9 @@ impl ContainerService for LocalContainerService {
             let container_ref = self.ensure_container_exists(task_attempt).await?;
             PathBuf::from(container_ref)
         };
+        // Use worktree_path for base commit calculation since that's where we'll compute the diff
         let base_commit = self.git().get_base_commit(
-            &project_repo_path,
+            &worktree_path,
             &task_attempt.branch,
             &task_attempt.target_branch,
         )?;
