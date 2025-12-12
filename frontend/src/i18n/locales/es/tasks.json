@@ -294,6 +294,10 @@
       "refresh": "Actualizar vista previa",
       "stopDevServer": "Detener servidor de desarrollo"
     },
+    "terminal": {
+      "title": "Terminal",
+      "noWorktree": "No hay worktree disponible para esta tarea"
+    },
     "troubleAlert": {
       "item1": "¿Se inició correctamente el servidor de desarrollo? Puede haber un error que necesites resolver, o quizás sea necesario instalar dependencias.",
       "item2": "¿Tu servidor de desarrollo imprimió la URL y el puerto en la terminal en el formato",

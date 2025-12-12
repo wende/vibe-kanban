@@ -93,6 +93,10 @@
       "copyUrl": "Copy URL",
       "openInTab": "Open in new tab",
       "stopDevServer": "Stop dev server"
+    },
+    "terminal": {
+      "title": "Terminal",
+      "noWorktree": "No worktree available for this task"
     }
   },
   "diff": {

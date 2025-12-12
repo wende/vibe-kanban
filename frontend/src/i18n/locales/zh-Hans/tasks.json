@@ -88,6 +88,10 @@
       "copyUrl": "复制 URL",
       "openInTab": "在新标签页中打开",
       "stopDevServer": "停止开发服务器"
+    },
+    "terminal": {
+      "title": "终端",
+      "noWorktree": "此任务没有可用的工作树"
     }
   },
   "diff": {
