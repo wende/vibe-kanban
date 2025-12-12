@@ -1696,7 +1696,6 @@ impl GitService {
         force: bool,
     ) -> Result<(), GitServiceError> {
         let repo = Repository::open(worktree_path)?;
-        self.check_worktree_clean(&repo)?;
 
         // Get the remote
         let remote_name = self.default_remote_name(&repo);
